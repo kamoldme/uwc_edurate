@@ -753,7 +753,7 @@ function _showWarning() {
       <div style="font-size:2.2rem;margin-bottom:12px">⏱</div>
       <h3 style="margin:0 0 8px;font-size:1.15rem;color:#0f172a">${t('inactivity.title')}</h3>
       <p style="margin:0 0 24px;color:#64748b;font-size:0.92rem">${t('inactivity.message', {seconds: '<strong id="inactivityCountdown">60</strong>'})}</p>
-      <button onclick="resetInactivityTimer()" style="background:#3b82f6;color:#fff;border:none;border-radius:8px;padding:10px 24px;font-size:0.95rem;font-weight:600;cursor:pointer;width:100%">${t('inactivity.stay')}</button>
+      <button onclick="resetInactivityTimer()" style="background:#c0392b;color:#fff;border:none;border-radius:8px;padding:10px 24px;font-size:0.95rem;font-weight:600;cursor:pointer;width:100%">${t('inactivity.stay')}</button>
     </div>
   `;
   document.body.appendChild(overlay);
@@ -2169,7 +2169,7 @@ async function renderTeacherAnalytics() {
     const ctx = document.getElementById('trendChart');
     if (ctx) {
       const pointColors = periods.map((p, i) => {
-        if (i === 0 || p.score === null) return '#3b82f6';
+        if (i === 0 || p.score === null) return '#c0392b';
         return p.score > (periods[i-1].score || 0) ? '#16a34a' : p.score < (periods[i-1].score || 0) ? '#dc2626' : '#6b7280';
       });
       chartInstances.trend = new Chart(ctx, {
@@ -2179,8 +2179,8 @@ async function renderTeacherAnalytics() {
           datasets: [{
             label: t('chart.score'),
             data: periods.map(p => p.score),
-            borderColor: '#3b82f6',
-            backgroundColor: 'rgba(59,130,246,0.08)',
+            borderColor: '#c0392b',
+            backgroundColor: 'rgba(192,57,43,0.08)',
             fill: true,
             tension: 0.3,
             pointRadius: 7,
@@ -2223,9 +2223,9 @@ async function renderTeacherAnalytics() {
           datasets: [{
             label: t('teacher.your_scores'),
             data: [s.avg_clarity, s.avg_engagement, s.avg_fairness, s.avg_supportiveness, s.avg_preparation, s.avg_workload],
-            borderColor: '#3b82f6',
-            backgroundColor: 'rgba(59,130,246,0.15)',
-            pointBackgroundColor: '#3b82f6'
+            borderColor: '#c0392b',
+            backgroundColor: 'rgba(192,57,43,0.15)',
+            pointBackgroundColor: '#c0392b'
           }]
         },
         options: {
@@ -2628,7 +2628,7 @@ async function openFormResults(formId) {
           <div class="card-body">
             ${entries.map(([label, count]) => {
               const pct = Math.round((count / total) * 100);
-              const barColor = label === 'Yes' ? '#16a34a' : label === 'No' ? '#ef4444' : '#2563eb';
+              const barColor = label === 'Yes' ? '#16a34a' : label === 'No' ? '#ef4444' : '#c0392b';
               return `
                 <div style="margin-bottom:10px">
                   <div style="display:flex;justify-content:space-between;margin-bottom:4px;font-size:0.88rem">
@@ -2729,7 +2729,7 @@ async function renderHeadHome() {
         datasets: [{
           label: t('analytics.avg_score'),
           data: deptLabels.map(d => data.departments[d].avg_score),
-          backgroundColor: deptLabels.map((_, i) => ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'][i % 5]),
+          backgroundColor: deptLabels.map((_, i) => ['#c0392b', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'][i % 5]),
           borderRadius: 6
         }]
       },
@@ -2750,7 +2750,7 @@ async function renderHeadHome() {
         labels: [t('chart.students_label'), t('chart.teachers_label'), t('chart.school_heads_label'), t('chart.admins_label')],
         datasets: [{
           data: [stats.total_students, stats.total_teachers, stats.total_school_heads || 0, stats.total_admins || 0],
-          backgroundColor: ['#3b82f6', '#10b981', '#f59e0b', '#8b5cf6'],
+          backgroundColor: ['#c0392b', '#10b981', '#f59e0b', '#8b5cf6'],
           borderWidth: 2,
           borderColor: '#fff'
         }]
@@ -2776,7 +2776,7 @@ async function renderHeadHome() {
         datasets: [{
           label: t('common.reviews'),
           data: [hrd[1] || 0, hrd[2] || 0, hrd[3] || 0, hrd[4] || 0, hrd[5] || 0],
-          backgroundColor: ['#ef4444', '#f97316', '#f59e0b', '#10b981', '#3b82f6'],
+          backgroundColor: ['#ef4444', '#f97316', '#f59e0b', '#10b981', '#c0392b'],
           borderRadius: 6
         }]
       },
@@ -3268,7 +3268,7 @@ async function renderAdminHome() {
         labels: [t('chart.students_label'), t('chart.teachers_label'), t('chart.school_heads_label'), t('chart.admins_label')],
         datasets: [{
           data: [stats.total_students, stats.total_teachers, stats.total_school_heads || 0, stats.total_admins || 0],
-          backgroundColor: ['#3b82f6', '#10b981', '#f59e0b', '#8b5cf6'],
+          backgroundColor: ['#c0392b', '#10b981', '#f59e0b', '#8b5cf6'],
           borderWidth: 2,
           borderColor: '#fff'
         }]
@@ -3294,7 +3294,7 @@ async function renderAdminHome() {
         datasets: [{
           label: t('common.reviews'),
           data: [rd[1] || 0, rd[2] || 0, rd[3] || 0, rd[4] || 0, rd[5] || 0],
-          backgroundColor: ['#ef4444', '#f97316', '#f59e0b', '#10b981', '#3b82f6'],
+          backgroundColor: ['#ef4444', '#f97316', '#f59e0b', '#10b981', '#c0392b'],
           borderRadius: 6
         }]
       },
@@ -3314,7 +3314,7 @@ async function renderAdminHome() {
       const labels = periodTrend.map(p => p.period_name);
       const scores = periodTrend.map(p => p.avg_overall);
       const pointColors = scores.map((s, i) => {
-        if (i === 0 || s === null) return '#3b82f6';
+        if (i === 0 || s === null) return '#c0392b';
         return s > (scores[i-1] || 0) ? '#16a34a' : s < (scores[i-1] || 0) ? '#dc2626' : '#6b7280';
       });
       chartInstances.orgPeriod = new Chart(periodCtx, {
@@ -3324,8 +3324,8 @@ async function renderAdminHome() {
           datasets: [{
             label: t('admin.org_avg_label'),
             data: scores,
-            borderColor: '#3b82f6',
-            backgroundColor: 'rgba(59,130,246,0.08)',
+            borderColor: '#c0392b',
+            backgroundColor: 'rgba(192,57,43,0.08)',
             fill: true,
             tension: 0.3,
             pointRadius: 7,
@@ -3512,14 +3512,14 @@ async function viewOrgStats(orgId, orgName) {
     if (ctx) {
       const scores = periods.map(p => p.avg_overall);
       const pointColors = scores.map((s, i) => {
-        if (i === 0 || s === null) return '#3b82f6';
+        if (i === 0 || s === null) return '#c0392b';
         return s > (scores[i-1] || 0) ? '#16a34a' : s < (scores[i-1] || 0) ? '#dc2626' : '#6b7280';
       });
       new Chart(ctx, {
         type: 'line',
         data: {
           labels: periods.map(p => p.period_name),
-          datasets: [{ label: t('admin.org_avg_label'), data: scores, borderColor: '#3b82f6', backgroundColor: 'rgba(59,130,246,0.08)', fill: true, tension: 0.3, pointRadius: 6, pointBackgroundColor: pointColors, pointBorderColor: '#fff', pointBorderWidth: 2, spanGaps: true }]
+          datasets: [{ label: t('admin.org_avg_label'), data: scores, borderColor: '#c0392b', backgroundColor: 'rgba(192,57,43,0.08)', fill: true, tension: 0.3, pointRadius: 6, pointBackgroundColor: pointColors, pointBorderColor: '#fff', pointBorderWidth: 2, spanGaps: true }]
         },
         options: {
           responsive: true, maintainAspectRatio: false,
@@ -4853,7 +4853,7 @@ function buildAndPrintPDF(tchr, s, reviews) {
     /* Force backgrounds to print in all browsers */
     html, body {
       font-family: 'Helvetica Neue', Arial, sans-serif;
-      color: #1e293b;
+      color: #1c2340;
       font-size: 12px;
       line-height: 1.55;
       -webkit-print-color-adjust: exact;
@@ -4891,7 +4891,7 @@ function buildAndPrintPDF(tchr, s, reviews) {
       -webkit-print-color-adjust: exact;
               print-color-adjust: exact;
       height: 4px;
-      background: #3b82f6;
+      background: #c0392b;
     }
 
     /* ── TWO-COLUMN BODY (CSS table = reliable in print) ── */
@@ -4939,7 +4939,7 @@ function buildAndPrintPDF(tchr, s, reviews) {
       -webkit-print-color-adjust: exact;
               print-color-adjust: exact;
       background: #f8fafc;
-      border-left: 3px solid #3b82f6;
+      border-left: 3px solid #c0392b;
       padding: 9px 13px;
       margin-bottom: 8px;
       font-size: 11px;
@@ -6779,9 +6779,9 @@ async function renderDeptDetail(deptName) {
       label: escapeHtml(deptName),
       data: deptCriteriaAvg,
       backgroundColor: 'rgba(37,99,235,0.15)',
-      borderColor: '#2563eb',
+      borderColor: '#c0392b',
       borderWidth: 2,
-      pointBackgroundColor: '#2563eb'
+      pointBackgroundColor: '#c0392b'
     }];
     if (org_averages && orgCriteriaAvg.length) {
       radarDatasets.push({
@@ -6849,7 +6849,7 @@ async function renderDeptDetail(deptName) {
         datasets: [{
           label: `${escapeHtml(deptName)} Avg`,
           data: trendWithScore.map(p => p.avg_score),
-          borderColor: '#2563eb',
+          borderColor: '#c0392b',
           backgroundColor: 'rgba(37,99,235,0.1)',
           fill: true,
           tension: 0.3,

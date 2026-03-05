@@ -10,7 +10,7 @@
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     body {
       font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-      background: linear-gradient(135deg, #1e3a5f 0%, #2563eb 50%, #1e3a5f 100%);
+      background: linear-gradient(135deg, #1a2744 0%, #c0392b 50%, #1a2744 100%);
       min-height: 100vh;
       display: flex;
       align-items: center;
@@ -20,7 +20,7 @@
     .container { width: 100%; max-width: 420px; }
     .logo { text-align: center; margin-bottom: 32px; }
     .logo h1 { color: #fff; font-size: 2.5rem; font-weight: 700; letter-spacing: -1px; }
-    .logo h1 span { color: #60a5fa; }
+    .logo h1 span { color: #e74c3c; }
     .logo p { color: #93c5fd; font-size: 0.9rem; margin-top: 8px; }
     .card {
       background: #fff;
@@ -28,12 +28,12 @@
       padding: 40px;
       box-shadow: 0 20px 60px rgba(0,0,0,0.3);
     }
-    .card h2 { color: #1e293b; font-size: 1.5rem; margin-bottom: 8px; }
+    .card h2 { color: #1c2340; font-size: 1.5rem; margin-bottom: 8px; }
     .card p.subtitle { color: #64748b; font-size: 0.875rem; margin-bottom: 28px; }
     .org-badge {
       background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px;
       padding: 10px 14px; margin-bottom: 20px; display: none;
-      color: #1d4ed8; font-size: 0.875rem; font-weight: 500;
+      color: #96281b; font-size: 0.875rem; font-weight: 500;
     }
     .org-badge.show { display: block; }
     .form-group { margin-bottom: 18px; }
@@ -43,7 +43,7 @@
       font-size: 0.95rem; font-family: inherit; transition: border-color 0.2s; outline: none;
       background: #fff;
     }
-    .form-group input:focus, .form-group select:focus { border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59,130,246,0.15); }
+    .form-group input:focus, .form-group select:focus { border-color: #c0392b; box-shadow: 0 0 0 3px rgba(192,57,43,0.15); }
     .invite-input {
       text-transform: uppercase;
       font-family: monospace !important;
@@ -53,11 +53,11 @@
     }
     .hint { font-size: 0.75rem; color: #94a3b8; margin-top: 4px; }
     .btn {
-      width: 100%; padding: 14px; background: #2563eb; color: #fff; border: none;
+      width: 100%; padding: 14px; background: #c0392b; color: #fff; border: none;
       border-radius: 10px; font-size: 1rem; font-weight: 600; font-family: inherit;
       cursor: pointer; transition: background 0.2s;
     }
-    .btn:hover { background: #1d4ed8; }
+    .btn:hover { background: #96281b; }
     .btn:active { transform: scale(0.98); }
     .btn:disabled { background: #94a3b8; cursor: not-allowed; }
     .error-msg {
@@ -71,7 +71,7 @@
     }
     .success-msg.show { display: block; }
     .links { text-align: center; margin-top: 20px; font-size: 0.875rem; color: #64748b; }
-    .links a { color: #2563eb; text-decoration: none; font-weight: 500; }
+    .links a { color: #c0392b; text-decoration: none; font-weight: 500; }
     .links a:hover { text-decoration: underline; }
 
     @media (max-width: 768px) {
