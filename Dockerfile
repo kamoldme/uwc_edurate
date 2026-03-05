@@ -1,19 +1,19 @@
 FROM node:20-alpine
 
-# Install build tools needed for better-sqlite3
+# Build tools for better-sqlite3
 RUN apk add --no-cache python3 make g++
 
 WORKDIR /app
 
-# Copy package files and install dependencies
 COPY package.json package-lock.json ./
-RUN npm ci
+RUN npm ci --omit=dev
 
-# Copy the rest of the app
 COPY . .
 
-# Expose port
-EXPOSE ${PORT:-3000}
+# SQLite DB lives on the persistent volume mounted at /data
+ENV DB_PATH=/data/edurate.db
+ENV NODE_ENV=production
 
-# Start the server
+EXPOSE 3000
+
 CMD ["node", "server.js"]
