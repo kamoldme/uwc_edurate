@@ -566,7 +566,9 @@
 
     /* ── UWC DARK SECTION ── */
     .uwc-section {
-      background: var(--navy-deep);
+      background:
+        linear-gradient(rgba(0,24,48,0.78), rgba(0,24,48,0.82)),
+        url('/image_background.png') center center / cover no-repeat;
       padding: 96px 24px;
       position: relative;
       overflow: hidden;
@@ -581,21 +583,7 @@
       background-size: 56px 56px;
       pointer-events: none;
     }
-    .uwc-blob {
-      position: absolute;
-      border-radius: 50%;
-      pointer-events: none;
-    }
-    .uwc-blob-1 {
-      width: 600px; height: 600px;
-      background: radial-gradient(circle, rgba(0,105,170,0.22) 0%, transparent 65%);
-      top: -200px; right: -150px;
-    }
-    .uwc-blob-2 {
-      width: 400px; height: 400px;
-      background: radial-gradient(circle, rgba(190,30,45,0.1) 0%, transparent 65%);
-      bottom: -150px; left: -80px;
-    }
+    .uwc-blob { display: none; }
 
     .uwc-inner {
       max-width: 1160px;
