@@ -3569,11 +3569,17 @@ function toggleActionMenu(userId, event) {
   const menu = document.getElementById(`dropdown-menu-${userId}`);
   const isOpen = menu.classList.contains('open');
   closeActionMenus();
-  if (!isOpen) menu.classList.add('open');
+  if (!isOpen) {
+    menu.classList.add('open');
+    const rect = menu.getBoundingClientRect();
+    if (rect.bottom > window.innerHeight) {
+      menu.classList.add('flip-up');
+    }
+  }
 }
 
 function closeActionMenus() {
-  document.querySelectorAll('.action-dropdown-menu.open').forEach(m => m.classList.remove('open'));
+  document.querySelectorAll('.action-dropdown-menu.open').forEach(m => m.classList.remove('open', 'flip-up'));
 }
 
 // Close dropdowns when clicking anywhere outside

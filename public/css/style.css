@@ -699,6 +699,10 @@ tbody tr:last-child td { border-bottom: none; }
 }
 
 .action-dropdown-menu.open { display: block; }
+.action-dropdown-menu.open.flip-up {
+  top: auto;
+  bottom: calc(100% + 4px);
+}
 
 .action-dropdown-item {
   display: block;
