@@ -7,7 +7,7 @@
   --primary-light: #3b9fd4;
   --primary-bg: #eff6ff;
   --sidebar-bg: #001830;
-  --sidebar-text: #a8c8e8;
+  --sidebar-text: rgba(255,255,255,0.9);
   --sidebar-active: #3b9fd4;
   --success: #10b981;
   --success-bg: #ecfdf5;
@@ -106,7 +106,7 @@ body {
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 1px;
-  color: var(--gray-500);
+  color: rgba(255,255,255,0.9);
 }
 
 .nav-item {
@@ -129,7 +129,7 @@ body {
 
 .nav-item:hover {
   background: rgba(255,255,255,0.06);
-  color: #e2e8f0;
+  color: rgba(255,255,255,0.9);
 }
 
 .nav-item.active {
@@ -184,7 +184,7 @@ body {
 }
 
 .user-details .name {
-  color: #e2e8f0;
+  color: rgba(255,255,255,0.9);
   font-size: 0.85rem;
   font-weight: 500;
   white-space: nowrap;
@@ -193,7 +193,7 @@ body {
 }
 
 .user-details .email {
-  color: var(--gray-500);
+  color: rgba(255,255,255,0.9);
   font-size: 0.7rem;
   white-space: nowrap;
   overflow: hidden;
