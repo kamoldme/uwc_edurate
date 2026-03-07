@@ -6,131 +6,76 @@
   <title>EduRate – Dashboard</title>
   <link rel="icon" type="image/png" href="/e_logo.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet">
   <style>
+    :root {
+      --blue: #0069AA; --blue-dark: #004f82;
+      --navy: #002d52; --navy-deep: #001830;
+      --red: #BE1E2D;
+    }
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     body {
       font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-      background: linear-gradient(135deg, #1a2e1a 0%, #059669 50%, #1a2e1a 100%);
+      background: var(--navy-deep);
       min-height: 100vh;
       display: flex;
       align-items: center;
       justify-content: center;
       padding: 20px;
     }
-    .login-container {
-      width: 100%;
-      max-width: 420px;
-    }
-    .logo {
-      text-align: center;
-      margin-bottom: 32px;
-    }
-    .logo h1 {
-      color: #fff;
-      font-size: 2.5rem;
-      font-weight: 700;
-      letter-spacing: -1px;
-    }
-    .logo h1 span { color: #10b981; }
-    .logo p {
-      color: #93c5fd;
-      font-size: 0.9rem;
-      margin-top: 8px;
-    }
+    .login-container { width: 100%; max-width: 420px; }
+    .logo { text-align: center; margin-bottom: 32px; }
+    .logo h1 { color: #fff; font-size: 2.5rem; font-weight: 700; letter-spacing: -1px; }
+    .logo h1 span { color: var(--blue); }
+    .logo p { color: rgba(255,255,255,0.55); font-size: 0.9rem; margin-top: 8px; }
     .card {
       background: #fff;
       border-radius: 16px;
       padding: 40px;
-      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+      box-shadow: 0 24px 64px rgba(0,0,0,0.5);
+      position: relative;
+      overflow: hidden;
+    }
+    .card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 4px;
+      background: linear-gradient(90deg, var(--red) 0%, var(--blue) 100%);
     }
     .card h2 {
-      color: #1a2e1a;
-      font-size: 1.5rem;
+      font-family: 'Playfair Display', Georgia, serif;
+      color: var(--navy-deep);
+      font-size: 1.6rem;
       margin-bottom: 8px;
     }
-    .card p.subtitle {
-      color: #64748b;
-      font-size: 0.875rem;
-      margin-bottom: 28px;
-    }
-    .form-group {
-      margin-bottom: 20px;
-    }
-    .form-group label {
-      display: block;
-      color: #334155;
-      font-size: 0.875rem;
-      font-weight: 500;
-      margin-bottom: 6px;
-    }
+    .card p.subtitle { color: #64748b; font-size: 0.875rem; margin-bottom: 28px; }
+    .form-group { margin-bottom: 20px; }
+    .form-group label { display: block; color: #334155; font-size: 0.875rem; font-weight: 500; margin-bottom: 6px; }
     .form-group input {
-      width: 100%;
-      padding: 12px 16px;
-      border: 2px solid #e2e8f0;
-      border-radius: 10px;
-      font-size: 0.95rem;
-      font-family: inherit;
-      transition: border-color 0.2s, box-shadow 0.2s;
-      outline: none;
+      width: 100%; padding: 12px 16px; border: 2px solid #e2e8f0; border-radius: 10px;
+      font-size: 0.95rem; font-family: inherit; transition: border-color 0.2s, box-shadow 0.2s; outline: none;
     }
-    .form-group input:focus {
-      border-color: #059669;
-      box-shadow: 0 0 0 3px rgba(59,130,246,0.15);
-    }
+    .form-group input:focus { border-color: var(--blue); box-shadow: 0 0 0 3px rgba(0,105,170,0.12); }
     .btn {
-      width: 100%;
-      padding: 14px;
-      background: #059669;
-      color: #fff;
-      border: none;
-      border-radius: 10px;
-      font-size: 1rem;
-      font-weight: 600;
-      font-family: inherit;
-      cursor: pointer;
-      transition: background 0.2s, transform 0.1s;
+      width: 100%; padding: 14px; background: var(--blue); color: #fff; border: none;
+      border-radius: 10px; font-size: 1rem; font-weight: 600; font-family: inherit;
+      cursor: pointer; transition: background 0.2s, transform 0.1s;
     }
-    .btn:hover { background: #047857; }
+    .btn:hover { background: var(--blue-dark); }
     .btn:active { transform: scale(0.98); }
     .btn:disabled { background: #94a3b8; cursor: not-allowed; }
     .error-msg {
-      background: #fef2f2;
-      color: #dc2626;
-      padding: 10px 14px;
-      border-radius: 8px;
-      font-size: 0.85rem;
-      margin-bottom: 16px;
-      display: none;
-      border: 1px solid #fecaca;
+      background: #fef2f2; color: #dc2626; padding: 10px 14px; border-radius: 8px;
+      font-size: 0.85rem; margin-bottom: 16px; display: none; border: 1px solid #fecaca;
     }
     .error-msg.show { display: block; }
-    .links {
-      text-align: center;
-      margin-top: 20px;
-      font-size: 0.875rem;
-      color: #64748b;
-    }
-    .links a {
-      color: #059669;
-      text-decoration: none;
-      font-weight: 500;
-    }
+    .links { text-align: center; margin-top: 20px; font-size: 0.875rem; color: #64748b; }
+    .links a { color: var(--blue); text-decoration: none; font-weight: 500; }
     .links a:hover { text-decoration: underline; }
-    .secure-badge {
-      text-align: center;
-      margin-top: 24px;
-      color: #94a3b8;
-      font-size: 0.75rem;
-    }
-    .secure-badge svg {
-      width: 14px;
-      height: 14px;
-      vertical-align: middle;
-      margin-right: 4px;
-    }
+    .secure-badge { text-align: center; margin-top: 24px; color: rgba(255,255,255,0.4); font-size: 0.75rem; }
+    .secure-badge svg { width: 14px; height: 14px; vertical-align: middle; margin-right: 4px; }
 
-    /* Tablet */
     @media (max-width: 768px) {
       body { padding: 16px; }
       .card { padding: 28px 24px; }
@@ -138,8 +83,6 @@
       .btn { min-height: 48px; }
       .form-group input { min-height: 48px; font-size: 16px !important; }
     }
-
-    /* Mobile phones */
     @media (max-width: 480px) {
       body { padding: 12px; }
       .login-container { max-width: 100%; }
@@ -151,15 +94,11 @@
       .links { font-size: 0.8rem; }
       .secure-badge { font-size: 0.7rem; }
     }
-
-    /* Small phones */
     @media (max-width: 375px) {
       .card { padding: 20px 16px; }
       .logo h1 { font-size: 1.75rem; }
       .form-group input { padding: 10px 14px; }
     }
-
-    /* Safe area for notched phones */
     @supports (padding: env(safe-area-inset-bottom)) {
       body {
         padding-bottom: calc(20px + env(safe-area-inset-bottom));
