@@ -3,862 +3,255 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>EduRate — Teacher Feedback Platform for UWC Dilijan</title>
+  <title>EduRate - School Feedback Platform</title>
   <link rel="icon" type="image/png" href="/e_logo.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;0,900;1,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <style>
-    :root {
-      --blue:      #0069AA;
-      --blue-dark: #004f82;
-      --blue-light:#e8f4fc;
-      --navy:      #002d52;
-      --navy-deep: #001830;
-      --red:       #BE1E2D;
-      --red-dark:  #9a1724;
-      --white:     #ffffff;
-      --gray-50:   #f8fafc;
-      --gray-100:  #f1f5f9;
-      --gray-200:  #e2e8f0;
-      --gray-300:  #cbd5e1;
-      --text-900:  #0d1b2a;
-      --text-700:  #2d3e50;
-      --text-500:  #566578;
-      --text-300:  #94a3b8;
-    }
-
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    html { scroll-behavior: smooth; }
 
     body {
       font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-      color: var(--text-900);
-      background: var(--white);
+      background: linear-gradient(135deg, #0f1e3a 0%, #1d4ed8 100%);
+      min-height: 100vh;
+      color: #fff;
+      display: flex;
+      flex-direction: column;
       overflow-x: hidden;
     }
 
-    /* ── NAVBAR ── */
-    .navbar {
-      position: sticky;
-      top: 0;
-      z-index: 100;
-      background: var(--white);
-      border-bottom: 1px solid var(--gray-200);
-      padding: 0 24px;
-      box-shadow: 0 1px 4px rgba(0,0,0,0.06);
-    }
-    .navbar-inner {
-      max-width: 1160px;
-      margin: 0 auto;
-      height: 70px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-    }
-    .nav-logo {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      text-decoration: none;
-    }
-    .nav-logo img { width: 34px; height: 34px; }
-    .nav-logo-text {
-      font-size: 1.3rem;
-      font-weight: 700;
-      color: var(--text-900);
-      letter-spacing: -0.3px;
-    }
-    .nav-logo-text span { color: var(--blue); }
-
-    .nav-links {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-    }
-    .nav-link {
-      font-size: 0.875rem;
-      font-weight: 500;
-      color: var(--text-700);
-      text-decoration: none;
-      padding: 7px 13px;
-      border-radius: 6px;
-      transition: color 0.18s, background 0.18s;
-    }
-    .nav-link:hover {
-      color: var(--blue);
-      background: var(--blue-light);
-    }
-    .nav-sep {
-      width: 1px;
-      height: 22px;
-      background: var(--gray-200);
-      margin: 0 6px;
-    }
-    .btn-signin {
-      font-size: 0.875rem;
-      font-weight: 600;
-      color: var(--blue);
-      text-decoration: none;
-      padding: 8px 18px;
-      border-radius: 6px;
-      border: 1.5px solid var(--blue);
-      transition: all 0.18s;
-    }
-    .btn-signin:hover { background: var(--blue-light); }
-
-    .btn-getstarted {
-      font-size: 0.875rem;
-      font-weight: 600;
-      color: var(--white);
-      padding: 9px 20px;
-      border-radius: 6px;
-      background: var(--blue);
-      border: 1.5px solid var(--blue);
-      cursor: pointer;
-      transition: all 0.18s;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-    }
-    .btn-getstarted:hover {
-      background: var(--blue-dark);
-      border-color: var(--blue-dark);
-      transform: translateY(-1px);
-      box-shadow: 0 4px 14px rgba(0,105,170,0.32);
-    }
-
-    /* ── HERO ── */
-    .hero {
-      background: var(--navy-deep);
-      position: relative;
-      overflow: hidden;
-    }
-    .hero-top-line {
-      height: 4px;
-      background: linear-gradient(90deg, var(--red) 0%, var(--blue) 40%, #7fc4f5 70%, var(--red) 100%);
-      background-size: 200% 100%;
-      animation: line-flow 5s linear infinite;
-    }
-    @keyframes line-flow {
-      0%   { background-position: 0% 0%; }
-      100% { background-position: -200% 0%; }
-    }
-
-    .hero::before {
-      content: '';
-      position: absolute;
+    .bg-orbs {
+      position: fixed;
       inset: 0;
-      background-image:
-        linear-gradient(rgba(255,255,255,0.025) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(255,255,255,0.025) 1px, transparent 1px);
-      background-size: 56px 56px;
       pointer-events: none;
+      z-index: 0;
+      overflow: hidden;
     }
-    .hero-blob {
+
+    .orb {
       position: absolute;
       border-radius: 50%;
-      pointer-events: none;
-    }
-    .hero-blob-1 {
-      width: 700px; height: 700px;
-      background: radial-gradient(circle, rgba(0,105,170,0.28) 0%, transparent 65%);
-      top: -280px; right: -180px;
-    }
-    .hero-blob-2 {
-      width: 480px; height: 480px;
-      background: radial-gradient(circle, rgba(0,79,130,0.2) 0%, transparent 65%);
-      bottom: -180px; left: -120px;
+      filter: blur(80px);
+      opacity: 0.35;
     }
 
-    .hero-inner {
-      max-width: 1160px;
-      margin: 0 auto;
-      padding: 88px 24px 104px;
-      position: relative;
-      z-index: 2;
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 64px;
-      align-items: center;
+    .orb-1 {
+      width: 500px; height: 500px;
+      background: #1e3a8a;
+      top: -120px; left: -100px;
+      animation: driftA 18s ease-in-out infinite alternate;
     }
 
-    .hero-pill {
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      background: rgba(0,105,170,0.22);
-      border: 1px solid rgba(0,105,170,0.45);
-      color: #7fc4f5;
-      font-size: 0.75rem;
-      font-weight: 700;
-      letter-spacing: 0.1em;
-      text-transform: uppercase;
-      padding: 6px 14px;
-      border-radius: 4px;
-      margin-bottom: 26px;
-    }
-    .hero-pill-dot {
-      width: 6px; height: 6px;
-      background: #7fc4f5;
-      border-radius: 50%;
-      animation: blink 2.2s infinite;
-    }
-    @keyframes blink {
-      0%, 100% { opacity: 1; }
-      50%       { opacity: 0.35; }
-    }
-
-    .hero-title {
-      font-family: 'Playfair Display', Georgia, serif;
-      font-size: 3.6rem;
-      font-weight: 900;
-      color: var(--white);
-      line-height: 1.1;
-      letter-spacing: -0.5px;
-      margin-bottom: 22px;
-    }
-    .hero-title em {
-      font-style: italic;
-      color: #7fc4f5;
-    }
-
-    .hero-desc {
-      font-size: 1.05rem;
-      color: rgba(255,255,255,0.62);
-      line-height: 1.78;
-      margin-bottom: 38px;
-      max-width: 490px;
-    }
-
-    .hero-ctas {
-      display: flex;
-      gap: 14px;
-      flex-wrap: wrap;
-    }
-    .btn-hero-blue {
-      background: var(--blue);
-      color: var(--white);
-      font-size: 0.95rem;
-      font-weight: 700;
-      padding: 14px 32px;
-      border-radius: 6px;
-      border: 2px solid var(--blue);
-      cursor: pointer;
-      text-decoration: none;
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      transition: all 0.2s;
-    }
-    .btn-hero-blue:hover {
-      background: var(--blue-dark);
-      border-color: var(--blue-dark);
-      transform: translateY(-2px);
-      box-shadow: 0 8px 24px rgba(0,105,170,0.45);
-    }
-    .btn-hero-ghost {
-      background: transparent;
-      color: rgba(255,255,255,0.82);
-      font-size: 0.95rem;
-      font-weight: 600;
-      padding: 14px 32px;
-      border-radius: 6px;
-      border: 2px solid rgba(255,255,255,0.22);
-      cursor: pointer;
-      text-decoration: none;
-      display: inline-flex;
-      align-items: center;
-      transition: all 0.2s;
-    }
-    .btn-hero-ghost:hover {
-      border-color: rgba(255,255,255,0.5);
-      background: rgba(255,255,255,0.07);
-    }
-
-    .hero-right { display: flex; justify-content: center; }
-    .dashboard-card {
-      background: rgba(255,255,255,0.07);
-      border: 1px solid rgba(255,255,255,0.11);
-      border-radius: 18px;
-      padding: 32px 28px;
-      backdrop-filter: blur(12px);
-      width: 100%;
-      max-width: 390px;
-    }
-    .dash-header {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      padding-bottom: 18px;
-      border-bottom: 1px solid rgba(255,255,255,0.1);
-      margin-bottom: 22px;
-    }
-    .dash-header img { width: 40px; height: 40px; }
-    .dash-header-label { font-size: 0.9rem; font-weight: 700; color: var(--white); }
-    .dash-header-sub { font-size: 0.75rem; color: rgba(255,255,255,0.45); margin-top: 2px; }
-
-    .dash-rows { display: flex; flex-direction: column; gap: 14px; }
-    .dash-row-label {
-      font-size: 0.8rem;
-      color: rgba(255,255,255,0.5);
-      margin-bottom: 5px;
-      display: flex;
-      justify-content: space-between;
-    }
-    .dash-row-label span { color: var(--white); font-weight: 700; font-size: 0.85rem; }
-    .bar-track {
-      height: 5px;
-      background: rgba(255,255,255,0.08);
-      border-radius: 99px;
-      overflow: hidden;
-    }
-    .bar-fill {
-      height: 100%;
-      background: var(--blue);
-      border-radius: 99px;
-      animation: bar-grow 1.4s ease both;
-    }
-    @keyframes bar-grow { from { width: 0 !important; } }
-
-    .dash-footer {
-      margin-top: 20px;
-      padding-top: 16px;
-      border-top: 1px solid rgba(255,255,255,0.1);
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-    .anon-pill {
-      background: rgba(0,105,170,0.3);
-      border: 1px solid rgba(0,105,170,0.5);
-      color: #7fc4f5;
-      font-size: 0.72rem;
-      font-weight: 700;
-      padding: 3px 10px;
-      border-radius: 4px;
-      text-transform: uppercase;
-      letter-spacing: 0.06em;
-    }
-    .anon-note {
-      font-size: 0.75rem;
-      color: rgba(255,255,255,0.38);
-    }
-
-    /* ── RED MISSION STRIPE ── */
-    .mission-stripe {
-      background: var(--red);
-      padding: 16px 24px;
-    }
-    .mission-stripe-inner {
-      max-width: 1160px;
-      margin: 0 auto;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 10px;
-      flex-wrap: wrap;
-    }
-    .mission-stripe-text {
-      color: rgba(255,255,255,0.92);
-      font-size: 0.875rem;
-      font-weight: 500;
-      text-align: center;
-    }
-    .mission-stripe-text strong { font-weight: 700; color: var(--white); }
-
-    /* ── STATS ── */
-    .stats-section {
-      background: var(--gray-50);
-      padding: 72px 24px;
-      border-bottom: 1px solid var(--gray-200);
-    }
-    .stats-section-inner { max-width: 1160px; margin: 0 auto; }
-    .stats-grid {
-      display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      gap: 2px;
-      background: var(--gray-200);
-      border-radius: 12px;
-      overflow: hidden;
-      border: 1px solid var(--gray-200);
-    }
-    .stat-block {
-      background: var(--white);
-      padding: 40px 28px;
-      text-align: center;
-      transition: background 0.2s;
-    }
-    .stat-block:hover { background: var(--blue-light); }
-    .stat-icon { font-size: 1.8rem; margin-bottom: 10px; display: block; }
-    .stat-number {
-      font-family: 'Playfair Display', Georgia, serif;
-      font-size: 2.3rem;
-      font-weight: 900;
-      color: var(--blue);
-      letter-spacing: -1.5px;
-      line-height: 1;
-      margin-bottom: 8px;
-    }
-    .stat-label {
-      font-size: 0.78rem;
-      color: var(--text-500);
-      font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: 0.07em;
-    }
-
-    /* ── SHARED SECTION ── */
-    .section { padding: 96px 24px; }
-    .section-inner { max-width: 1160px; margin: 0 auto; }
-
-    .s-tag {
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      color: var(--blue);
-      font-size: 0.72rem;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: 0.12em;
-      margin-bottom: 14px;
-    }
-    .s-tag::before {
-      content: '';
-      display: inline-block;
-      width: 24px;
-      height: 2px;
-      background: var(--blue);
-      border-radius: 1px;
-    }
-    .s-title {
-      font-family: 'Playfair Display', Georgia, serif;
-      font-size: 2.5rem;
-      font-weight: 900;
-      color: var(--text-900);
-      letter-spacing: -0.5px;
-      line-height: 1.18;
-      margin-bottom: 14px;
-    }
-    .s-sub {
-      font-size: 1rem;
-      color: var(--text-500);
-      line-height: 1.72;
-      max-width: 540px;
-    }
-    .s-header { margin-bottom: 56px; }
-    .s-header-center { text-align: center; }
-    .s-header-center .s-tag { justify-content: center; }
-    .s-header-center .s-sub { margin: 0 auto; }
-
-    /* ── HOW IT WORKS ── */
-    .how-section { background: var(--white); }
-
-    .steps-grid {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 24px;
-    }
-    .step-card {
-      position: relative;
-      padding: 44px 32px 36px;
-      border: 1.5px solid var(--gray-200);
-      border-radius: 12px;
-      overflow: hidden;
-      transition: all 0.24s;
-    }
-    .step-card::after {
-      content: '';
-      position: absolute;
-      top: 0; left: 0; right: 0;
-      height: 3px;
-      background: var(--blue);
-      transform: scaleX(0);
-      transform-origin: left;
-      transition: transform 0.24s;
-    }
-    .step-card:hover {
-      border-color: var(--gray-300);
-      box-shadow: 0 10px 36px rgba(0,0,0,0.08);
-      transform: translateY(-4px);
-    }
-    .step-card:hover::after { transform: scaleX(1); }
-
-    .step-num {
-      font-family: 'Playfair Display', Georgia, serif;
-      font-size: 5.5rem;
-      font-weight: 900;
-      color: var(--gray-100);
-      line-height: 1;
-      position: absolute;
-      top: 12px;
-      right: 18px;
-      transition: color 0.24s;
-      user-select: none;
-    }
-    .step-card:hover .step-num { color: var(--blue-light); }
-
-    .step-icon-wrap {
-      width: 50px; height: 50px;
-      background: var(--blue-light);
-      border-radius: 10px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 1.4rem;
-      margin-bottom: 20px;
-      position: relative;
-      z-index: 1;
-      transition: background 0.24s;
-    }
-    .step-card:hover .step-icon-wrap { background: rgba(0,105,170,0.15); }
-
-    .step-card h3 {
-      font-size: 1.05rem;
-      font-weight: 700;
-      color: var(--text-900);
-      margin-bottom: 10px;
-      position: relative;
-      z-index: 1;
-    }
-    .step-card p {
-      font-size: 0.875rem;
-      color: var(--text-500);
-      line-height: 1.66;
-      position: relative;
-      z-index: 1;
-    }
-
-    /* ── FEATURES ── */
-    .features-section { background: var(--gray-50); }
-    .features-grid {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 16px;
-    }
-    .feat-card {
-      background: var(--white);
-      border: 1.5px solid var(--gray-200);
-      border-radius: 12px;
-      padding: 28px 26px;
-      transition: all 0.22s;
-      position: relative;
-      overflow: hidden;
-    }
-    .feat-card::before {
-      content: '';
-      position: absolute;
-      top: 0; left: 0; right: 0;
-      height: 3px;
-      background: var(--blue);
-      transform: scaleX(0);
-      transform-origin: left;
-      transition: transform 0.22s;
-    }
-    .feat-card:hover {
-      box-shadow: 0 6px 24px rgba(0,0,0,0.08);
-      transform: translateY(-3px);
-      border-color: var(--gray-300);
-    }
-    .feat-card:hover::before { transform: scaleX(1); }
-    .feat-icon { font-size: 1.65rem; margin-bottom: 14px; display: block; }
-    .feat-card h3 { font-size: 0.93rem; font-weight: 700; color: var(--text-900); margin-bottom: 8px; }
-    .feat-card p { font-size: 0.84rem; color: var(--text-500); line-height: 1.62; }
-
-    /* ── UWC DARK SECTION ── */
-    .uwc-section {
-      background: var(--navy-deep);
-      padding: 96px 24px;
-      position: relative;
-      overflow: hidden;
-    }
-    .uwc-section::before {
-      content: '';
-      position: absolute;
-      inset: 0;
-      background-image:
-        linear-gradient(rgba(255,255,255,0.018) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(255,255,255,0.018) 1px, transparent 1px);
-      background-size: 56px 56px;
-      pointer-events: none;
-    }
-    .uwc-blob {
-      position: absolute;
-      border-radius: 50%;
-      pointer-events: none;
-    }
-    .uwc-blob-1 {
-      width: 600px; height: 600px;
-      background: radial-gradient(circle, rgba(0,105,170,0.22) 0%, transparent 65%);
-      top: -200px; right: -150px;
-    }
-    .uwc-blob-2 {
+    .orb-2 {
       width: 400px; height: 400px;
-      background: radial-gradient(circle, rgba(190,30,45,0.1) 0%, transparent 65%);
-      bottom: -150px; left: -80px;
+      background: #3b82f6;
+      top: 30%; right: -80px;
+      animation: driftB 22s ease-in-out infinite alternate;
     }
 
-    .uwc-inner {
-      max-width: 1160px;
+    .orb-3 {
+      width: 350px; height: 350px;
+      background: #fff;
+      bottom: 10%; left: 10%;
+      opacity: 0.12;
+      animation: driftC 26s ease-in-out infinite alternate;
+    }
+
+    .orb-4 {
+      width: 280px; height: 280px;
+      background: #93c5fd;
+      top: 60%; right: 25%;
+      opacity: 0.2;
+      animation: driftA 20s ease-in-out infinite alternate-reverse;
+    }
+
+    .orb-5 {
+      width: 320px; height: 320px;
+      background: #6366f1;
+      bottom: 20%; right: -60px;
+      opacity: 0.14;
+      animation: driftB 24s ease-in-out infinite alternate;
+    }
+
+    @keyframes driftA {
+      from { transform: translate(0, 0) scale(1); }
+      to   { transform: translate(60px, 80px) scale(1.1); }
+    }
+    @keyframes driftB {
+      from { transform: translate(0, 0) scale(1.05); }
+      to   { transform: translate(-70px, 60px) scale(0.95); }
+    }
+    @keyframes driftC {
+      from { transform: translate(0, 0); }
+      to   { transform: translate(50px, -60px); }
+    }
+
+    .dot-grid {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 0;
+      background-image: radial-gradient(rgba(255,255,255,0.08) 1px, transparent 1px);
+      background-size: 28px 28px;
+    }
+
+    .container {
+      max-width: 1100px;
       margin: 0 auto;
+      padding: 0 24px;
+      width: 100%;
       position: relative;
       z-index: 2;
     }
-    .uwc-top {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 64px;
-      align-items: start;
-      margin-bottom: 56px;
-    }
-    .uwc-s-tag {
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      color: #7fc4f5;
-      font-size: 0.72rem;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: 0.12em;
-      margin-bottom: 14px;
-    }
-    .uwc-s-tag::before {
-      content: '';
-      display: inline-block;
-      width: 24px; height: 2px;
-      background: #7fc4f5;
-      border-radius: 1px;
-    }
-    .uwc-title {
-      font-family: 'Playfair Display', Georgia, serif;
-      font-size: 2.5rem;
-      font-weight: 900;
-      color: var(--white);
-      letter-spacing: -0.5px;
-      line-height: 1.18;
-    }
-    .uwc-title em { font-style: italic; color: #7fc4f5; }
-    .uwc-body {
-      color: rgba(255,255,255,0.6);
-      font-size: 0.975rem;
-      line-height: 1.78;
-      padding-top: 8px;
-    }
 
-    .uwc-values {
-      display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      gap: 16px;
-    }
-    .uwc-val {
-      background: rgba(255,255,255,0.05);
-      border: 1px solid rgba(255,255,255,0.09);
-      border-radius: 10px;
-      padding: 24px 20px;
-      transition: background 0.2s, border-color 0.2s;
-    }
-    .uwc-val:hover {
-      background: rgba(255,255,255,0.09);
-      border-color: rgba(255,255,255,0.16);
-    }
-    .uwc-val-icon { font-size: 1.5rem; margin-bottom: 12px; display: block; }
-    .uwc-val h4 { font-size: 0.9rem; font-weight: 700; color: var(--white); margin-bottom: 6px; }
-    .uwc-val p { font-size: 0.8rem; color: rgba(255,255,255,0.45); line-height: 1.58; }
-
-    /* ── CTA ── */
-    .cta-section {
-      padding: 96px 24px;
-      background: var(--white);
-      border-top: 1px solid var(--gray-200);
-    }
-    .cta-inner { max-width: 1160px; margin: 0 auto; }
-    .cta-card {
-      background: var(--blue);
-      border-radius: 16px;
-      padding: 64px 56px;
-      display: grid;
-      grid-template-columns: 1fr auto;
-      gap: 48px;
-      align-items: center;
-      position: relative;
-      overflow: hidden;
-    }
-    .cta-card::before {
-      content: '';
-      position: absolute;
-      top: -120px; right: -120px;
-      width: 440px; height: 440px;
-      border-radius: 50%;
-      background: radial-gradient(circle, rgba(255,255,255,0.12) 0%, transparent 65%);
-      pointer-events: none;
-    }
-    .cta-card::after {
-      content: '';
-      position: absolute;
-      bottom: -100px; left: 35%;
-      width: 340px; height: 340px;
-      border-radius: 50%;
-      background: radial-gradient(circle, rgba(0,0,0,0.12) 0%, transparent 65%);
-      pointer-events: none;
-    }
-    .cta-text { position: relative; z-index: 2; }
-    .cta-label {
-      display: inline-block;
-      background: rgba(255,255,255,0.15);
-      color: rgba(255,255,255,0.9);
-      font-size: 0.72rem;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: 0.1em;
-      padding: 4px 12px;
-      border-radius: 4px;
-      margin-bottom: 18px;
-    }
-    .cta-title {
-      font-family: 'Playfair Display', Georgia, serif;
-      font-size: 2.3rem;
-      font-weight: 900;
-      color: var(--white);
-      letter-spacing: -0.5px;
-      line-height: 1.18;
-      margin-bottom: 12px;
-    }
-    .cta-desc {
-      color: rgba(255,255,255,0.72);
-      font-size: 0.975rem;
-      line-height: 1.68;
-    }
-    .cta-btns {
+    nav {
+      padding: 24px 0;
       display: flex;
-      flex-direction: column;
-      gap: 12px;
+      justify-content: space-between;
+      align-items: center;
       position: relative;
-      z-index: 2;
-      flex-shrink: 0;
+      z-index: 10;
     }
-    .btn-cta-white {
-      background: var(--white);
-      color: var(--blue);
-      font-size: 0.95rem;
-      font-weight: 700;
-      padding: 14px 28px;
+
+    .logo { display: flex; align-items: center; gap: 12px; }
+    .logo img { width: 36px; height: 36px; }
+    .logo h1 { font-size: 1.5rem; font-weight: 700; }
+    .logo span { color: #60a5fa; }
+    .nav-links { display: flex; gap: 12px; }
+
+    .btn {
+      padding: 10px 20px;
       border-radius: 8px;
-      border: 2px solid var(--white);
-      cursor: pointer;
+      font-size: 0.9rem;
+      font-weight: 600;
       text-decoration: none;
-      text-align: center;
-      white-space: nowrap;
+      transition: all 0.25s;
+      cursor: pointer;
+      border: none;
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      transition: all 0.2s;
     }
-    .btn-cta-white:hover {
-      background: var(--blue-light);
+
+    .btn-outline {
+      background: transparent;
+      color: #fff;
+      border: 2px solid rgba(255,255,255,0.25);
+    }
+    .btn-outline:hover {
+      background: rgba(255,255,255,0.08);
+      border-color: rgba(255,255,255,0.5);
+    }
+
+    .btn-primary {
+      background: #fff;
+      color: #0f1e3a;
+      border: 2px solid #fff;
+    }
+    .btn-primary:hover {
+      background: #dbeafe;
       transform: translateY(-1px);
       box-shadow: 0 6px 20px rgba(0,0,0,0.18);
     }
-    .btn-cta-ghost {
-      background: transparent;
-      color: rgba(255,255,255,0.88);
-      font-size: 0.9rem;
-      font-weight: 600;
-      padding: 12px 28px;
-      border-radius: 8px;
-      border: 2px solid rgba(255,255,255,0.28);
-      cursor: pointer;
-      text-decoration: none;
+
+    main { flex: 1; display: flex; flex-direction: column; position: relative; z-index: 2; }
+
+    .hero-section {
+      position: relative;
+      padding: 64px 0 88px;
       text-align: center;
-      white-space: nowrap;
+    }
+
+    .badge {
       display: inline-flex;
       align-items: center;
-      justify-content: center;
-      transition: all 0.2s;
-    }
-    .btn-cta-ghost:hover {
-      border-color: rgba(255,255,255,0.6);
-      background: rgba(255,255,255,0.08);
-    }
-
-    /* ── FOOTER ── */
-    footer {
-      background: var(--navy-deep);
-      padding: 48px 24px 32px;
-      border-top: 3px solid var(--blue);
-    }
-    .footer-inner { max-width: 1160px; margin: 0 auto; }
-    .footer-top {
-      display: flex;
-      align-items: flex-start;
-      justify-content: space-between;
-      padding-bottom: 28px;
-      border-bottom: 1px solid rgba(255,255,255,0.08);
-      margin-bottom: 24px;
-      flex-wrap: wrap;
-      gap: 24px;
-    }
-    .footer-logo {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      margin-bottom: 6px;
-    }
-    .footer-logo img { width: 28px; height: 28px; opacity: 0.75; }
-    .footer-logo-name {
-      font-size: 1.1rem;
-      font-weight: 700;
-      color: rgba(255,255,255,0.8);
-    }
-    .footer-logo-name span { color: #7fc4f5; }
-    .footer-tagline {
-      font-size: 0.78rem;
-      color: rgba(255,255,255,0.32);
-    }
-    .footer-nav {
-      display: flex;
-      gap: 24px;
-      flex-wrap: wrap;
-      align-items: center;
-    }
-    .footer-nav-link {
-      font-size: 0.84rem;
-      color: rgba(255,255,255,0.45);
-      text-decoration: none;
-      transition: color 0.18s;
-    }
-    .footer-nav-link:hover { color: rgba(255,255,255,0.85); }
-
-    .footer-bottom {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      flex-wrap: wrap;
-      gap: 10px;
-    }
-    .footer-copy { font-size: 0.77rem; color: rgba(255,255,255,0.3); }
-    .footer-copy strong { color: rgba(255,255,255,0.5); }
-    .footer-author { font-size: 0.77rem; color: rgba(255,255,255,0.3); }
-    .footer-author a {
-      color: rgba(255,255,255,0.55);
-      text-decoration: none;
+      gap: 6px;
+      background: rgba(255,255,255,0.12);
+      border: 1px solid rgba(255,255,255,0.25);
+      color: rgba(255,255,255,0.9);
+      font-size: 0.8rem;
       font-weight: 600;
+      padding: 6px 14px;
+      border-radius: 999px;
+      margin-bottom: 28px;
+      letter-spacing: 0.02em;
+      animation: fadeInDown 0.6s ease both;
     }
-    .footer-author a:hover { color: var(--white); text-decoration: underline; }
 
-    /* ── SCROLL REVEAL ── */
+    .badge-dot {
+      width: 7px; height: 7px;
+      background: #60a5fa;
+      border-radius: 50%;
+      animation: pulse-dot 2s infinite;
+    }
+
+    @keyframes pulse-dot {
+      0%, 100% { opacity: 1; transform: scale(1); box-shadow: 0 0 0 0 rgba(96,165,250,0.5); }
+      50% { opacity: 0.8; transform: scale(1.2); box-shadow: 0 0 0 5px rgba(96,165,250,0); }
+    }
+
+    .hero-logo {
+      margin-bottom: 20px;
+      animation: fadeInDown 0.7s 0.1s ease both;
+    }
+
+    .hero-logo img {
+      width: 88px; height: 88px;
+      filter: drop-shadow(0 0 32px rgba(255,255,255,0.3)) drop-shadow(0 0 64px rgba(59,130,246,0.5));
+      animation: float 4s ease-in-out infinite;
+    }
+
+    @keyframes float {
+      0%, 100% { transform: translateY(0px); }
+      50%       { transform: translateY(-10px); }
+    }
+
+    .hero h2 {
+      font-size: 3.8rem;
+      font-weight: 800;
+      margin-bottom: 20px;
+      letter-spacing: -2px;
+      line-height: 1.1;
+      animation: fadeInUp 0.7s 0.2s ease both;
+    }
+
+    .hero h2 .accent { color: #60a5fa; }
+
+    .hero p {
+      font-size: 1.15rem;
+      color: rgba(255,255,255,0.75);
+      max-width: 560px;
+      margin: 0 auto 36px;
+      line-height: 1.7;
+      animation: fadeInUp 0.7s 0.3s ease both;
+    }
+
+    .hero-buttons {
+      display: flex;
+      gap: 12px;
+      justify-content: center;
+      animation: fadeInUp 0.7s 0.4s ease both;
+    }
+
+    .hero-buttons .btn { padding: 14px 32px; font-size: 1rem; }
+
     .reveal {
       opacity: 0;
-      transform: translateY(24px);
+      transform: translateY(28px);
       transition: opacity 0.6s ease, transform 0.6s ease;
     }
-    .reveal.visible { opacity: 1; transform: translateY(0); }
+    .reveal.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
 
     .reveal-stagger > * {
       opacity: 0;
-      transform: translateY(20px);
+      transform: translateY(24px);
       transition: opacity 0.5s ease, transform 0.5s ease;
     }
-    .reveal-stagger.visible > *:nth-child(1) { opacity:1; transform:translateY(0); transition-delay:  0ms; }
-    .reveal-stagger.visible > *:nth-child(2) { opacity:1; transform:translateY(0); transition-delay: 80ms; }
+    .reveal-stagger.visible > *:nth-child(1) { opacity:1; transform:translateY(0); transition-delay:0ms; }
+    .reveal-stagger.visible > *:nth-child(2) { opacity:1; transform:translateY(0); transition-delay:80ms; }
     .reveal-stagger.visible > *:nth-child(3) { opacity:1; transform:translateY(0); transition-delay:160ms; }
     .reveal-stagger.visible > *:nth-child(4) { opacity:1; transform:translateY(0); transition-delay:240ms; }
     .reveal-stagger.visible > *:nth-child(5) { opacity:1; transform:translateY(0); transition-delay:320ms; }
@@ -867,518 +260,734 @@
     .reveal-stagger.visible > *:nth-child(8) { opacity:1; transform:translateY(0); transition-delay:560ms; }
     .reveal-stagger.visible > *:nth-child(9) { opacity:1; transform:translateY(0); transition-delay:640ms; }
 
-    @keyframes fadeUp {
-      from { opacity: 0; transform: translateY(18px); }
+    .stats-section { padding: 0 0 64px; }
+
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 16px;
+    }
+
+    .stat-item {
+      background: rgba(255,255,255,0.08);
+      border: 1px solid rgba(255,255,255,0.15);
+      border-top: 3px solid rgba(96,165,250,0.6);
+      border-radius: 16px;
+      padding: 28px 20px;
+      text-align: center;
+      transition: all 0.25s;
+      backdrop-filter: blur(6px);
+    }
+    .stat-item:hover {
+      background: rgba(255,255,255,0.14);
+      transform: translateY(-3px);
+      box-shadow: 0 12px 32px rgba(0,0,0,0.12);
+    }
+
+    .stat-icon {
+      font-size: 2.2rem;
+      margin-bottom: 12px;
+      line-height: 1;
+      display: block;
+    }
+
+    .stat-number {
+      font-size: 2rem;
+      font-weight: 800;
+      color: #60a5fa;
+      letter-spacing: -1px;
+    }
+
+    .stat-label {
+      font-size: 0.82rem;
+      color: rgba(255,255,255,0.6);
+      margin-top: 6px;
+      font-weight: 500;
+    }
+
+    .how-section { padding: 0 0 72px; }
+
+    .section-header { margin-bottom: 48px; }
+
+    .section-label {
+      text-align: center;
+      font-size: 0.78rem;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      color: #93c5fd;
+      text-transform: uppercase;
+      margin-bottom: 12px;
+    }
+
+    .section-title {
+      text-align: center;
+      font-size: 1.9rem;
+      font-weight: 700;
+      color: #fff;
+      letter-spacing: -0.5px;
+    }
+
+    .steps-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 24px;
+      position: relative;
+    }
+
+    .steps-grid::before {
+      content: '';
+      position: absolute;
+      top: 40px;
+      left: calc(16.66% + 16px);
+      right: calc(16.66% + 16px);
+      height: 2px;
+      background: linear-gradient(90deg, rgba(255,255,255,0.3), rgba(255,255,255,0.6), rgba(255,255,255,0.3));
+      background-size: 200% 100%;
+      animation: shimmer-line 3s linear infinite;
+    }
+
+    @keyframes shimmer-line {
+      0%   { background-position: -200% 0; }
+      100% { background-position: 200% 0; }
+    }
+
+    .step {
+      background: rgba(255,255,255,0.1);
+      border: 1px solid rgba(255,255,255,0.2);
+      border-radius: 16px;
+      padding: 32px 24px;
+      text-align: center;
+      position: relative;
+      transition: all 0.25s;
+      backdrop-filter: blur(4px);
+    }
+    .step:hover {
+      background: rgba(255,255,255,0.18);
+      transform: translateY(-4px);
+      box-shadow: 0 16px 40px rgba(0,0,0,0.15);
+    }
+
+    .step-number {
+      width: 52px; height: 52px;
+      background: linear-gradient(135deg, #1d4ed8, #3b82f6);
+      border: 2px solid rgba(96,165,250,0.4);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 800;
+      font-size: 1.2rem;
+      margin: 0 auto 20px;
+      color: #fff;
+      box-shadow: 0 0 0 6px rgba(96,165,250,0.1), 0 4px 16px rgba(59,130,246,0.35);
+    }
+
+    .step h3 { font-size: 1rem; font-weight: 700; margin-bottom: 10px; color: #fff; }
+    .step p  { color: rgba(255,255,255,0.65); font-size: 0.875rem; line-height: 1.6; }
+
+    .features-section { padding: 0 0 80px; }
+
+    .features {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+    }
+
+    .feature {
+      background: rgba(255,255,255,0.08);
+      border: 1px solid rgba(255,255,255,0.15);
+      border-radius: 14px;
+      padding: 24px;
+      transition: all 0.25s;
+      position: relative;
+      overflow: hidden;
+      backdrop-filter: blur(4px);
+    }
+
+    .feature::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(120deg, transparent 30%, rgba(255,255,255,0.07) 50%, transparent 70%);
+      transform: translateX(-100%);
+      transition: transform 0.2s ease;
+    }
+    .feature:hover::after { transform: translateX(100%); }
+
+    .feature::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 2px;
+      background: linear-gradient(90deg, #1d4ed8, #60a5fa);
+      opacity: 0;
+      transition: opacity 0.2s;
+    }
+
+    .feature { border-top: 2px solid rgba(255,255,255,0.18); }
+    .feature:hover {
+      background: rgba(255,255,255,0.15);
+      border-color: rgba(255,255,255,0.28);
+      transform: translateY(-3px);
+      box-shadow: 0 12px 32px rgba(0,0,0,0.12);
+    }
+    .feature:hover::before { opacity: 1; }
+
+    .feature-icon { font-size: 1.8rem; margin-bottom: 12px; }
+    .feature h3 { font-size: 0.95rem; margin-bottom: 6px; font-weight: 600; color: #fff; }
+    .feature p  { color: rgba(255,255,255,0.62); font-size: 0.85rem; line-height: 1.55; }
+
+    .cta-section { padding: 0 0 80px; }
+
+    .cta-card {
+      background: linear-gradient(135deg, rgba(29,78,216,0.25) 0%, rgba(99,102,241,0.2) 100%);
+      border: 1px solid rgba(96,165,250,0.25);
+      border-radius: 24px;
+      padding: 56px 40px;
+      text-align: center;
+      position: relative;
+      overflow: hidden;
+      backdrop-filter: blur(8px);
+    }
+
+    .cta-card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 3px;
+      background: linear-gradient(90deg, #1d4ed8, #60a5fa, #6366f1, #1d4ed8);
+      background-size: 200% 100%;
+      animation: shimmer-line 3s linear infinite;
+    }
+
+    .cta-card h2 {
+      font-size: 2rem;
+      font-weight: 800;
+      margin-bottom: 12px;
+      letter-spacing: -0.5px;
+    }
+
+    .cta-card > p {
+      color: rgba(255,255,255,0.72);
+      margin-bottom: 32px;
+      font-size: 1.05rem;
+      max-width: 480px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+
+    .btn-blue {
+      background: linear-gradient(135deg, #1d4ed8, #3b82f6);
+      color: #fff;
+      border: 2px solid rgba(96,165,250,0.3);
+      box-shadow: 0 4px 20px rgba(59,130,246,0.35);
+      font-weight: 700;
+    }
+    .btn-blue:hover {
+      background: linear-gradient(135deg, #1e40af, #1d4ed8);
+      transform: translateY(-2px);
+      box-shadow: 0 8px 28px rgba(59,130,246,0.45);
+    }
+
+    @media (max-width: 560px) {
+      .cta-card { padding: 36px 20px; }
+    }
+
+    footer {
+      padding: 32px 24px;
+      border-top: 1px solid rgba(255,255,255,0.15);
+      position: relative;
+      z-index: 2;
+    }
+
+    .footer-inner {
+      max-width: 1100px;
+      margin: 0 auto;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .footer-left { display: flex; align-items: center; gap: 10px; }
+    .footer-left img { width: 22px; height: 22px; opacity: 0.7; }
+    .footer-copy { font-size: 0.8rem; color: rgba(255,255,255,0.5); }
+    .footer-copy strong { color: rgba(255,255,255,0.7); }
+    .footer-author { font-size: 0.8rem; color: rgba(255,255,255,0.5); }
+    .footer-author a { color: rgba(255,255,255,0.85); text-decoration: none; font-weight: 600; }
+    .footer-author a:hover { text-decoration: underline; }
+
+    @keyframes fadeInDown {
+      from { opacity: 0; transform: translateY(-16px); }
       to   { opacity: 1; transform: translateY(0); }
     }
-    .au { animation: fadeUp 0.65s ease both; }
-    .au-1 { animation-delay: 0.05s; }
-    .au-2 { animation-delay: 0.15s; }
-    .au-3 { animation-delay: 0.25s; }
-    .au-4 { animation-delay: 0.35s; }
+    @keyframes fadeInUp {
+      from { opacity: 0; transform: translateY(20px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    @media (max-width: 900px) {
+      .stats-grid { grid-template-columns: repeat(2, 1fr); }
+      .features   { grid-template-columns: repeat(2, 1fr); }
+      .steps-grid { grid-template-columns: 1fr; }
+      .steps-grid::before { display: none; }
+    }
+    @media (max-width: 768px) {
+      .hero h2 { font-size: 2.6rem; letter-spacing: -1px; }
+      .hero p  { font-size: 1rem; }
+      .hero-buttons { flex-direction: column; align-items: center; }
+      .hero-buttons .btn { width: 100%; max-width: 280px; min-height: 48px; }
+      .nav-links { gap: 8px; }
+      .nav-links .btn { padding: 8px 14px; font-size: 0.85rem; min-height: 44px; }
+      .container { padding: 0 16px; }
+      .section-title { font-size: 1.5rem; }
+    }
+    @media (max-width: 600px) {
+      .features   { grid-template-columns: 1fr; }
+      .stats-grid { grid-template-columns: repeat(2, 1fr); }
+    }
+    @media (max-width: 480px) {
+      nav { flex-wrap: wrap; gap: 12px; padding: 16px 0; }
+      .logo h1 { font-size: 1.25rem; }
+      .logo img { width: 28px; height: 28px; }
+      .hero h2 { font-size: 2rem; }
+      .hero-logo img { width: 68px; height: 68px; }
+      .hero-section { padding: 40px 0 56px; }
+      .footer-inner { flex-direction: column; align-items: flex-start; gap: 8px; }
+      .orb { display: none; }
+    }
+    @media (max-width: 375px) {
+      .hero h2 { font-size: 1.75rem; }
+      .stat-number { font-size: 1.6rem; }
+    }
+    @media (max-height: 500px) and (orientation: landscape) {
+      .hero-section { padding: 28px 0 40px; }
+      .hero-logo img { width: 52px; height: 52px; }
+      .hero h2 { font-size: 2.2rem; }
+    }
+    @supports (padding: env(safe-area-inset-top)) {
+      body { padding-top: env(safe-area-inset-top); padding-bottom: env(safe-area-inset-bottom); }
+    }
+    @media (max-width: 768px) {
+      input, select, textarea { font-size: 16px !important; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+    }
 
     /* ── ROLE MODAL ── */
-    .modal-bg {
+    .role-modal-backdrop {
       position: fixed;
       inset: 0;
-      z-index: 200;
+      z-index: 1000;
       display: flex;
       align-items: center;
       justify-content: center;
       padding: 20px;
       opacity: 0;
       pointer-events: none;
-      transition: opacity 0.25s;
+      transition: opacity 0.25s ease;
     }
-    .modal-bg.open { opacity: 1; pointer-events: all; }
-    .modal-bg::before {
+    .role-modal-backdrop.open {
+      opacity: 1;
+      pointer-events: all;
+    }
+    .role-modal-backdrop::before {
       content: '';
       position: absolute;
       inset: 0;
-      background: rgba(0,24,48,0.82);
+      background: rgba(10, 20, 45, 0.75);
       backdrop-filter: blur(10px);
       -webkit-backdrop-filter: blur(10px);
     }
-    .modal-box {
+
+    .role-modal {
       position: relative;
-      background: var(--white);
-      border-radius: 20px;
+      background: linear-gradient(160deg, #0f2044 0%, #1a3a6e 100%);
+      border: 1px solid rgba(255,255,255,0.15);
+      border-radius: 24px;
       padding: 40px 36px 36px;
       width: 100%;
       max-width: 520px;
-      box-shadow: 0 32px 80px rgba(0,0,0,0.45);
-      transform: scale(0.91) translateY(14px);
-      transition: transform 0.3s cubic-bezier(0.34,1.56,0.64,1), opacity 0.25s;
+      box-shadow: 0 32px 80px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.06);
+      transform: scale(0.88) translateY(20px);
+      transition: transform 0.3s cubic-bezier(0.34,1.56,0.64,1), opacity 0.25s ease;
       opacity: 0;
     }
-    .modal-bg.open .modal-box { transform: scale(1) translateY(0); opacity: 1; }
-    .modal-close {
+    .role-modal-backdrop.open .role-modal {
+      transform: scale(1) translateY(0);
+      opacity: 1;
+    }
+
+    .role-modal-close {
       position: absolute;
       top: 16px; right: 16px;
       width: 32px; height: 32px;
-      background: var(--gray-100);
-      border: 1px solid var(--gray-200);
+      background: rgba(255,255,255,0.08);
+      border: 1px solid rgba(255,255,255,0.12);
       border-radius: 50%;
-      color: var(--text-500);
-      font-size: 0.9rem;
+      color: rgba(255,255,255,0.6);
+      font-size: 1rem;
       cursor: pointer;
       display: flex; align-items: center; justify-content: center;
       transition: all 0.2s;
+      line-height: 1;
     }
-    .modal-close:hover {
-      background: var(--gray-200);
-      color: var(--text-900);
+    .role-modal-close:hover {
+      background: rgba(255,255,255,0.15);
+      color: #fff;
       transform: rotate(90deg);
     }
-    .modal-head {
+
+    .role-modal-header {
       text-align: center;
-      margin-bottom: 30px;
+      margin-bottom: 32px;
     }
-    .modal-head .m-icon { font-size: 2rem; display: block; margin-bottom: 10px; }
-    .modal-head h3 {
-      font-family: 'Playfair Display', Georgia, serif;
-      font-size: 1.6rem;
-      font-weight: 900;
-      color: var(--text-900);
+    .role-modal-header .modal-icon {
+      font-size: 2.2rem;
+      margin-bottom: 12px;
+      display: block;
+    }
+    .role-modal-header h3 {
+      font-size: 1.5rem;
+      font-weight: 800;
+      color: #fff;
+      letter-spacing: -0.5px;
       margin-bottom: 6px;
     }
-    .modal-head p { font-size: 0.875rem; color: var(--text-500); }
+    .role-modal-header p {
+      font-size: 0.88rem;
+      color: rgba(255,255,255,0.55);
+    }
 
     .role-cards {
       display: grid;
       grid-template-columns: 1fr 1fr;
       gap: 14px;
     }
+
     .role-card {
-      border-radius: 14px;
+      position: relative;
+      border-radius: 18px;
       padding: 28px 20px 24px;
       text-align: center;
       cursor: pointer;
-      border: 2px solid var(--gray-200);
-      transition: all 0.22s;
+      border: 2px solid transparent;
+      transition: all 0.22s cubic-bezier(0.34,1.2,0.64,1);
+      overflow: hidden;
       text-decoration: none;
-      background: var(--gray-50);
-      display: block;
+    }
+
+    .role-card::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      opacity: 0;
+      transition: opacity 0.22s;
+    }
+
+    .role-card-student {
+      background: linear-gradient(145deg, rgba(37,99,235,0.25), rgba(29,78,216,0.15));
+      border-color: rgba(96,165,250,0.3);
+    }
+    .role-card-student::before {
+      background: linear-gradient(145deg, rgba(37,99,235,0.4), rgba(29,78,216,0.3));
     }
     .role-card-student:hover {
-      border-color: var(--blue);
-      background: var(--blue-light);
-      transform: translateY(-3px);
-      box-shadow: 0 10px 28px rgba(0,105,170,0.14);
+      border-color: rgba(96,165,250,0.7);
+      transform: translateY(-4px) scale(1.02);
+      box-shadow: 0 16px 40px rgba(37,99,235,0.35), 0 0 0 1px rgba(96,165,250,0.2);
+    }
+    .role-card-student:hover::before { opacity: 1; }
+
+    .role-card-teacher {
+      background: linear-gradient(145deg, rgba(99,102,241,0.25), rgba(79,70,229,0.15));
+      border-color: rgba(165,180,252,0.3);
+    }
+    .role-card-teacher::before {
+      background: linear-gradient(145deg, rgba(99,102,241,0.4), rgba(79,70,229,0.3));
     }
     .role-card-teacher:hover {
-      border-color: var(--red);
-      background: rgba(190,30,45,0.04);
-      transform: translateY(-3px);
-      box-shadow: 0 10px 28px rgba(190,30,45,0.1);
+      border-color: rgba(165,180,252,0.7);
+      transform: translateY(-4px) scale(1.02);
+      box-shadow: 0 16px 40px rgba(99,102,241,0.35), 0 0 0 1px rgba(165,180,252,0.2);
     }
-    .role-emoji { font-size: 2.8rem; display: block; margin-bottom: 12px; }
-    .role-title { font-size: 1.05rem; font-weight: 700; color: var(--text-900); margin-bottom: 6px; }
-    .role-desc { font-size: 0.78rem; color: var(--text-500); line-height: 1.5; }
-    .role-arrow {
+    .role-card-teacher:hover::before { opacity: 1; }
+
+    .role-card-emoji {
+      font-size: 3rem;
+      display: block;
+      margin-bottom: 14px;
+      position: relative;
+      line-height: 1;
+      filter: drop-shadow(0 4px 12px rgba(0,0,0,0.3));
+      transition: transform 0.22s cubic-bezier(0.34,1.56,0.64,1);
+    }
+    .role-card:hover .role-card-emoji {
+      transform: scale(1.15) translateY(-2px);
+    }
+
+    .role-card-title {
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: #fff;
+      margin-bottom: 6px;
+      position: relative;
+    }
+    .role-card-desc {
+      font-size: 0.78rem;
+      color: rgba(255,255,255,0.55);
+      line-height: 1.5;
+      position: relative;
+    }
+
+    .role-card-arrow {
       display: inline-flex;
       align-items: center;
       justify-content: center;
       margin-top: 14px;
-      width: 28px; height: 28px;
+      width: 32px; height: 32px;
       border-radius: 50%;
-      font-size: 0.8rem;
-      transition: transform 0.2s;
+      font-size: 0.85rem;
+      position: relative;
+      transition: all 0.22s;
     }
-    .role-card-student .role-arrow {
-      background: rgba(0,105,170,0.1);
-      color: var(--blue);
-      border: 1px solid rgba(0,105,170,0.2);
+    .role-card-student .role-card-arrow {
+      background: rgba(96,165,250,0.2);
+      color: #93c5fd;
+      border: 1px solid rgba(96,165,250,0.3);
     }
-    .role-card-teacher .role-arrow {
-      background: rgba(190,30,45,0.1);
-      color: var(--red);
-      border: 1px solid rgba(190,30,45,0.2);
+    .role-card-teacher .role-card-arrow {
+      background: rgba(165,180,252,0.2);
+      color: #c7d2fe;
+      border: 1px solid rgba(165,180,252,0.3);
     }
-    .role-card:hover .role-arrow { transform: translateX(3px); }
+    .role-card:hover .role-card-arrow { transform: translateX(3px); }
+    .role-card-student:hover .role-card-arrow { background: rgba(96,165,250,0.35); }
+    .role-card-teacher:hover .role-card-arrow { background: rgba(165,180,252,0.35); }
 
-    .modal-footer {
+    .role-modal-footer {
       text-align: center;
       margin-top: 20px;
-      font-size: 0.82rem;
-      color: var(--text-500);
+      font-size: 0.8rem;
+      color: rgba(255,255,255,0.4);
     }
-    .modal-footer a { color: var(--blue); text-decoration: none; font-weight: 600; }
-    .modal-footer a:hover { text-decoration: underline; }
+    .role-modal-footer a {
+      color: rgba(255,255,255,0.65);
+      text-decoration: none;
+      font-weight: 500;
+    }
+    .role-modal-footer a:hover { color: #fff; text-decoration: underline; }
 
-    /* ── RESPONSIVE ── */
-    @media (max-width: 1024px) {
-      .hero-inner { grid-template-columns: 1fr; gap: 0; }
-      .hero-right { display: none; }
-      .hero-title { font-size: 2.9rem; }
-      .uwc-top { grid-template-columns: 1fr; gap: 28px; }
-      .uwc-values { grid-template-columns: repeat(2, 1fr); }
-      .cta-card { grid-template-columns: 1fr; gap: 28px; }
-      .cta-btns { flex-direction: row; }
-    }
-    @media (max-width: 900px) {
-      .stats-grid { grid-template-columns: repeat(2, 1fr); }
-      .steps-grid { grid-template-columns: 1fr; }
-      .features-grid { grid-template-columns: repeat(2, 1fr); }
-    }
-    @media (max-width: 768px) {
-      .hero-title { font-size: 2.3rem; }
-      .s-title, .cta-title, .uwc-title { font-size: 2rem; }
-      .nav-link, .nav-sep { display: none; }
-      .hero-inner { padding: 60px 0 76px; }
-      .section { padding: 64px 24px; }
-      .uwc-section { padding: 64px 24px; }
-      .cta-section { padding: 64px 24px; }
-      .cta-card { padding: 40px 28px; }
-      .cta-btns { flex-direction: column; }
-    }
-    @media (max-width: 600px) {
-      .features-grid { grid-template-columns: 1fr; }
-      .hero-title { font-size: 1.95rem; }
-      .uwc-values { grid-template-columns: 1fr 1fr; }
-      .footer-nav { gap: 14px; }
-    }
-    @media (max-width: 480px) {
-      .hero-inner { padding: 48px 0 64px; }
-      .stats-grid { grid-template-columns: repeat(2, 1fr); }
-      .uwc-values { grid-template-columns: 1fr; }
-      .footer-top { flex-direction: column; gap: 16px; }
-    }
     @media (max-width: 400px) {
       .role-cards { grid-template-columns: 1fr; }
-      .modal-box { padding: 32px 20px 28px; }
-    }
-    @media (max-width: 768px) {
-      input, select, textarea { font-size: 16px !important; }
-    }
-    @media (prefers-reduced-motion: reduce) {
-      *, *::before, *::after {
-        animation-duration: 0.01ms !important;
-        transition-duration: 0.01ms !important;
-      }
-    }
-    @supports (padding: env(safe-area-inset-top)) {
-      body {
-        padding-top: env(safe-area-inset-top);
-        padding-bottom: env(safe-area-inset-bottom);
-      }
+      .role-modal { padding: 32px 20px 28px; }
     }
   </style>
 </head>
 <body>
+  <div class="bg-orbs">
+    <div class="orb orb-1"></div>
+    <div class="orb orb-2"></div>
+    <div class="orb orb-3"></div>
+    <div class="orb orb-4"></div>
+    <div class="orb orb-5"></div>
+  </div>
+  <div class="dot-grid"></div>
 
-  <!-- ── NAVBAR ── -->
-  <header class="navbar">
-    <div class="navbar-inner">
-      <a href="/" class="nav-logo">
-        <img src="/e_logo.png" alt="EduRate logo">
-        <span class="nav-logo-text">Edu<span>Rate</span></span>
-      </a>
-      <nav class="nav-links">
-        <a href="#how-it-works" class="nav-link">How It Works</a>
-        <a href="#features" class="nav-link">Features</a>
-        <a href="#about-uwc" class="nav-link">About UWC</a>
-        <div class="nav-sep"></div>
-        <a href="/login" class="btn-signin">Sign In</a>
-        <button onclick="openModal()" class="btn-getstarted">Get Started</button>
-      </nav>
-    </div>
-  </header>
-
-  <!-- ── HERO ── -->
-  <section class="hero">
-    <div class="hero-top-line"></div>
-    <div class="hero-blob hero-blob-1"></div>
-    <div class="hero-blob hero-blob-2"></div>
-    <div class="hero-inner">
-
-      <div class="hero-left">
-        <div class="hero-pill au">
-          <span class="hero-pill-dot"></span>
-          UWC Dilijan &mdash; Feedback Platform
-        </div>
-        <h1 class="hero-title au au-1">
-          Where <em>honest feedback</em><br>meets better teaching
-        </h1>
-        <p class="hero-desc au au-2">
-          EduRate empowers UWC Dilijan students to share anonymous, meaningful feedback &mdash; helping teachers grow and building a culture of open, constructive dialogue.
-        </p>
-        <div class="hero-ctas au au-3">
-          <button onclick="openModal()" class="btn-hero-blue">
-            Get Started <span aria-hidden="true">&#x2192;</span>
-          </button>
-          <a href="/login" class="btn-hero-ghost">Sign In</a>
-        </div>
+  <div class="container">
+    <nav>
+      <div class="logo">
+        <img src="/e_logo.png" alt="EduRate">
+        <h1>Edu<span>Rate</span></h1>
       </div>
-
-      <div class="hero-right">
-        <div class="dashboard-card au au-4">
-          <div class="dash-header">
-            <img src="/e_logo.png" alt="EduRate">
-            <div>
-              <div class="dash-header-label">EduRate Dashboard</div>
-              <div class="dash-header-sub">Teacher Analytics Overview</div>
-            </div>
-          </div>
-          <div class="dash-rows">
-            <div>
-              <div class="dash-row-label">Clarity &amp; Explanation <span>4.8 / 5</span></div>
-              <div class="bar-track"><div class="bar-fill" style="width:96%"></div></div>
-            </div>
-            <div>
-              <div class="dash-row-label">Student Engagement <span>4.5 / 5</span></div>
-              <div class="bar-track"><div class="bar-fill" style="width:90%"></div></div>
-            </div>
-            <div>
-              <div class="dash-row-label">Fairness <span>4.7 / 5</span></div>
-              <div class="bar-track"><div class="bar-fill" style="width:94%"></div></div>
-            </div>
-            <div>
-              <div class="dash-row-label">Supportiveness <span>4.6 / 5</span></div>
-              <div class="bar-track"><div class="bar-fill" style="width:92%"></div></div>
-            </div>
-          </div>
-          <div class="dash-footer">
-            <span class="anon-pill">Anonymous</span>
-            <span class="anon-note">Student identities are never disclosed</span>
-          </div>
-        </div>
+      <div class="nav-links">
+        <a href="/login" class="btn btn-outline">Sign In</a>
+        <button onclick="showRoleModal()" class="btn btn-primary">Get Started</button>
       </div>
-
-    </div>
-  </section>
-
-  <!-- ── UWC MISSION STRIPE ── -->
-  <div class="mission-stripe">
-    <div class="mission-stripe-inner">
-      <p class="mission-stripe-text">
-        <strong>United World Colleges</strong> &mdash; &ldquo;Education to unite people, nations and cultures for a sustainable and peaceful future.&rdquo;
-      </p>
-    </div>
+    </nav>
   </div>
 
-  <!-- ── STATS ── -->
-  <section class="stats-section">
-    <div class="stats-section-inner">
-      <div class="stats-grid reveal">
-        <div class="stat-block">
-          <span class="stat-icon">&#9733;</span>
-          <div class="stat-number">6</div>
-          <div class="stat-label">Rating Criteria</div>
-        </div>
-        <div class="stat-block">
-          <span class="stat-icon">&#128274;</span>
-          <div class="stat-number">100%</div>
-          <div class="stat-label">Anonymous</div>
-        </div>
-        <div class="stat-block">
-          <span class="stat-icon">&#127979;</span>
-          <div class="stat-number">UWC</div>
-          <div class="stat-label">Dedicated Platform</div>
-        </div>
-        <div class="stat-block">
-          <span class="stat-icon">&#128200;</span>
-          <div class="stat-number">Real-time</div>
-          <div class="stat-label">Analytics</div>
+  <main>
+    <section class="hero-section">
+      <div class="container">
+        <div class="hero">
+          <div class="badge">
+            <span class="badge-dot"></span>
+            Anonymous Teacher Feedback Platform
+          </div>
+          <div class="hero-logo">
+            <img src="/e_logo.png" alt="EduRate">
+          </div>
+          <h2>Edu<span class="accent">Rate</span></h2>
+          <p>A secure platform where students give honest feedback to help teachers grow — anonymously, fairly, and with purpose.</p>
+          <div class="hero-buttons">
+            <button onclick="showRoleModal()" class="btn btn-primary">Create Account</button>
+            <a href="/login" class="btn btn-outline">Sign In</a>
+          </div>
         </div>
       </div>
-    </div>
-  </section>
+    </section>
 
-  <!-- ── HOW IT WORKS ── -->
-  <section class="section how-section" id="how-it-works">
-    <div class="section-inner">
-      <div class="s-header reveal">
-        <div class="s-tag">How It Works</div>
-        <h2 class="s-title">Simple for everyone involved</h2>
-        <p class="s-sub">Three easy steps to transform teaching through the power of student voice.</p>
-      </div>
-      <div class="steps-grid reveal-stagger">
-        <div class="step-card">
-          <span class="step-num" aria-hidden="true">01</span>
-          <div class="step-icon-wrap">&#127979;</div>
-          <h3>Students Join Classrooms</h3>
-          <p>Use a unique join code to enroll in your teacher's classroom. No personal information is ever shared or exposed.</p>
-        </div>
-        <div class="step-card">
-          <span class="step-num" aria-hidden="true">02</span>
-          <div class="step-icon-wrap">&#128172;</div>
-          <h3>Submit Honest Feedback</h3>
-          <p>Rate across 6 criteria and leave written comments &mdash; fully anonymous to your teacher and classmates.</p>
-        </div>
-        <div class="step-card">
-          <span class="step-num" aria-hidden="true">03</span>
-          <div class="step-icon-wrap">&#128200;</div>
-          <h3>Teachers Improve</h3>
-          <p>Teachers see aggregated scores and trends to understand what is working and where to grow, term after term.</p>
+    <section class="stats-section">
+      <div class="container">
+        <div class="stats-grid reveal">
+          <div class="stat-item">
+            <div class="stat-icon">⭐</div>
+            <div class="stat-number">6</div>
+            <div class="stat-label">Rating Criteria</div>
+          </div>
+          <div class="stat-item">
+            <div class="stat-icon">🔒</div>
+            <div class="stat-number">100%</div>
+            <div class="stat-label">Anonymous</div>
+          </div>
+          <div class="stat-item">
+            <div class="stat-icon">🏫</div>
+            <div class="stat-number">Any</div>
+            <div class="stat-label">School or College</div>
+          </div>
+          <div class="stat-item">
+            <div class="stat-icon">📊</div>
+            <div class="stat-number">Real-time</div>
+            <div class="stat-label">Analytics</div>
+          </div>
         </div>
       </div>
-    </div>
-  </section>
+    </section>
 
-  <!-- ── FEATURES ── -->
-  <section class="section features-section" id="features">
-    <div class="section-inner">
-      <div class="s-header s-header-center reveal">
-        <div class="s-tag">Features</div>
-        <h2 class="s-title">Everything your school needs</h2>
-        <p class="s-sub">Purpose-built for the UWC community, with every tool that matters for meaningful feedback.</p>
-      </div>
-      <div class="features-grid reveal-stagger">
-        <div class="feat-card">
-          <span class="feat-icon">&#128274;</span>
-          <h3>Secure &amp; Anonymous</h3>
-          <p>Verified school email system ensures only real students submit &mdash; with full anonymity guaranteed.</p>
+    <section class="how-section">
+      <div class="container">
+        <div class="section-header reveal">
+          <div class="section-label">How it works</div>
+          <h2 class="section-title">Simple for everyone involved</h2>
         </div>
-        <div class="feat-card">
-          <span class="feat-icon">&#11088;</span>
-          <h3>6-Criteria Ratings</h3>
-          <p>Rate teachers on clarity, engagement, fairness, supportiveness, preparation, and workload management.</p>
-        </div>
-        <div class="feat-card">
-          <span class="feat-icon">&#128200;</span>
-          <h3>Analytics Dashboard</h3>
-          <p>Teachers see aggregated scores with detailed charts, trends, and period-over-period progress tracking.</p>
-        </div>
-        <div class="feat-card">
-          <span class="feat-icon">&#9989;</span>
-          <h3>Content Moderation</h3>
-          <p>Admin-reviewed workflows ensure all feedback remains constructive, fair, and appropriate.</p>
-        </div>
-        <div class="feat-card">
-          <span class="feat-icon">&#128197;</span>
-          <h3>Term Management</h3>
-          <p>Organize feedback by academic terms with controlled feedback periods and automated schedules.</p>
-        </div>
-        <div class="feat-card">
-          <span class="feat-icon">&#128101;</span>
-          <h3>Role-Based Access</h3>
-          <p>Purpose-built roles for students, teachers, heads, and admins &mdash; each with the right access level.</p>
-        </div>
-        <div class="feat-card">
-          <span class="feat-icon">&#127979;</span>
-          <h3>Department Support</h3>
-          <p>Organize teachers by department for structured feedback collection and targeted analytics.</p>
-        </div>
-        <div class="feat-card">
-          <span class="feat-icon">&#128203;</span>
-          <h3>Rich Feedback</h3>
-          <p>Star ratings, written comments, and customizable tags for detailed, actionable teaching insights.</p>
-        </div>
-        <div class="feat-card">
-          <span class="feat-icon">&#128269;</span>
-          <h3>Audit Logging</h3>
-          <p>Complete activity tracking across the platform for full transparency and institutional accountability.</p>
+        <div class="steps-grid reveal-stagger">
+          <div class="step">
+            <div class="step-number">1</div>
+            <h3>Students Join Classrooms</h3>
+            <p>Use a join code to enroll in your teacher's classroom. No personal info exposed.</p>
+          </div>
+          <div class="step">
+            <div class="step-number">2</div>
+            <h3>Submit Honest Feedback</h3>
+            <p>Rate across 6 criteria and leave written comments — fully anonymous to your teacher.</p>
+          </div>
+          <div class="step">
+            <div class="step-number">3</div>
+            <h3>Teachers Improve</h3>
+            <p>Teachers see aggregated scores and trends to understand what's working and what isn't.</p>
+          </div>
         </div>
       </div>
-    </div>
-  </section>
+    </section>
 
-  <!-- ── ABOUT UWC SECTION ── -->
-  <section class="uwc-section" id="about-uwc">
-    <div class="uwc-blob uwc-blob-1"></div>
-    <div class="uwc-blob uwc-blob-2"></div>
-    <div class="uwc-inner">
-      <div class="uwc-top reveal">
-        <div>
-          <div class="uwc-s-tag">EduRate &amp; UWC Dilijan</div>
-          <h2 class="uwc-title">Built on the spirit of <em>United World Colleges</em></h2>
+    <section class="features-section">
+      <div class="container">
+        <div class="section-header reveal">
+          <div class="section-label">Features</div>
+          <h2 class="section-title">Everything your school needs</h2>
         </div>
-        <p class="uwc-body">
-          United World Colleges believes that education is the most powerful force for fostering international understanding and peace. EduRate was built to embody this spirit &mdash; creating transparent, respectful dialogue between students and teachers that empowers every educator to become their very best, in service of a diverse global community.
-        </p>
+        <div class="features reveal-stagger">
+          <div class="feature">
+            <div class="feature-icon">🔒</div>
+            <h3>Secure &amp; Anonymous</h3>
+            <p>Verified school email system ensures only real students submit — with full anonymity.</p>
+          </div>
+          <div class="feature">
+            <div class="feature-icon">⭐</div>
+            <h3>6-Criteria Ratings</h3>
+            <p>Rate teachers on clarity, engagement, fairness, supportiveness, preparation, and workload.</p>
+          </div>
+          <div class="feature">
+            <div class="feature-icon">📊</div>
+            <h3>Analytics Dashboard</h3>
+            <p>Teachers see aggregated scores with detailed charts, trends, and period-over-period progress.</p>
+          </div>
+          <div class="feature">
+            <div class="feature-icon">✅</div>
+            <h3>Content Moderation</h3>
+            <p>Admin-reviewed content moderation with approval workflows keeps feedback constructive.</p>
+          </div>
+          <div class="feature">
+            <div class="feature-icon">📅</div>
+            <h3>Term Management</h3>
+            <p>Organize feedback by academic terms with controlled feedback periods and schedules.</p>
+          </div>
+          <div class="feature">
+            <div class="feature-icon">👥</div>
+            <h3>Role-Based Access</h3>
+            <p>Purpose-built roles for students, teachers, heads, and admins — each with the right level of access.</p>
+          </div>
+          <div class="feature">
+            <div class="feature-icon">🏫</div>
+            <h3>Department Support</h3>
+            <p>Organize teachers by department for structured feedback and targeted analytics.</p>
+          </div>
+          <div class="feature">
+            <div class="feature-icon">📝</div>
+            <h3>Rich Feedback</h3>
+            <p>Star ratings, written comments, and customizable tags for detailed, actionable insights.</p>
+          </div>
+          <div class="feature">
+            <div class="feature-icon">🔍</div>
+            <h3>Audit Logging</h3>
+            <p>Complete activity tracking across the platform for transparency and accountability.</p>
+          </div>
+        </div>
       </div>
-      <div class="uwc-values reveal-stagger">
-        <div class="uwc-val">
-          <span class="uwc-val-icon">&#127758;</span>
-          <h4>International Community</h4>
-          <p>220+ students from 70 countries, united by a shared educational experience and mutual respect.</p>
-        </div>
-        <div class="uwc-val">
-          <span class="uwc-val-icon">&#128161;</span>
-          <h4>Constructive Dialogue</h4>
-          <p>Anonymous feedback creates safe space for honest, respectful conversation about teaching practice.</p>
-        </div>
-        <div class="uwc-val">
-          <span class="uwc-val-icon">&#129309;</span>
-          <h4>Mutual Respect</h4>
-          <p>Every piece of feedback is moderated to ensure it remains constructive, fair, and professional.</p>
-        </div>
-        <div class="uwc-val">
-          <span class="uwc-val-icon">&#128200;</span>
-          <h4>Continuous Growth</h4>
-          <p>Data-driven insights help teachers improve term after term, directly benefiting every student.</p>
-        </div>
-      </div>
-    </div>
-  </section>
+    </section>
 
-  <!-- ── CTA ── -->
-  <section class="cta-section">
-    <div class="cta-inner">
-      <div class="cta-card reveal">
-        <div class="cta-text">
-          <div class="cta-label">UWC Dilijan</div>
-          <h2 class="cta-title">Ready to make teaching better?</h2>
-          <p class="cta-desc">Join EduRate &mdash; the feedback platform built for the UWC community. Help your teachers grow through honest, anonymous student insights.</p>
-        </div>
-        <div class="cta-btns">
-          <button onclick="openModal()" class="btn-cta-white">Create Account</button>
-          <a href="/login" class="btn-cta-ghost">Sign In</a>
+    <section class="cta-section">
+      <div class="container">
+        <div class="cta-card reveal">
+          <h2>Ready to get started?</h2>
+          <p>Join EduRate and help teachers grow through honest, anonymous student feedback.</p>
+          <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap;">
+            <button onclick="showRoleModal()" class="btn btn-blue" style="padding:14px 36px;font-size:1rem;">Create Account</button>
+            <a href="/login" class="btn btn-outline" style="padding:14px 36px;font-size:1rem;">Sign In</a>
+          </div>
         </div>
       </div>
-    </div>
-  </section>
+    </section>
+  </main>
 
-  <!-- ── FOOTER ── -->
   <footer>
     <div class="footer-inner">
-      <div class="footer-top">
-        <div>
-          <div class="footer-logo">
-            <img src="/e_logo.png" alt="EduRate">
-            <span class="footer-logo-name">Edu<span>Rate</span></span>
-          </div>
-          <div class="footer-tagline">Secure teacher feedback for UWC Dilijan</div>
-        </div>
-        <nav class="footer-nav" aria-label="Footer navigation">
-          <a href="#how-it-works" class="footer-nav-link">How It Works</a>
-          <a href="#features" class="footer-nav-link">Features</a>
-          <a href="#about-uwc" class="footer-nav-link">About UWC</a>
-          <a href="/login" class="footer-nav-link">Sign In</a>
-        </nav>
+      <div class="footer-left">
+        <img src="/e_logo.png" alt="EduRate">
+        <span class="footer-copy">&copy; 2026 <strong>EduRate</strong>. Secure teacher feedback for schools.</span>
       </div>
-      <div class="footer-bottom">
-        <span class="footer-copy">&copy; 2026 <strong>EduRate</strong> &mdash; United World College Dilijan.</span>
-        <span class="footer-author">Built by <a href="#">Doniyor Kamoldinov</a></span>
+      <div class="footer-author">
+        Built by <a href="#">Doniyor Kamoldinov</a>
       </div>
     </div>
   </footer>
 
-  <!-- ── ROLE MODAL ── -->
-  <div class="modal-bg" id="roleModal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
-    <div class="modal-box">
-      <button class="modal-close" onclick="closeModal()" aria-label="Close">&#x2715;</button>
-      <div class="modal-head">
-        <span class="m-icon">&#128075;</span>
-        <h3 id="modalTitle">Who are you?</h3>
+  <div class="role-modal-backdrop" id="roleModalBackdrop" role="dialog" aria-modal="true" aria-labelledby="roleModalTitle">
+    <div class="role-modal">
+      <button class="role-modal-close" onclick="hideRoleModal()" aria-label="Close">&#x2715;</button>
+      <div class="role-modal-header">
+        <span class="modal-icon">👋</span>
+        <h3 id="roleModalTitle">Who are you?</h3>
         <p>Choose your role to get started with EduRate</p>
       </div>
       <div class="role-cards">
         <a href="/register" class="role-card role-card-student">
-          <span class="role-emoji">&#127891;</span>
-          <div class="role-title">Student</div>
-          <div class="role-desc">Join classes and give honest feedback to your teachers</div>
-          <div class="role-arrow">&#x2192;</div>
+          <span class="role-card-emoji">🎓</span>
+          <div class="role-card-title">Student</div>
+          <div class="role-card-desc">Join classes and give honest feedback to your teachers</div>
+          <div class="role-card-arrow">&#x2192;</div>
         </a>
         <a href="/join" class="role-card role-card-teacher">
-          <span class="role-emoji">&#128104;&#8205;&#127979;</span>
-          <div class="role-title">Teacher</div>
-          <div class="role-desc">Create your classroom and see what students think</div>
-          <div class="role-arrow">&#x2192;</div>
+          <span class="role-card-emoji">👨‍🏫</span>
+          <div class="role-card-title">Teacher</div>
+          <div class="role-card-desc">Create your classroom and see what students think</div>
+          <div class="role-card-arrow">&#x2192;</div>
         </a>
       </div>
-      <div class="modal-footer">
+      <div class="role-modal-footer">
         Already have an account? <a href="/login">Sign in</a>
       </div>
     </div>
@@ -1392,23 +1001,23 @@
           observer.unobserve(entry.target);
         }
       });
-    }, { threshold: 0.1, rootMargin: '0px 0px -36px 0px' });
+    }, { threshold: 0.12, rootMargin: '0px 0px -40px 0px' });
 
     document.querySelectorAll('.reveal, .reveal-stagger').forEach(el => observer.observe(el));
 
-    function openModal() {
-      document.getElementById('roleModal').classList.add('open');
+    function showRoleModal() {
+      document.getElementById('roleModalBackdrop').classList.add('open');
       document.body.style.overflow = 'hidden';
     }
-    function closeModal() {
-      document.getElementById('roleModal').classList.remove('open');
+    function hideRoleModal() {
+      document.getElementById('roleModalBackdrop').classList.remove('open');
       document.body.style.overflow = '';
     }
-    document.getElementById('roleModal').addEventListener('click', function(e) {
-      if (e.target === this) closeModal();
+    document.getElementById('roleModalBackdrop').addEventListener('click', function(e) {
+      if (e.target === this) hideRoleModal();
     });
     document.addEventListener('keydown', function(e) {
-      if (e.key === 'Escape') closeModal();
+      if (e.key === 'Escape') hideRoleModal();
     });
   </script>
 </body>
