@@ -1465,7 +1465,7 @@ async function renderStudentForms() {
         <button class="btn btn-sm btn-outline" onclick="navigateTo('student-comms')">${t('common.back')}</button>
       </div>
       <h2 style="margin-bottom:16px">${t('forms.title_count', {count: forms.length})}</h2>
-      ${forms.length === 0 ? '<div class="card"><div class="card-body"><div class="empty-state"><h3>No forms available</h3><p>There are no forms to fill out right now.</p></div></div></div>' : `
+      ${forms.length === 0 ? '<div class="card"><div class="card-body"><div class="empty-state"><h3>' + t('forms.no_forms') + '</h3><p>' + t('forms.no_forms_msg') + '</p></div></div></div>' : `
         <div style="display:flex;flex-direction:column;gap:12px">
           ${forms.map(f => `
             <div class="card" style="border-left:4px solid ${f.already_submitted ? 'var(--gray-300)' : 'var(--primary)'}">
@@ -3063,7 +3063,7 @@ async function renderAdminForms() {
 }
 
 function renderAdminFormCards(forms) {
-  if (!forms.length) return `<div class="empty-state"><h3>${t('admin_forms.no_forms')}</h3><p>${t('admin_forms.no_forms_msg')}</p></div>`;
+  if (!forms.length) return `<div class="card"><div class="card-body"><div class="empty-state"><h3>${t('admin_forms.no_forms')}</h3><p>${t('admin_forms.no_forms_msg')}</p></div></div></div>`;
   const statusBadge = s => `<span class="badge badge-${s === 'active' ? 'success' : s === 'closed' ? 'gray' : 'warning'}">${s}</span>`;
   return `<div class="grid grid-2">
     ${forms.map(f => `
