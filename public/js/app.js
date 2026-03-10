@@ -1433,13 +1433,13 @@ function renderCommsLanding(role) {
   const formsView = role + '-forms';
   const annView = role + '-announcements';
   el.innerHTML = `
-    <div style="display:flex;gap:24px;flex-wrap:wrap;align-items:flex-start;margin-top:8px">
-      <div onclick="navigateTo('${formsView}')" style="width:260px;padding:32px 28px;border:2px solid var(--gray-200);border-radius:16px;cursor:pointer;transition:all 0.2s ease;box-shadow:0 2px 8px rgba(0,0,0,0.04)" onmouseover="this.style.transform='translateY(-4px)';this.style.borderColor='#3b82f6';this.style.boxShadow='0 8px 24px rgba(59,130,246,0.15)'" onmouseout="this.style.transform='';this.style.borderColor='var(--gray-200)';this.style.boxShadow='0 2px 8px rgba(0,0,0,0.04)'">
+    <div style="display:flex;gap:24px;flex-wrap:wrap;align-items:stretch;margin-top:8px">
+      <div onclick="navigateTo('${formsView}')" style="width:260px;min-height:160px;padding:32px 28px;border:2px solid var(--gray-200);border-radius:16px;cursor:pointer;transition:all 0.2s ease;box-shadow:0 2px 8px rgba(0,0,0,0.04)" onmouseover="this.style.transform='translateY(-4px)';this.style.borderColor='#3b82f6';this.style.boxShadow='0 8px 24px rgba(59,130,246,0.15)'" onmouseout="this.style.transform='';this.style.borderColor='var(--gray-200)';this.style.boxShadow='0 2px 8px rgba(0,0,0,0.04)'">
         <div style="font-size:2.2rem;margin-bottom:12px">📋</div>
         <h3 style="margin:0 0 6px;font-size:1.15rem">Forms</h3>
         <p style="margin:0;font-size:0.85rem;color:var(--gray-500)">${role === 'student' ? 'View and fill out available forms' : 'Create and manage forms'}</p>
       </div>
-      <div onclick="navigateTo('${annView}')" style="width:260px;padding:32px 28px;border:2px solid var(--gray-200);border-radius:16px;cursor:pointer;transition:all 0.2s ease;box-shadow:0 2px 8px rgba(0,0,0,0.04)" onmouseover="this.style.transform='translateY(-4px)';this.style.borderColor='#f59e0b';this.style.boxShadow='0 8px 24px rgba(245,158,11,0.15)'" onmouseout="this.style.transform='';this.style.borderColor='var(--gray-200)';this.style.boxShadow='0 2px 8px rgba(0,0,0,0.04)'">
+      <div onclick="navigateTo('${annView}')" style="width:260px;min-height:160px;padding:32px 28px;border:2px solid var(--gray-200);border-radius:16px;cursor:pointer;transition:all 0.2s ease;box-shadow:0 2px 8px rgba(0,0,0,0.04)" onmouseover="this.style.transform='translateY(-4px)';this.style.borderColor='#f59e0b';this.style.boxShadow='0 8px 24px rgba(245,158,11,0.15)'" onmouseout="this.style.transform='';this.style.borderColor='var(--gray-200)';this.style.boxShadow='0 2px 8px rgba(0,0,0,0.04)'">
         <div style="font-size:2.2rem;margin-bottom:12px">📢</div>
         <h3 style="margin:0 0 6px;font-size:1.15rem">Announcements</h3>
         <p style="margin:0;font-size:0.85rem;color:var(--gray-500)">${role === 'student' ? 'Read announcements from your school' : 'Create and manage announcements'}</p>
@@ -1462,7 +1462,7 @@ async function renderStudentForms() {
 
     const formsHTML = `
       <div style="margin-bottom:24px">
-        <button class="btn btn-sm btn-outline" onclick="navigateTo('student-comms')">&larr; ${t('common.back')}</button>
+        <button class="btn btn-sm btn-outline" onclick="navigateTo('student-comms')">${t('common.back')}</button>
       </div>
       <h2 style="margin-bottom:16px">${t('forms.title_count', {count: forms.length})}</h2>
       ${forms.length === 0 ? '<div class="card"><div class="card-body"><div class="empty-state"><h3>No forms available</h3><p>There are no forms to fill out right now.</p></div></div></div>' : `
@@ -2284,7 +2284,7 @@ async function renderStudentAnnouncements() {
     const announcements = await cachedGet('/announcements', CACHE_TTL.medium).catch(() => []);
     el.innerHTML = `
       <div style="margin-bottom:24px">
-        <button class="btn btn-sm btn-outline" onclick="navigateTo('student-comms')">&larr; ${t('common.back')}</button>
+        <button class="btn btn-sm btn-outline" onclick="navigateTo('student-comms')">${t('common.back')}</button>
       </div>
       <h2 style="margin-bottom:16px">${t('nav.announcements')}</h2>
       ${announcements.length === 0
@@ -2314,7 +2314,7 @@ async function renderTeacherForms() {
 
     el.innerHTML = `
       <div style="margin-bottom:24px">
-        <button class="btn btn-sm btn-outline" onclick="navigateTo('teacher-comms')">&larr; ${t('common.back')}</button>
+        <button class="btn btn-sm btn-outline" onclick="navigateTo('teacher-comms')">${t('common.back')}</button>
       </div>
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px">
         <h2 style="margin:0">${t('forms.my_forms')}</h2>
@@ -2980,7 +2980,7 @@ async function renderTeacherAnnouncements() {
     const announcements = await cachedGet('/announcements', CACHE_TTL.medium).catch(() => []);
     el.innerHTML = `
       <div style="margin-bottom:24px">
-        <button class="btn btn-sm btn-outline" onclick="navigateTo('teacher-comms')">&larr; ${t('common.back')}</button>
+        <button class="btn btn-sm btn-outline" onclick="navigateTo('teacher-comms')">${t('common.back')}</button>
       </div>
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
         <h2 style="margin:0">${t('nav.announcements')}</h2>
@@ -3000,7 +3000,7 @@ async function renderHeadForms() {
   const el = document.getElementById('contentArea');
   el.innerHTML = `
     <div style="margin-bottom:24px">
-      <button class="btn btn-sm btn-outline" onclick="navigateTo('head-comms')">&larr; ${t('common.back')}</button>
+      <button class="btn btn-sm btn-outline" onclick="navigateTo('head-comms')">${t('common.back')}</button>
     </div>
     <div class="card"><div class="card-body"><div class="empty-state">
       <h3>${t('nav.forms')}</h3>
@@ -3017,7 +3017,7 @@ async function renderHeadAnnouncements() {
     const announcements = await cachedGet('/announcements', CACHE_TTL.medium);
     el.innerHTML = `
       <div style="margin-bottom:24px">
-        <button class="btn btn-sm btn-outline" onclick="navigateTo('head-comms')">&larr; ${t('common.back')}</button>
+        <button class="btn btn-sm btn-outline" onclick="navigateTo('head-comms')">${t('common.back')}</button>
       </div>
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
         <h2 style="margin:0">${t('nav.announcements')}</h2>
@@ -3044,7 +3044,7 @@ async function renderAdminForms() {
 
     el.innerHTML = `
       <div style="margin-bottom:24px">
-        <button class="btn btn-sm btn-outline" onclick="navigateTo('admin-comms')">&larr; ${t('common.back')}</button>
+        <button class="btn btn-sm btn-outline" onclick="navigateTo('admin-comms')">${t('common.back')}</button>
       </div>
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;flex-wrap:wrap;gap:12px">
         <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
@@ -3250,7 +3250,7 @@ async function renderAdminAnnouncements() {
     const announcements = await cachedGet('/announcements', CACHE_TTL.medium).catch(() => []);
     el.innerHTML = `
       <div style="margin-bottom:24px">
-        <button class="btn btn-sm btn-outline" onclick="navigateTo('admin-comms')">&larr; ${t('common.back')}</button>
+        <button class="btn btn-sm btn-outline" onclick="navigateTo('admin-comms')">${t('common.back')}</button>
       </div>
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
         <h2 style="margin:0">${t('nav.announcements')}</h2>
