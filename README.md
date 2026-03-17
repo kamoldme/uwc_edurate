@@ -97,20 +97,12 @@ http://localhost:3000
 
 ## 🧪 Test Accounts
 
-The database is pre-seeded with test accounts:
-
 | Role | Email | Password |
 |------|-------|----------|
-| Admin | admin@edurate.school.edu | Admin@123 |
-| School Head | head@edurate.school.edu | Head@123 |
-| Teacher | j.smith@edurate.school.edu | Teacher@123 |
-| Teacher | e.chen@edurate.school.edu | Teacher@123 |
-| Student | alice@edurate.school.edu | Student@123 |
-| Student | bob@edurate.school.edu | Student@123 |
-| Student | carol@edurate.school.edu | Student@123 |
-| Student | david@edurate.school.edu | Student@123 |
-| Student | emma@edurate.school.edu | Student@123 |
-| Student | frank@edurate.school.edu | Student@123 |
+| Admin | admin@uwc.edu | Admin1234 |
+| Head | head@uwc.edu | Head1234 |
+| Teacher | teacher@uwc.edu | Teacher1234 |
+| Student | student@uwc.edu | Student1234 |
 
 ## 📖 Usage Guide
 
