@@ -1,8 +1,8 @@
-# EduRate Admin Features Guide
+# Oasis Admin Features Guide
 
 ## 🎯 New Features Summary
 
-This document describes all the new administrative features added to make EduRate production-ready for real school deployment.
+This document describes all the new administrative features added to make Oasis production-ready for real school deployment.
 
 ---
 
@@ -472,5 +472,5 @@ For questions about these features, check:
 ---
 
 **Last Updated**: February 2026
-**EduRate Version**: 1.1.0
+**Oasis Version**: 1.1.0
 **Features Added**: User/Teacher Editing, Classroom Management, Bulk Approve, Teacher Review Visibility

@@ -10,7 +10,7 @@ async function sendVerificationCode(email, code) {
   const html = `
     <div style="font-family:'Inter',Arial,sans-serif;max-width:480px;margin:0 auto;background:#fff;border-radius:12px;overflow:hidden;border:1px solid #e2e8f0">
       <div style="background:linear-gradient(135deg,#1e3a5f,#2563eb);padding:32px;text-align:center">
-        <h1 style="color:#fff;margin:0;font-size:1.8rem;letter-spacing:-1px">Edu<span style="color:#60a5fa">Rate</span></h1>
+        <h1 style="color:#fff;margin:0;font-size:1.8rem;letter-spacing:-1px">Oasis</h1>
         <p style="color:#93c5fd;margin:8px 0 0;font-size:0.9rem">Email Verification</p>
       </div>
       <div style="padding:32px">
@@ -22,15 +22,15 @@ async function sendVerificationCode(email, code) {
         <p style="color:#94a3b8;font-size:0.8rem;margin:0">If you didn't request this, you can safely ignore this email.</p>
       </div>
       <div style="background:#f8fafc;padding:16px;text-align:center;border-top:1px solid #e2e8f0">
-        <p style="color:#94a3b8;font-size:0.75rem;margin:0">&copy; 2026 EduRate. Secure Teacher Feedback Platform.</p>
+        <p style="color:#94a3b8;font-size:0.75rem;margin:0">&copy; 2026 Oasis. UWC Dilijan Feedback Platform.</p>
       </div>
     </div>
   `;
 
   const { error } = await getResend().emails.send({
-    from: 'EduRate <noreply@edurate.top>',
+    from: 'Oasis <noreply@oasis.uwcdilijan.am>',
     to: email,
-    subject: `${code} - Your EduRate Verification Code`,
+    subject: `${code} - Your Oasis Verification Code`,
     html
   });
 

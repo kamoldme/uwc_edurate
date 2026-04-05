@@ -11,7 +11,7 @@ RUN npm ci --omit=dev
 COPY . .
 
 # SQLite DB lives on the persistent volume mounted at /data
-ENV DB_PATH=/data/edurate.db
+ENV DB_PATH=/data/oasis.db
 ENV NODE_ENV=production
 
 EXPOSE 3000

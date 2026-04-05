@@ -1,13 +1,13 @@
 # GitHub Setup Instructions
 
-Your EduRate project is now ready to push to GitHub! Follow these steps:
+Your Oasis project is now ready to push to GitHub! Follow these steps:
 
 ## Option 1: Using GitHub Website (Recommended)
 
 1. **Go to GitHub**: Visit https://github.com/new
 
 2. **Create Repository**:
-   - Repository name: `edurate` (or your preferred name)
+   - Repository name: `oasis` (or your preferred name)
    - Description: "School feedback platform for anonymous teacher reviews"
    - Choose: **Public** or **Private** (your preference)
    - **DO NOT** initialize with README, .gitignore, or license (we already have these)
@@ -18,23 +18,23 @@ Your EduRate project is now ready to push to GitHub! Follow these steps:
    Copy and run these commands in your terminal:
 
    ```bash
-   cd "/Users/kamold/Documents/claude code test/edurate"
-   git remote add origin https://github.com/YOUR_USERNAME/edurate.git
+   cd "/Users/kamold/Documents/claude code test/oasis"
+   git remote add origin https://github.com/YOUR_USERNAME/oasis.git
    git branch -M main
    git push -u origin main
    ```
 
    Replace `YOUR_USERNAME` with your actual GitHub username.
 
-4. **Done!** Your code is now on GitHub at: `https://github.com/YOUR_USERNAME/edurate`
+4. **Done!** Your code is now on GitHub at: `https://github.com/YOUR_USERNAME/oasis`
 
 ---
 
 ## Option 2: Using GitHub CLI (if you have it installed)
 
 ```bash
-cd "/Users/kamold/Documents/claude code test/edurate"
-gh repo create edurate --public --source=. --remote=origin --push
+cd "/Users/kamold/Documents/claude code test/oasis"
+gh repo create oasis --public --source=. --remote=origin --push
 ```
 
 ---
@@ -58,7 +58,7 @@ gh repo create edurate --public --source=. --remote=origin --push
 ### Update README
 Edit README.md and replace:
 ```
-git clone https://github.com/YOUR_USERNAME/edurate.git
+git clone https://github.com/YOUR_USERNAME/oasis.git
 ```
 With your actual username.
 
@@ -77,7 +77,7 @@ For project documentation, you can enable GitHub Pages in repository settings.
 ### "Permission denied" error
 ```bash
 # Use HTTPS instead of SSH if you haven't set up SSH keys
-git remote set-url origin https://github.com/YOUR_USERNAME/edurate.git
+git remote set-url origin https://github.com/YOUR_USERNAME/oasis.git
 ```
 
 ### "Repository not found"
@@ -108,7 +108,7 @@ git remote set-url origin https://github.com/YOUR_USERNAME/edurate.git
 
 Once created, your repository will be at:
 ```
-https://github.com/YOUR_USERNAME/edurate
+https://github.com/YOUR_USERNAME/oasis
 ```
 
 Share this URL with your team or on your resume!

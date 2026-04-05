@@ -1,11 +1,11 @@
-// EduRate Internationalization System
+// Oasis Internationalization System
 const I18n = {
   locale: 'en',
   translations: {},
   loaded: {},
 
   async init() {
-    this.locale = localStorage.getItem('edurate_lang') || 'en';
+    this.locale = localStorage.getItem('oasis_lang') || 'en';
     await this.loadLocale(this.locale);
   },
 
@@ -38,9 +38,9 @@ const I18n = {
     if (!['en', 'ru'].includes(lang)) return;
     await this.loadLocale(lang);
     this.locale = lang;
-    localStorage.setItem('edurate_lang', lang);
+    localStorage.setItem('oasis_lang', lang);
     // Sync to server if logged in
-    const token = localStorage.getItem('edurate_token');
+    const token = localStorage.getItem('oasis_token');
     if (token) {
       try {
         await fetch('/api/auth/language', {

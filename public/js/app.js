@@ -1,6 +1,6 @@
 // ============ API HELPER ============
 const API = {
-  token: localStorage.getItem('edurate_token'),
+  token: localStorage.getItem('oasis_token'),
   async request(path, options = {}) {
     const res = await fetch('/api' + path, {
       ...options,
@@ -725,8 +725,8 @@ function fmtScore(val) {
 
 function logout() {
   stopInactivityTimer();
-  localStorage.removeItem('edurate_token');
-  localStorage.removeItem('edurate_user');
+  localStorage.removeItem('oasis_token');
+  localStorage.removeItem('oasis_user');
   fetch('/api/auth/logout', { method: 'POST', credentials: 'include' });
   window.location.href = '/';
 }
@@ -5132,7 +5132,7 @@ function buildAndPrintPDF(tchr, s, reviews) {
 
 </tr></table>
 
-<div class="ftr">${t('pdf.footer', {date: now})} &nbsp;&bull;&nbsp; <strong style="color:#475569">EduRate</strong></div>
+<div class="ftr">${t('pdf.footer', {date: now})} &nbsp;&bull;&nbsp; <strong style="color:#475569">Oasis</strong></div>
 </body></html>`;
 
     const w = window.open('', '_blank');
@@ -6402,7 +6402,7 @@ async function renderHelp() {
         <div class="help-section-card">
           <h2 class="help-section-title">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><circle cx="12" cy="17" r="0.5" fill="currentColor"/></svg>
-            How to Use EduRate
+            How to Use Oasis
           </h2>
           ${renderHelpDocs(role)}
         </div>
@@ -6428,7 +6428,7 @@ async function renderHelp() {
           <div class="help-option-icon">
             <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><circle cx="12" cy="17" r="0.5" fill="currentColor"/></svg>
           </div>
-          <div class="help-option-title">How to Use EduRate</div>
+          <div class="help-option-title">How to Use Oasis</div>
           <div class="help-option-desc">Step-by-step guides for every feature available to your role</div>
           <div class="help-option-arrow">→</div>
         </div>
@@ -6532,7 +6532,7 @@ function showHelpDocsView() {
       <div class="help-section-card">
         <h2 class="help-section-title">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><circle cx="12" cy="17" r="0.5" fill="currentColor"/></svg>
-          How to Use EduRate
+          How to Use Oasis
         </h2>
         ${renderHelpDocs(role)}
       </div>
@@ -6577,10 +6577,10 @@ function renderHelpDocs(role) {
   };
 
   const intros = {
-    student: 'As a student on EduRate, your role is to provide honest, constructive feedback on your learning experience. Your reviews help teachers grow professionally and give your school the data it needs to improve education quality. Everything you do here — joining classrooms, writing reviews, responding to forms — contributes directly to that goal.',
-    teacher: 'As a teacher on EduRate, you have a dedicated space to understand how your students experience your classes. The platform collects anonymous feedback, turns it into clear scores and summaries, and gives you tools to communicate back through forms, announcements, and exportable reports. Your performance data is visible to your school\'s management.',
-    school_head: 'As a School Head on EduRate, you have analytical oversight of all teachers and departments in your organization. You can monitor performance trends, identify teachers who may need support, and track how each department evolves over time. Day-to-day settings and access control are managed by your Organization Admin.',
-    admin: 'As an Admin, you manage the full operation of your school\'s EduRate account. You control who has access, when feedback periods open, and how reviews are moderated. You are the primary support contact for your teachers and students, and the person responsible for keeping the platform correctly configured for your organization.'
+    student: 'As a student on Oasis, your role is to provide honest, constructive feedback on your learning experience. Your reviews help teachers grow professionally and give your school the data it needs to improve education quality. Everything you do here — joining classrooms, writing reviews, responding to forms — contributes directly to that goal.',
+    teacher: 'As a teacher on Oasis, you have a dedicated space to understand how your students experience your classes. The platform collects anonymous feedback, turns it into clear scores and summaries, and gives you tools to communicate back through forms, announcements, and exportable reports. Your performance data is visible to your school\'s management.',
+    school_head: 'As a School Head on Oasis, you have analytical oversight of all teachers and departments in your organization. You can monitor performance trends, identify teachers who may need support, and track how each department evolves over time. Day-to-day settings and access control are managed by your Organization Admin.',
+    admin: 'As an Admin, you manage the full operation of your school\'s Oasis account. You control who has access, when feedback periods open, and how reviews are moderated. You are the primary support contact for your teachers and students, and the person responsible for keeping the platform correctly configured for your organization.'
   };
 
   const roleSections = sections[role] || sections.head;

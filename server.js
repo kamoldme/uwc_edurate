@@ -166,7 +166,7 @@ app.use((err, req, res, next) => {
 });
 
 app.listen(PORT, '0.0.0.0', () => {
-  console.log(`\n  EduRate Server running on port ${PORT}\n`);
+  console.log(`\n  Oasis Server running on port ${PORT}\n`);
 });
 
 // Prevent process crash from unhandled errors

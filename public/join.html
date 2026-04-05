@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Join as Teacher - EduRate</title>
-  <link rel="icon" type="image/png" href="/e_logo.png">
+  <title>Join as Teacher - Oasis</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%23059669'/><text x='16' y='22' font-size='18' font-weight='bold' fill='white' text-anchor='middle' font-family='sans-serif'>O</text></svg>">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet">
   <style>
     :root {
@@ -110,8 +110,8 @@
   <div class="container">
     <div class="logo">
       <div style="display:flex;align-items:center;justify-content:center;gap:12px;margin-bottom:8px">
-        <img src="/e_logo.png" alt="EduRate Logo" style="width:48px;height:48px">
-        <h1 style="margin:0">Edu<span>Rate</span></h1>
+        <span style="display:inline-flex;align-items:center;justify-content:center;width:48px;height:48px;background:#059669;border-radius:12px;font-size:24px;font-weight:700;color:#fff;font-family:sans-serif">O</span>
+        <h1 style="margin:0">Oasis</h1>
       </div>
       <p>Teacher Registration</p>
     </div>
@@ -266,9 +266,9 @@
       }
     });
 
-    if (localStorage.getItem('edurate_token')) {
+    if (localStorage.getItem('oasis_token')) {
       fetch('/api/auth/me', {
-        headers: { 'Authorization': 'Bearer ' + localStorage.getItem('edurate_token') },
+        headers: { 'Authorization': 'Bearer ' + localStorage.getItem('oasis_token') },
         credentials: 'include'
       }).then(r => { if (r.ok) window.location.href = '/app'; });
     }

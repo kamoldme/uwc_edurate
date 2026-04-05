@@ -1,4 +1,4 @@
-# Changelog - EduRate v1.1.0
+# Changelog - Oasis v1.1.0
 
 ## What's New (February 2026)
 
@@ -120,7 +120,7 @@
 ```
 commit 98be502 - Add GitHub setup instructions
 commit 7463eef - Add README and improve .gitignore
-commit 6952b8b - Initial commit: EduRate School Feedback Platform
+commit 6952b8b - Initial commit: Oasis School Feedback Platform
 ```
 
 **Next Steps**: Follow [GITHUB_SETUP.md](GITHUB_SETUP.md) to push to GitHub
@@ -253,4 +253,4 @@ No database changes required.
 
 ---
 
-**Enjoy EduRate v1.1.0! 🎓✨**
+**Enjoy Oasis v1.1.0! 🎓✨**

@@ -1,5 +1,5 @@
 {
-  "name": "edurate",
+  "name": "oasis",
   "version": "1.0.0",
   "description": "Secure internal teacher feedback platform for schools",
   "main": "server.js",

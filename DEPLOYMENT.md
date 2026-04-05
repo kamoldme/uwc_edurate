@@ -1,6 +1,6 @@
-# EduRate Deployment Guide
+# Oasis Deployment Guide
 
-Your EduRate application is ready for production! Choose your deployment platform below.
+Your Oasis application is ready for production! Choose your deployment platform below.
 
 ## 🚀 Prerequisites
 
@@ -34,8 +34,8 @@ heroku login
 
 ### Step 4: Create Heroku App
 ```bash
-cd "/Users/kamold/Documents/claude code test/edurate"
-heroku create edurate-app  # Change 'edurate-app' to your preferred name
+cd "/Users/kamold/Documents/claude code test/oasis"
+heroku create oasis-app  # Change 'oasis-app' to your preferred name
 ```
 
 ### Step 5: Set Environment Variables
@@ -57,7 +57,7 @@ git push heroku main
 heroku open
 ```
 
-Your app will be live at: `https://edurate-app.herokuapp.com`
+Your app will be live at: `https://oasis-app.herokuapp.com`
 
 ### Step 8: Add Custom Domain (Optional)
 ```bash
@@ -76,7 +76,7 @@ npm i -g vercel
 
 ### Step 2: Deploy
 ```bash
-cd "/Users/kamold/Documents/claude code test/edurate"
+cd "/Users/kamold/Documents/claude code test/oasis"
 vercel
 ```
 
@@ -84,7 +84,7 @@ Follow the prompts:
 - Set up and deploy? **Y**
 - Which scope? Select your account
 - Link to existing project? **N**
-- Project name? **edurate**
+- Project name? **oasis**
 - Directory? **./  (just press Enter)**
 - Override settings? **N**
 
@@ -99,7 +99,7 @@ vercel env add JWT_SECRET
 vercel --prod
 ```
 
-Your app will be live at: `https://edurate.vercel.app`
+Your app will be live at: `https://oasis.vercel.app`
 
 ---
 
@@ -129,8 +129,8 @@ npm install -g pm2
 
 ### Step 5: Clone Your Repository
 ```bash
-git clone https://github.com/kamoldme/edurate.git
-cd edurate
+git clone https://github.com/kamoldme/oasis.git
+cd oasis
 npm install
 ```
 
@@ -148,7 +148,7 @@ JWT_SECRET=your-generated-secret-here
 
 ### Step 7: Start Application
 ```bash
-pm2 start server.js --name edurate
+pm2 start server.js --name oasis
 pm2 save
 pm2 startup
 ```
@@ -157,7 +157,7 @@ pm2 startup
 ```bash
 apt-get install -y nginx
 
-nano /etc/nginx/sites-available/edurate
+nano /etc/nginx/sites-available/oasis
 ```
 
 Add:
@@ -179,7 +179,7 @@ server {
 
 Enable site:
 ```bash
-ln -s /etc/nginx/sites-available/edurate /etc/nginx/sites-enabled/
+ln -s /etc/nginx/sites-available/oasis /etc/nginx/sites-enabled/
 nginx -t
 systemctl restart nginx
 ```
@@ -197,11 +197,11 @@ certbot --nginx -d yourdomain.com -d www.yourdomain.com
 1. Visit [railway.app](https://railway.app)
 2. Sign in with GitHub
 3. Click "New Project" → "Deploy from GitHub repo"
-4. Select your `edurate` repository
+4. Select your `oasis` repository
 5. Add environment variable: `JWT_SECRET`
 6. Click "Deploy"
 
-Your app will be live at: `https://edurate-production.up.railway.app`
+Your app will be live at: `https://oasis-production.up.railway.app`
 
 ---
 
@@ -211,7 +211,7 @@ Your app will be live at: `https://edurate-production.up.railway.app`
 2. Click "New +" → "Web Service"
 3. Connect your GitHub repository
 4. Configure:
-   - **Name**: edurate
+   - **Name**: oasis
    - **Environment**: Node
    - **Build Command**: `npm install`
    - **Start Command**: `npm start`
@@ -220,7 +220,7 @@ Your app will be live at: `https://edurate-production.up.railway.app`
    - `NODE_ENV`: production
 6. Click "Create Web Service"
 
-Your app will be live at: `https://edurate.onrender.com`
+Your app will be live at: `https://oasis.onrender.com`
 
 ---
 
@@ -245,7 +245,7 @@ Before going live:
 ### SQLite (Default - Good for Small Scale)
 - Already configured
 - Works out of the box
-- File-based database (`edurate.db`)
+- File-based database (`oasis.db`)
 - Good for < 10,000 users
 
 ### PostgreSQL (Recommended for Production)
@@ -292,7 +292,7 @@ Edit frontend to show your support email instead of placeholder.
 **IMPORTANT**: Delete or change passwords for test accounts:
 ```sql
 -- Login to your database and run:
-DELETE FROM users WHERE email LIKE '%@edurate.school.edu';
+DELETE FROM users WHERE email LIKE '%@oasis.uwcdilijan.am';
 ```
 
 ### 3. Create First Admin
@@ -338,4 +338,4 @@ Once deployed, share your app:
 
 ---
 
-**Your EduRate is production-ready! Choose a platform above and deploy in minutes.** 🚀
+**Your Oasis is production-ready! Choose a platform above and deploy in minutes.** 🚀

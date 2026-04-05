@@ -1,4 +1,4 @@
-# EduRate - School Feedback Platform
+# Oasis - School Feedback Platform
 
 A comprehensive web-based feedback system for schools where students can anonymously rate and review their teachers. Features include multi-dimensional ratings, admin moderation, analytics dashboards, and comprehensive audit logging.
 
@@ -76,8 +76,8 @@ A comprehensive web-based feedback system for schools where students can anonymo
 
 1. Clone the repository:
 ```bash
-git clone https://github.com/YOUR_USERNAME/edurate.git
-cd edurate
+git clone https://github.com/YOUR_USERNAME/oasis.git
+cd oasis
 ```
 
 2. Install dependencies:
@@ -196,7 +196,7 @@ Each log entry includes:
 1. **Change Default Passwords**: Update all test account passwords in production
 2. **Environment Variables**: Store sensitive config in `.env` file (not tracked in git)
 3. **HTTPS**: Deploy behind HTTPS proxy (nginx, Apache)
-4. **Database Backups**: Regular backups of `edurate.db` file
+4. **Database Backups**: Regular backups of `oasis.db` file
 5. **Audit Log Monitoring**: Regularly review audit logs for suspicious activity
 6. **Rate Limiting**: Configured to prevent abuse (100 requests/15min per IP)
 
