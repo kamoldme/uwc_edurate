@@ -282,27 +282,6 @@ function buildNavigation() {
     ];
   }
 
-  // Language switcher — single dropdown button
-  const locales = I18n.getAvailableLocales();
-  const currentLang = I18n.getLocale();
-  const currentLocale = locales.find(l => l.code === currentLang) || locales[0];
-  const langSwitcher = `<div style="padding:8px 12px 12px">
-    <div style="position:relative">
-      <button id="langDropdownBtn" onclick="toggleLangDropdown(event)" style="width:100%;display:flex;align-items:center;justify-content:space-between;gap:8px;padding:7px 12px;border-radius:8px;border:1px solid var(--gray-200);background:var(--gray-50);cursor:pointer;font-size:0.85rem;color:var(--gray-700)">
-        <span>${currentLocale.flag} ${currentLocale.label}</span>
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
-      </button>
-      <div id="langDropdownMenu" style="display:none;position:absolute;bottom:calc(100% + 4px);left:0;right:0;background:#fff;border:1px solid var(--gray-200);border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,0.12);overflow:hidden;z-index:1000">
-        ${locales.map(l => `
-          <button onclick="switchLanguage('${l.code}')" style="width:100%;display:flex;align-items:center;gap:10px;padding:9px 14px;border:none;background:${l.code === currentLang ? 'var(--primary-light)' : '#fff'};cursor:pointer;font-size:0.875rem;color:${l.code === currentLang ? 'var(--primary)' : 'var(--gray-700)'};font-weight:${l.code === currentLang ? '600' : '400'};text-align:left">
-            <span style="font-size:1.1rem">${l.flag}</span>
-            <span>${l.label}</span>
-            ${l.code === currentLang ? '<span style="margin-left:auto;font-size:0.75rem">✓</span>' : ''}
-          </button>`).join('')}
-      </div>
-    </div>
-  </div>`;
-
   nav.innerHTML = '<div class="nav-section"><div class="nav-section-title">' + t('nav.main_menu') + '</div>' +
     items.map(it => `
       <button class="nav-item" data-view="${it.id}" onclick="navigateTo('${it.id}')">
@@ -314,31 +293,7 @@ function buildNavigation() {
     `<button class="nav-item" data-view="account" onclick="navigateTo('account')">
       ${ICONS.settings}
       ${t('nav.account_details')}
-    </button></div>` + langSwitcher;
-}
-
-function toggleLangDropdown(e) {
-  e.stopPropagation();
-  const menu = document.getElementById('langDropdownMenu');
-  if (!menu) return;
-  const isOpen = menu.style.display !== 'none';
-  menu.style.display = isOpen ? 'none' : 'block';
-  if (!isOpen) {
-    // Close when clicking outside
-    setTimeout(() => document.addEventListener('click', closeLangDropdown, { once: true }), 0);
-  }
-}
-
-function closeLangDropdown() {
-  const menu = document.getElementById('langDropdownMenu');
-  if (menu) menu.style.display = 'none';
-}
-
-async function switchLanguage(lang) {
-  closeLangDropdown();
-  await I18n.setLocale(lang);
-  buildNavigation();
-  navigateTo(currentView || getDefaultView());
+    </button></div>`;
 }
 
 // ============ NAVIGATION ============
