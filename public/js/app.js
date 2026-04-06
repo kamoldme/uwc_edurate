@@ -47,6 +47,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
     setupUI();
     startNotifPolling();
+    setTimeout(checkCommsBadge, 500);
     const hashView = window.location.hash.slice(1);
     const validViews = ['student-home','student-classrooms','student-review','student-my-reviews','student-comms','student-forms','student-announcements','teacher-home','teacher-classrooms','teacher-feedback','teacher-analytics','teacher-comms','teacher-forms','teacher-announcements','head-home','head-teachers','head-classrooms','head-analytics','head-comms','head-forms','head-announcements','admin-home','admin-users','admin-terms','admin-classrooms','admin-teachers','admin-submissions','admin-moderate','admin-flagged','admin-support','admin-audit','admin-comms','admin-forms','admin-announcements','admin-departments','account','help'];
     navigateTo(hashView && validViews.includes(hashView) ? hashView : getDefaultView());
@@ -287,6 +288,7 @@ function buildNavigation() {
       <button class="nav-item" data-view="${it.id}" onclick="navigateTo('${it.id}')">
         ${ICONS[it.icon]}
         ${it.label}
+        ${it.id.endsWith('-comms') ? `<span id="commsBadge" class="badge" style="display:none"></span>` : ''}
       </button>
     `).join('') + '</div>' +
     '<div class="nav-section"><div class="nav-section-title">' + t('nav.account_section') + '</div>' +
@@ -1356,30 +1358,133 @@ async function viewTeacherProfile(teacherId) {
 }
 
 // ============ COMMUNICATION LANDING PAGES ============
-function renderCommsLanding(role) {
+async function renderCommsUnified(role) {
   const el = document.getElementById('contentArea');
-  const formsView = role + '-forms';
-  const annView = role + '-announcements';
-  el.innerHTML = `
-    <div style="display:flex;gap:24px;flex-wrap:wrap;align-items:stretch;margin-top:8px">
-      <div onclick="navigateTo('${formsView}')" style="width:260px;min-height:160px;padding:32px 28px;border:2px solid var(--gray-200);border-radius:16px;cursor:pointer;transition:all 0.2s ease;box-shadow:0 2px 8px rgba(0,0,0,0.04)" onmouseover="this.style.transform='translateY(-4px)';this.style.borderColor='#3b82f6';this.style.boxShadow='0 8px 24px rgba(59,130,246,0.15)'" onmouseout="this.style.transform='';this.style.borderColor='var(--gray-200)';this.style.boxShadow='0 2px 8px rgba(0,0,0,0.04)'">
-        <div style="font-size:2.2rem;margin-bottom:12px">📋</div>
-        <h3 style="margin:0 0 6px;font-size:1.15rem">Forms</h3>
-        <p style="margin:0;font-size:0.85rem;color:var(--gray-500)">${role === 'student' ? 'View and fill out available forms' : 'Create and manage forms'}</p>
+  el.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
+  try {
+    const isStudent = role === 'student';
+    const [announcements, forms] = await Promise.all([
+      cachedGet('/announcements', CACHE_TTL.medium).catch(() => []),
+      isStudent
+        ? API.get('/forms/student/available').catch(() => [])
+        : cachedGet('/forms', CACHE_TTL.medium).catch(() => [])
+    ]);
+
+    // Build unified items list
+    const items = [];
+    announcements.forEach(a => items.push({ type: 'announcement', date: a.created_at, data: a }));
+    forms.forEach(f => items.push({ type: 'form', date: f.created_at || f.updated_at || '2000-01-01', data: f }));
+    items.sort((a, b) => new Date(b.date) - new Date(a.date));
+
+    // Action buttons for non-students
+    const actionBtns = !isStudent ? `
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn btn-primary btn-sm" onclick="navigateTo('${role}-announcements')">+ Announcement</button>
+        <button class="btn btn-outline btn-sm" onclick="navigateTo('${role}-forms')">Manage Forms</button>
       </div>
-      <div onclick="navigateTo('${annView}')" style="width:260px;min-height:160px;padding:32px 28px;border:2px solid var(--gray-200);border-radius:16px;cursor:pointer;transition:all 0.2s ease;box-shadow:0 2px 8px rgba(0,0,0,0.04)" onmouseover="this.style.transform='translateY(-4px)';this.style.borderColor='#f59e0b';this.style.boxShadow='0 8px 24px rgba(245,158,11,0.15)'" onmouseout="this.style.transform='';this.style.borderColor='var(--gray-200)';this.style.boxShadow='0 2px 8px rgba(0,0,0,0.04)'">
-        <div style="font-size:2.2rem;margin-bottom:12px">📢</div>
-        <h3 style="margin:0 0 6px;font-size:1.15rem">Announcements</h3>
-        <p style="margin:0;font-size:0.85rem;color:var(--gray-500)">${role === 'student' ? 'Read announcements from your school' : 'Create and manage announcements'}</p>
+    ` : '';
+
+    const formCardHTML = (f) => {
+      if (isStudent) {
+        return `
+          <div class="card" style="margin-bottom:16px;border-left:4px solid ${f.already_submitted ? 'var(--gray-300)' : 'var(--primary)'}">
+            <div class="card-body" style="display:flex;align-items:center;gap:16px">
+              <div style="font-size:1.5rem;flex-shrink:0">📋</div>
+              <div style="flex:1;min-width:0">
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+                  <h3 style="margin:0;font-size:1rem">${escapeHtml(f.title)}</h3>
+                  <span style="font-size:0.7rem;background:var(--primary);color:#fff;padding:1px 8px;border-radius:10px">Form</span>
+                </div>
+                <div style="font-size:0.82rem;color:var(--gray-500)">${f.classroom_subject || ''} ${f.grade_level ? '&middot; ' + f.grade_level : ''} ${f.teacher_name ? '&middot; ' + f.teacher_name : ''}</div>
+                ${f.description ? `<p style="font-size:0.85rem;color:var(--gray-600);margin:4px 0 0">${f.description}</p>` : ''}
+              </div>
+              <div style="text-align:center;flex-shrink:0">
+                ${f.already_submitted
+                  ? `<span style="background:#dcfce7;color:#15803d;padding:4px 12px;border-radius:12px;font-size:0.82rem;font-weight:600">${t('forms.submitted')}</span>`
+                  : `<button class="btn btn-primary btn-sm" onclick="openStudentForm(${f.id})">${t('forms.fill_out')}</button>`}
+              </div>
+            </div>
+          </div>`;
+      } else {
+        const statusMap = { draft: ['#6b7280', t('forms.status_draft')], active: ['#16a34a', t('forms.status_active')], closed: ['#9ca3af', t('forms.status_closed')] };
+        const [color, label] = statusMap[f.status] || ['#6b7280', f.status];
+        return `
+          <div class="card" style="margin-bottom:16px;border-left:4px solid ${color}">
+            <div class="card-body" style="display:flex;align-items:center;gap:16px">
+              <div style="font-size:1.5rem;flex-shrink:0">📋</div>
+              <div style="flex:1;min-width:0">
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+                  <h3 style="margin:0;font-size:1rem">${escapeHtml(f.title)}</h3>
+                  <span style="font-size:0.7rem;background:${color};color:#fff;padding:1px 8px;border-radius:10px">${label}</span>
+                </div>
+                <div style="font-size:0.82rem;color:var(--gray-500)">${f.response_count || 0} responses &middot; ${f.question_count || 0} questions</div>
+              </div>
+              <button class="btn btn-outline btn-sm" onclick="navigateTo('${role}-forms')">Manage</button>
+            </div>
+          </div>`;
+      }
+    };
+
+    el.innerHTML = `
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
+        <h2 style="margin:0">Communication</h2>
+        ${actionBtns}
       </div>
-    </div>
-  `;
+      ${items.length === 0
+        ? '<div class="card"><div class="card-body"><div class="empty-state"><h3>Nothing here yet</h3><p>Announcements and forms will appear here.</p></div></div></div>'
+        : items.map(item => item.type === 'announcement'
+            ? announcementCardHTML(item.data, !isStudent, isStudent)
+            : formCardHTML(item.data)
+          ).join('')}
+    `;
+
+    // Mark comms as seen (for badge clearing)
+    const total = items.length;
+    localStorage.setItem(`comms_seen_${role}`, total.toString());
+    updateCommsBadge(role);
+  } catch (err) {
+    el.innerHTML = `<div class="empty-state"><h3>${t('common.error')}</h3><p>${err.message}</p></div>`;
+  }
 }
 
-async function renderStudentComms() { renderCommsLanding('student'); }
-async function renderTeacherComms() { renderCommsLanding('teacher'); }
-async function renderHeadComms() { renderCommsLanding('head'); }
-async function renderAdminComms() { renderCommsLanding('admin'); }
+async function renderStudentComms() { renderCommsUnified('student'); }
+async function renderTeacherComms() { renderCommsUnified('teacher'); }
+async function renderHeadComms() { renderCommsUnified('head'); }
+async function renderAdminComms() { renderCommsUnified('admin'); }
+
+function updateCommsBadge(role) {
+  const badge = document.getElementById('commsBadge');
+  if (!badge) return;
+  const seen = parseInt(localStorage.getItem(`comms_seen_${role}`) || '0');
+  const total = parseInt(badge.dataset.total || '0');
+  const unseen = Math.max(0, total - seen);
+  if (unseen > 0) {
+    badge.textContent = unseen > 99 ? '99+' : unseen;
+    badge.style.display = 'inline-flex';
+  } else {
+    badge.style.display = 'none';
+  }
+}
+
+async function checkCommsBadge() {
+  if (!currentUser) return;
+  const role = currentUser.role;
+  const isStudent = role === 'student';
+  try {
+    const [announcements, forms] = await Promise.all([
+      cachedGet('/announcements', CACHE_TTL.medium).catch(() => []),
+      isStudent
+        ? API.get('/forms/student/available').catch(() => [])
+        : cachedGet('/forms', CACHE_TTL.medium).catch(() => [])
+    ]);
+    const total = announcements.length + forms.length;
+    const badge = document.getElementById('commsBadge');
+    if (badge) {
+      badge.dataset.total = total;
+      updateCommsBadge(role);
+    }
+  } catch { /* silent */ }
+}
 
 // ============ STUDENT ANNOUNCEMENTS & FORMS ============
 async function renderStudentForms() {
