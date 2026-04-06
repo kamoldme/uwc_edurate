@@ -492,10 +492,10 @@ function ratingText(val) {
 
 function ratingGridHTML(r) {
   return `<div class="rating-grid-responsive">
-    ${[{k:'clarity_rating',l:t('criteria.clarity'),n:'Clarity'},{k:'engagement_rating',l:t('criteria.engagement'),n:'Engagement'},{k:'fairness_rating',l:t('criteria.fairness'),n:'Fairness'},{k:'supportiveness_rating',l:t('criteria.support_short'),n:'Supportiveness'},{k:'preparation_rating',l:t('criteria.preparation'),n:'Preparation'},{k:'workload_rating',l:t('criteria.workload'),n:'Workload'}].map(c => {
-      const v = r[c.k]; const val = v || 0;
+    ${CRITERIA_CONFIG.map(c => {
+      const v = r[c.db_col]; const val = v || 0;
       return `<div class="rating-grid-item">
-        <span class="rating-grid-label">${c.l}${criteriaInfoIcon(c.n)}</span>
+        <span class="rating-grid-label">${t(c.label_key)}${criteriaInfoIcon(c.info_key)}</span>
         <span class="rating-grid-value" style="color:${scoreColor(val)}">${v ? v + '/5' : '-'}</span>
       </div>`;
     }).join('')}
@@ -600,23 +600,12 @@ function confirmWithText(message, requiredText, warningMessage = '') {
 }
 
 function getCriteriaInfo() {
-  return [
-    {name: t('criteria.clarity'), key: 'Clarity', desc: t('criteria.clarity_desc')},
-    {name: t('criteria.engagement'), key: 'Engagement', desc: t('criteria.engagement_desc')},
-    {name: t('criteria.fairness'), key: 'Fairness', desc: t('criteria.fairness_desc')},
-    {name: t('criteria.supportiveness'), key: 'Supportiveness', desc: t('criteria.supportiveness_desc')},
-    {name: t('criteria.preparation'), key: 'Preparation', desc: t('criteria.preparation_desc')},
-    {name: t('criteria.workload'), key: 'Workload', desc: t('criteria.workload_desc')}
-  ];
+  return CRITERIA_CONFIG.map(c => ({
+    name: t(c.label_key),
+    key: c.info_key,
+    desc: t(c.desc_key)
+  }));
 }
-const CRITERIA_INFO = [
-  {name:'Clarity', desc:'How clearly does the teacher explain topics? Consider whether instructions, lessons, and expectations are easy to understand, and whether the teacher uses examples that help make concepts click.'},
-  {name:'Engagement', desc:'How well does the teacher keep the class interesting and involved? Think about whether lessons feel interactive, whether the teacher encourages questions and discussion, and whether you stay focused during class.'},
-  {name:'Fairness', desc:'How fair is the teacher in grading, enforcing rules, and treating all students? Consider whether grades reflect your actual work, whether rules are applied equally, and whether every student gets the same respect.'},
-  {name:'Supportiveness', desc:'How approachable and helpful is the teacher when you need assistance? Think about whether the teacher is willing to re-explain things, offers extra help, and creates a safe environment where it\'s okay to make mistakes.'},
-  {name:'Preparation', desc:'How well-prepared is the teacher for each class? Consider whether lessons are organized, materials are ready, and the teacher has a clear plan \u2014 or whether class time often feels improvised or wasted.'},
-  {name:'Workload', desc:'How reasonable is the amount of work assigned? Think about whether homework, projects, and readings are manageable alongside your other classes, and whether the effort required matches what you\'re expected to learn.'}
-];
 
 function criteriaInfoIcon(name) {
   return `<span class="criteria-info-btn" onclick="showCriteriaInfo('${name}')" style="cursor:pointer;color:var(--primary);font-size:0.75rem;display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:50%;border:1.5px solid var(--primary);font-weight:700;font-style:normal;line-height:1;transition:all 0.15s;flex-shrink:0;margin-left:4px">i</span>`;
@@ -624,7 +613,7 @@ function criteriaInfoIcon(name) {
 
 function showCriteriaInfo(name) {
   const localizedInfo = getCriteriaInfo();
-  const info = localizedInfo.find(c => c.key === name) || CRITERIA_INFO.find(c => c.name === name);
+  const info = localizedInfo.find(c => c.key === name);
   if (!info) return;
 
   // Remove any existing popup
@@ -1010,10 +999,10 @@ async function renderStudentReview() {
                 <div style="margin-top:8px;color:#0369a1;font-size:0.85rem;font-style:italic">${t('student.rate_all_criteria')}</div>
               </div>
               <div class="grid grid-2" style="margin-bottom:20px">
-                ${CRITERIA_INFO.map(cat => `
+                ${CRITERIA_CONFIG.map(c => `
                   <div class="form-group" style="margin-bottom:12px">
-                    <label style="display:flex;align-items:center;gap:6px">${cat.name} ${criteriaInfoIcon(cat.name)}</label>
-                    <div class="star-rating-input" data-name="${cat.name.toLowerCase()}_rating" data-form="review-${teacher.teacher_id}">
+                    <label style="display:flex;align-items:center;gap:6px">${t(c.label_key)} ${criteriaInfoIcon(c.info_key)}</label>
+                    <div class="star-rating-input" data-name="${c.db_col}" data-form="review-${teacher.teacher_id}">
                       ${[1,2,3,4,5].map(i => `<button type="button" class="star-btn" data-value="${i}" onclick="setRating(this)">\u2606</button>`).join('')}
                     </div>
                   </div>
@@ -1093,15 +1082,11 @@ function updateOverallRating(form) {
   const teacherId = form.dataset.teacherId;
   if (!teacherId) return;
 
-  const clarity = parseInt(form.querySelector('[data-name="clarity_rating"]')?.dataset.value || 0);
-  const engagement = parseInt(form.querySelector('[data-name="engagement_rating"]')?.dataset.value || 0);
-  const fairness = parseInt(form.querySelector('[data-name="fairness_rating"]')?.dataset.value || 0);
-  const supportiveness = parseInt(form.querySelector('[data-name="supportiveness_rating"]')?.dataset.value || 0);
-  const preparation = parseInt(form.querySelector('[data-name="preparation_rating"]')?.dataset.value || 0);
-  const workload = parseInt(form.querySelector('[data-name="workload_rating"]')?.dataset.value || 0);
+  const ratings = CRITERIA_COLS.map(col => parseInt(form.querySelector(`[data-name="${col}"]`)?.dataset.value || 0));
+  const allRated = ratings.every(r => r > 0);
 
-  if (clarity && engagement && fairness && supportiveness && preparation && workload) {
-    const overall = (clarity + engagement + fairness + supportiveness + preparation + workload) / 6;
+  if (allRated) {
+    const overall = ratings.reduce((s, v) => s + v, 0) / CRITERIA_COUNT;
     const rounded = Math.round(overall);
 
     renderFractionalStars(`overall-stars-${teacherId}`, overall);
@@ -1146,19 +1131,16 @@ async function submitReview(e, teacherId, classroomId) {
     return parseInt(el?.dataset.value || 0);
   };
 
-  const clarity = getRating('clarity_rating');
-  const engagement = getRating('engagement_rating');
-  const fairness = getRating('fairness_rating');
-  const supportiveness = getRating('supportiveness_rating');
-  const preparation = getRating('preparation_rating');
-  const workload = getRating('workload_rating');
-
-  if (!clarity || !engagement || !fairness || !supportiveness || !preparation || !workload) {
+  const ratingValues = {};
+  for (const col of CRITERIA_COLS) {
+    ratingValues[col] = getRating(col);
+  }
+  const allValues = Object.values(ratingValues);
+  if (allValues.some(v => !v)) {
     return toast(t('student.rate_all_categories'), 'error');
   }
 
-  // Auto-calculate overall rating as average of 6 criteria
-  const overall = Math.round((clarity + engagement + fairness + supportiveness + preparation + workload) / 6);
+  const overall = Math.round(allValues.reduce((s, v) => s + v, 0) / CRITERIA_COUNT);
 
   const tagsContainer = document.getElementById(`tags-${teacherId}`);
   const selectedTags = [...tagsContainer.querySelectorAll('.tag.selected')].map(el => el.dataset.tag);
@@ -1169,12 +1151,7 @@ async function submitReview(e, teacherId, classroomId) {
       teacher_id: teacherId,
       classroom_id: classroomId,
       overall_rating: overall,
-      clarity_rating: clarity,
-      engagement_rating: engagement,
-      fairness_rating: fairness,
-      supportiveness_rating: supportiveness,
-      preparation_rating: preparation,
-      workload_rating: workload,
+      ...ratingValues,
       feedback_text: feedbackText,
       tags: selectedTags
     });
@@ -1240,11 +1217,11 @@ async function editMyReview(reviewId) {
     <div class="modal-header"><h3>${t('review.edit_title', {teacher: review.teacher_name})}</h3><button class="modal-close" onclick="closeModal()">&times;</button></div>
     <div class="modal-body">
       <p style="color:var(--gray-500);font-size:0.85rem;margin-bottom:16px">${review.classroom_subject} &middot; ${review.period_name}</p>
-      ${['clarity','engagement','fairness','supportiveness','preparation','workload'].map(cat => `
+      ${CRITERIA_CONFIG.map(c => `
         <div class="form-group">
-          <label>${t('criteria.' + cat)}</label>
-          <select class="form-control" id="edit_${cat}">
-            ${[1,2,3,4,5].map(v => `<option value="${v}" ${review[cat+'_rating'] == v ? 'selected' : ''}>${v} - ${[t('rating.very_poor'),t('rating.poor'),t('rating.average'),t('rating.good'),t('rating.excellent')][v-1]}</option>`).join('')}
+          <label>${t(c.label_key)}</label>
+          <select class="form-control" id="edit_${c.slug}">
+            ${[1,2,3,4,5].map(v => `<option value="${v}" ${review[c.db_col] == v ? 'selected' : ''}>${v} - ${[t('rating.very_poor'),t('rating.poor'),t('rating.average'),t('rating.good'),t('rating.excellent')][v-1]}</option>`).join('')}
           </select>
         </div>
       `).join('')}
@@ -1268,15 +1245,12 @@ async function editMyReview(reviewId) {
 
 async function submitReviewEdit(reviewId) {
   const body = {
-    clarity_rating: parseInt(document.getElementById('edit_clarity').value),
-    engagement_rating: parseInt(document.getElementById('edit_engagement').value),
-    fairness_rating: parseInt(document.getElementById('edit_fairness').value),
-    supportiveness_rating: parseInt(document.getElementById('edit_supportiveness').value),
-    preparation_rating: parseInt(document.getElementById('edit_preparation').value),
-    workload_rating: parseInt(document.getElementById('edit_workload').value),
     feedback_text: document.getElementById('edit_feedback').value,
     tags: [...document.querySelectorAll('#modal input[type=checkbox]:checked')].map(cb => cb.value)
   };
+  CRITERIA_CONFIG.forEach(c => {
+    body[c.db_col] = parseInt(document.getElementById(`edit_${c.slug}`).value);
+  });
   try {
     await API.put(`/reviews/${reviewId}`, body);
     toast(t('review.updated'));
@@ -1336,14 +1310,13 @@ async function viewTeacherProfile(teacherId) {
 
             <div style="margin-top:20px">
               <h4>${t('profile.category_ratings')}</h4>
-              ${['clarity', 'engagement', 'fairness', 'supportiveness', 'preparation', 'workload'].map(cat => {
-                const capName = cat.charAt(0).toUpperCase() + cat.slice(1);
+              ${CRITERIA_CONFIG.map(c => {
                 return `
                 <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--gray-100)">
-                  <span style="font-weight:500;display:flex;align-items:center;gap:4px">${t('criteria.' + cat)}${criteriaInfoIcon(capName)}</span>
+                  <span style="font-weight:500;display:flex;align-items:center;gap:4px">${t(c.label_key)}${criteriaInfoIcon(c.info_key)}</span>
                   <div style="display:flex;align-items:center;gap:8px">
-                    ${starsHTML(scores[`avg_${cat}`] || 0)}
-                    <span style="font-weight:600">${fmtScore(scores[`avg_${cat}`])}</span>
+                    ${starsHTML(scores[`avg_${c.slug}`] || 0)}
+                    <span style="font-weight:600">${fmtScore(scores[`avg_${c.slug}`])}</span>
                   </div>
                 </div>`;
               }).join('')}
@@ -1609,14 +1582,13 @@ async function renderTeacherHome() {
       <div class="card">
         <div class="card-header"><h3>${t('teacher.rating_breakdown')}</h3></div>
         <div class="card-body">
-          ${['clarity', 'engagement', 'fairness', 'supportiveness', 'preparation', 'workload'].map(cat => {
-            const capName = cat.charAt(0).toUpperCase() + cat.slice(1);
+          ${CRITERIA_CONFIG.map(c => {
             return `
             <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--gray-100)">
-              <span style="font-weight:500;display:flex;align-items:center;gap:4px">${t('criteria.' + cat)}${criteriaInfoIcon(capName)}</span>
+              <span style="font-weight:500;display:flex;align-items:center;gap:4px">${t(c.label_key)}${criteriaInfoIcon(c.info_key)}</span>
               <div style="display:flex;align-items:center;gap:8px">
-                ${starsHTML(s[`avg_${cat}`] || 0)}
-                <span style="font-weight:600;color:${s.review_count > 0 ? scoreColor(s[`avg_${cat}`] || 0) : 'var(--gray-400)'}">${s.review_count > 0 ? fmtScore(s[`avg_${cat}`]) : '0.00'}</span>
+                ${starsHTML(s[`avg_${c.slug}`] || 0)}
+                <span style="font-weight:600;color:${s.review_count > 0 ? scoreColor(s[`avg_${c.slug}`] || 0) : 'var(--gray-400)'}">${s.review_count > 0 ? fmtScore(s[`avg_${c.slug}`]) : '0.00'}</span>
               </div>
             </div>`;
           }).join('')}
@@ -1896,12 +1868,9 @@ async function renderTeacherFeedback() {
     const reviews = bySubject[key].reviews;
     bySubject[key].count = reviews.length;
     bySubject[key].avg_overall = (reviews.reduce((sum, r) => sum + r.overall_rating, 0) / reviews.length).toFixed(2);
-    bySubject[key].avg_clarity = (reviews.reduce((sum, r) => sum + r.clarity_rating, 0) / reviews.length).toFixed(2);
-    bySubject[key].avg_engagement = (reviews.reduce((sum, r) => sum + r.engagement_rating, 0) / reviews.length).toFixed(2);
-    bySubject[key].avg_fairness = (reviews.reduce((sum, r) => sum + r.fairness_rating, 0) / reviews.length).toFixed(2);
-    bySubject[key].avg_supportiveness = (reviews.reduce((sum, r) => sum + r.supportiveness_rating, 0) / reviews.length).toFixed(2);
-    bySubject[key].avg_preparation = (reviews.reduce((sum, r) => sum + (r.preparation_rating || 0), 0) / reviews.length).toFixed(2);
-    bySubject[key].avg_workload = (reviews.reduce((sum, r) => sum + (r.workload_rating || 0), 0) / reviews.length).toFixed(2);
+    CRITERIA_CONFIG.forEach(c => {
+      bySubject[key][`avg_${c.slug}`] = (reviews.reduce((sum, r) => sum + (r[c.db_col] || 0), 0) / reviews.length).toFixed(2);
+    });
   });
 
   el.innerHTML = `
@@ -1930,12 +1899,7 @@ async function renderTeacherFeedback() {
                     ${starsHTML(parseFloat(s.avg_overall))}
                   </div>
                   <div class="feedback-rating-grid">
-                    <div class="rating-item"><span style="display:flex;align-items:center;gap:4px">${t('criteria.clarity')}${criteriaInfoIcon('Clarity')}</span><span style="font-weight:600;color:${scoreColor(s.avg_clarity)};display:flex;align-items:center;gap:8px">${s.avg_clarity} ${starsHTML(parseFloat(s.avg_clarity))}</span></div>
-                    <div class="rating-item"><span style="display:flex;align-items:center;gap:4px">${t('criteria.engagement')}${criteriaInfoIcon('Engagement')}</span><span style="font-weight:600;color:${scoreColor(s.avg_engagement)};display:flex;align-items:center;gap:8px">${s.avg_engagement} ${starsHTML(parseFloat(s.avg_engagement))}</span></div>
-                    <div class="rating-item"><span style="display:flex;align-items:center;gap:4px">${t('criteria.fairness')}${criteriaInfoIcon('Fairness')}</span><span style="font-weight:600;color:${scoreColor(s.avg_fairness)};display:flex;align-items:center;gap:8px">${s.avg_fairness} ${starsHTML(parseFloat(s.avg_fairness))}</span></div>
-                    <div class="rating-item"><span style="display:flex;align-items:center;gap:4px">${t('criteria.supportiveness')}${criteriaInfoIcon('Supportiveness')}</span><span style="font-weight:600;color:${scoreColor(s.avg_supportiveness)};display:flex;align-items:center;gap:8px">${s.avg_supportiveness} ${starsHTML(parseFloat(s.avg_supportiveness))}</span></div>
-                    <div class="rating-item"><span style="display:flex;align-items:center;gap:4px">${t('criteria.preparation')}${criteriaInfoIcon('Preparation')}</span><span style="font-weight:600;color:${scoreColor(s.avg_preparation)};display:flex;align-items:center;gap:8px">${s.avg_preparation} ${starsHTML(parseFloat(s.avg_preparation))}</span></div>
-                    <div class="rating-item"><span style="display:flex;align-items:center;gap:4px">${t('criteria.workload')}${criteriaInfoIcon('Workload')}</span><span style="font-weight:600;color:${scoreColor(s.avg_workload)};display:flex;align-items:center;gap:8px">${s.avg_workload} ${starsHTML(parseFloat(s.avg_workload))}</span></div>
+                    ${CRITERIA_CONFIG.map(c => `<div class="rating-item"><span style="display:flex;align-items:center;gap:4px">${t(c.label_key)}${criteriaInfoIcon(c.info_key)}</span><span style="font-weight:600;color:${scoreColor(s[`avg_${c.slug}`])};display:flex;align-items:center;gap:8px">${s[`avg_${c.slug}`]} ${starsHTML(parseFloat(s[`avg_${c.slug}`]))}</span></div>`).join('')}
                   </div>
                 </div>
               `;
@@ -1956,15 +1920,13 @@ async function renderTeacherFeedback() {
             ${data.overall_scores.review_count === 0 ? `<div style="margin-top:8px;font-size:0.8rem;color:var(--gray-400)">${t('teacher.scores_pending')}</div>` : ''}
           </div>
           <div style="margin-top:24px">
-            ${['clarity', 'engagement', 'fairness', 'supportiveness', 'preparation', 'workload'].map((cat, i, arr) => {
-              const name = t('criteria.' + cat);
-              const capName = cat.charAt(0).toUpperCase() + cat.slice(1);
-              const key = 'avg_' + cat;
+            ${CRITERIA_CONFIG.map((c, i) => {
+              const key = `avg_${c.slug}`;
               const val = data.overall_scores[key] || 0;
               const hasReviews = data.overall_scores.review_count > 0;
-              const border = i < arr.length - 1 ? 'border-bottom:1px solid var(--gray-100)' : '';
+              const border = i < CRITERIA_COUNT - 1 ? 'border-bottom:1px solid var(--gray-100)' : '';
               return `<div style="display:flex;justify-content:space-between;align-items:center;padding:12px 0;${border}">
-                <span style="display:flex;align-items:center;gap:4px">${name}${criteriaInfoIcon(capName)}</span>
+                <span style="display:flex;align-items:center;gap:4px">${t(c.label_key)}${criteriaInfoIcon(c.info_key)}</span>
                 <span style="font-weight:600;color:${hasReviews ? scoreColor(val) : 'var(--gray-300)'}">
                   ${hasReviews ? fmtScore(data.overall_scores[key]) : '0.00'} ${starsHTML(hasReviews ? val : 0)}
                 </span>
@@ -2212,10 +2174,10 @@ async function renderTeacherAnalytics() {
       chartInstances.radar = new Chart(ctx2, {
         type: 'radar',
         data: {
-          labels: [t('criteria.clarity'), t('criteria.engagement'), t('criteria.fairness'), t('criteria.supportiveness'), t('criteria.preparation'), t('criteria.workload')],
+          labels: CRITERIA_CONFIG.map(c => t(c.label_key)),
           datasets: [{
             label: t('teacher.your_scores'),
-            data: [s.avg_clarity, s.avg_engagement, s.avg_fairness, s.avg_supportiveness, s.avg_preparation, s.avg_workload],
+            data: CRITERIA_CONFIG.map(c => s[`avg_${c.slug}`]),
             borderColor: '#059669',
             backgroundColor: 'rgba(5,150,105,0.15)',
             pointBackgroundColor: '#059669'
@@ -2822,13 +2784,11 @@ async function renderHeadTeachers() {
                 <div style="font-weight:500">${teacher.scores.review_count}</div>
               </div>
             </div>
-            ${['avg_clarity', 'avg_engagement', 'avg_fairness', 'avg_supportiveness', 'avg_preparation', 'avg_workload'].map(key => {
-              const label = key.replace('avg_', '');
-              const capName = label.charAt(0).toUpperCase() + label.slice(1);
-              const val = teacher.scores[key] || 0;
+            ${CRITERIA_CONFIG.map(c => {
+              const val = teacher.scores[`avg_${c.slug}`] || 0;
               return `<div style="margin-bottom:8px">
                 <div style="display:flex;justify-content:space-between;align-items:center;font-size:0.8rem;margin-bottom:3px">
-                  <span style="display:flex;align-items:center;gap:3px">${capName}${criteriaInfoIcon(capName)}</span><span style="font-weight:600">${val}/5</span>
+                  <span style="display:flex;align-items:center;gap:3px">${t(c.label_key)}${criteriaInfoIcon(c.info_key)}</span><span style="font-weight:600">${val}/5</span>
                 </div>
                 <div class="progress-bar"><div class="progress-fill blue" style="width:${(val/5)*100}%"></div></div>
               </div>`;
@@ -2908,7 +2868,7 @@ async function renderHeadAnalytics() {
       <div class="card-body">
         <table>
           <thead>
-            <tr><th>${t('common.teacher')}</th><th><span style="display:flex;align-items:center;gap:3px">${t('criteria.clarity')}${criteriaInfoIcon('Clarity')}</span></th><th><span style="display:flex;align-items:center;gap:3px">${t('criteria.engagement')}${criteriaInfoIcon('Engagement')}</span></th><th><span style="display:flex;align-items:center;gap:3px">${t('criteria.fairness')}${criteriaInfoIcon('Fairness')}</span></th><th><span style="display:flex;align-items:center;gap:3px">${t('criteria.supportiveness')}${criteriaInfoIcon('Supportiveness')}</span></th><th><span style="display:flex;align-items:center;gap:3px">${t('criteria.preparation')}${criteriaInfoIcon('Preparation')}</span></th><th><span style="display:flex;align-items:center;gap:3px">${t('criteria.workload')}${criteriaInfoIcon('Workload')}</span></th><th>${t('head.final')}</th></tr>
+            <tr><th>${t('common.teacher')}</th>${CRITERIA_CONFIG.map(c => `<th><span style="display:flex;align-items:center;gap:3px">${t(c.label_key)}${criteriaInfoIcon(c.info_key)}</span></th>`).join('')}<th>${t('head.final')}</th></tr>
           </thead>
           <tbody>
             ${data.teachers.map(tchr => {
@@ -2918,7 +2878,7 @@ async function renderHeadAnalytics() {
                 const color = !val ? 'var(--gray-400)' : val >= 4 ? '#047857' : val >= 3 ? '#92400e' : '#dc2626';
                 return `<td style="background:${bg};color:${color};font-weight:600;text-align:center">${fmtScore(val)}</td>`;
               };
-              return `<tr><td><strong>${tchr.full_name}</strong></td>${cell(s.avg_clarity)}${cell(s.avg_engagement)}${cell(s.avg_fairness)}${cell(s.avg_supportiveness)}${cell(s.avg_preparation)}${cell(s.avg_workload)}${cell(s.avg_overall)}</tr>`;
+              return `<tr><td><strong>${tchr.full_name}</strong></td>${CRITERIA_CONFIG.map(c => cell(s[`avg_${c.slug}`])).join('')}${cell(s.avg_overall)}</tr>`;
             }).join('')}
           </tbody>
         </table>
@@ -3923,6 +3883,7 @@ async function renderAdminTerms() {
                   <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
                     <span style="font-weight:600;font-size:0.88rem">${p.name}</span>
                     <span class="badge ${p.active_status ? 'badge-active' : 'badge-inactive'}" style="font-size:0.72rem">${p.active_status ? t('status.open') : t('status.closed')}</span>
+                    <span class="badge" style="font-size:0.7rem;background:${p.teacher_private ? '#fef3c7' : '#d1fae5'};color:${p.teacher_private ? '#92400e' : '#065f46'};padding:2px 8px;border-radius:4px">${p.teacher_private ? '🔒 Teacher Only' : '👁 Visible to HODs'}</span>
                     <span style="font-size:0.75rem;color:var(--gray-400)">${p.classroom_count || 0} classroom${(p.classroom_count || 0) !== 1 ? 's' : ''}</span>
                   </div>
                   <div style="font-size:0.75rem;color:var(--gray-500);margin-top:2px">${p.start_date || '—'} → ${p.end_date || '—'}</div>
@@ -3931,7 +3892,8 @@ async function renderAdminTerms() {
                   ${p.active_status
                     ? `<button class="btn btn-sm btn-danger" onclick="togglePeriod(${p.id}, 0)">${t('common.closed')}</button>`
                     : `<button class="btn btn-sm btn-success" onclick="togglePeriod(${p.id}, 1)">${t('status.open')}</button>`}
-                  <button class="btn btn-sm btn-outline" onclick="editPeriod(${p.id}, '${escAttr(p.name)}', '${p.start_date || ''}', '${p.end_date || ''}', ${JSON.stringify(p.classroom_ids || [])})">${t('common.edit')}</button>
+                  <button class="btn btn-sm btn-outline" style="font-size:0.75rem" onclick="togglePeriodVisibility(${p.id}, ${p.teacher_private ? 0 : 1})" title="${p.teacher_private ? 'Make visible to HODs' : 'Make teacher-only'}">${p.teacher_private ? '👁' : '🔒'}</button>
+                  <button class="btn btn-sm btn-outline" onclick="editPeriod(${p.id}, '${escAttr(p.name)}', '${p.start_date || ''}', '${p.end_date || ''}', ${JSON.stringify(p.classroom_ids || [])}, ${p.teacher_private ? 1 : 0})">${t('common.edit')}</button>
                   <button class="btn btn-sm btn-danger" onclick="deletePeriod(${p.id}, '${escAttr(p.name)}')">✕</button>
                 </div>
               </div>
@@ -3979,6 +3941,13 @@ async function showAddPeriodModal(termId, termName, termStart, termEnd) {
         <label>Classrooms <span style="font-size:0.78rem;color:var(--gray-400);font-weight:400">(snapshot — new classrooms added later won't be included automatically)</span></label>
         ${clPickerInner}
       </div>
+      <div class="form-group" style="margin-top:16px;padding:12px;background:#fef3c7;border-radius:8px;border:1px solid #fde68a">
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin:0">
+          <input type="checkbox" id="newPeriodPrivate" checked style="width:16px;height:16px">
+          <span style="font-weight:600">🔒 Teacher-only visibility</span>
+        </label>
+        <p style="margin:6px 0 0 24px;font-size:0.8rem;color:#92400e">When checked, feedback from this period is only visible to teachers. Uncheck to make it visible to HODs and leadership.</p>
+      </div>
     </div>
     <div class="modal-footer">
       <button class="btn btn-outline" onclick="closeModal()">${t('common.cancel')}</button>
@@ -4016,7 +3985,8 @@ async function createFeedbackPeriod(termId) {
   const classroom_ids = [...document.querySelectorAll('.period-cl-cb:checked')].map(cb => parseInt(cb.value));
   if (!classroom_ids.length) return toast('Select at least one classroom', 'error');
   try {
-    await API.post('/admin/feedback-periods', { term_id: termId, name, start_date, end_date, classroom_ids });
+    const teacher_private = document.getElementById('newPeriodPrivate')?.checked ? 1 : 0;
+    await API.post('/admin/feedback-periods', { term_id: termId, name, start_date, end_date, classroom_ids, teacher_private });
     toast(t('admin.period_added'));
     invalidateCache('/admin/terms', '/dashboard', '/reviews');
     closeModal();
@@ -4024,7 +3994,7 @@ async function createFeedbackPeriod(termId) {
   } catch (err) { toast(err.message, 'error'); }
 }
 
-async function editPeriod(periodId, name, startDate, endDate, currentClassroomIds) {
+async function editPeriod(periodId, name, startDate, endDate, currentClassroomIds, teacherPrivate) {
   const existingIds = Array.isArray(currentClassroomIds) ? currentClassroomIds : [];
   let classrooms = [];
   try { classrooms = await API.get('/admin/classrooms'); } catch (e) { /* handled below */ }
@@ -4058,6 +4028,13 @@ async function editPeriod(periodId, name, startDate, endDate, currentClassroomId
       <div class="form-group"><label>${t('admin.start_date')}</label><input type="date" class="form-control" id="editPeriodStart" value="${startDate}"></div>
       <div class="form-group"><label>${t('admin.end_date')}</label><input type="date" class="form-control" id="editPeriodEnd" value="${endDate}"></div>
       <div class="form-group"><label>Classrooms</label>${clPickerInner}</div>
+      <div class="form-group" style="margin-top:16px;padding:12px;background:#fef3c7;border-radius:8px;border:1px solid #fde68a">
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin:0">
+          <input type="checkbox" id="editPeriodPrivate" ${teacherPrivate ? 'checked' : ''} style="width:16px;height:16px">
+          <span style="font-weight:600">🔒 Teacher-only visibility</span>
+        </label>
+        <p style="margin:6px 0 0 24px;font-size:0.8rem;color:#92400e">When checked, feedback from this period is only visible to teachers. Uncheck to make it visible to HODs and leadership.</p>
+      </div>
     </div>
     <div class="modal-footer">
       <button class="btn btn-outline" onclick="closeModal()">${t('common.cancel')}</button>
@@ -4094,7 +4071,8 @@ async function updatePeriod(periodId) {
   if (!name || !start_date || !end_date) return toast(t('admin.fill_all_fields'), 'error');
   const classroom_ids = [...document.querySelectorAll('.edit-period-cl-cb:checked')].map(cb => parseInt(cb.value));
   try {
-    await API.put(`/admin/feedback-periods/${periodId}`, { name, start_date, end_date, classroom_ids });
+    const teacher_private = document.getElementById('editPeriodPrivate')?.checked ? 1 : 0;
+    await API.put(`/admin/feedback-periods/${periodId}`, { name, start_date, end_date, classroom_ids, teacher_private });
     toast(t('admin.period_updated'));
     invalidateCache('/admin/terms', '/dashboard', '/reviews');
     closeModal();
@@ -4162,6 +4140,15 @@ async function togglePeriod(periodId, status) {
     await API.put(`/admin/feedback-periods/${periodId}`, { active_status: status });
     toast(status ? t('admin.period_opened') : t('admin.period_closed'));
     invalidateCache('/admin/terms', '/dashboard', '/reviews');
+    renderAdminTerms();
+  } catch (err) { toast(err.message, 'error'); }
+}
+
+async function togglePeriodVisibility(periodId, teacherPrivate) {
+  try {
+    await API.put(`/admin/feedback-periods/${periodId}`, { teacher_private: teacherPrivate });
+    toast(teacherPrivate ? 'Period is now teacher-only' : 'Period is now visible to HODs');
+    invalidateCache('/admin/terms', '/dashboard');
     renderAdminTerms();
   } catch (err) { toast(err.message, 'error'); }
 }
@@ -4468,12 +4455,10 @@ async function renderAdminModerate() {
                 <span style="font-size:0.85rem;color:var(--gray-600)">${t('review.overall')}</span>
                 <span style="font-weight:700;color:${scoreColor(r.overall_rating)}">${r.overall_rating}/5</span>
               </div>
-              ${['clarity','engagement','fairness','supportiveness','preparation','workload'].map(cat => {
-                const capName = cat.charAt(0).toUpperCase() + cat.slice(1);
-                const k = (cat === 'supportiveness' ? 'supportiveness' : cat) + '_rating';
-                const v = r[k]; const val = v || 0;
+              ${CRITERIA_CONFIG.map(c => {
+                const v = r[c.db_col]; const val = v || 0;
                 return `<div style="padding:10px 14px;background:var(--gray-50);border-radius:8px;display:flex;justify-content:space-between;align-items:center">
-                  <span style="font-size:0.85rem;color:var(--gray-600);display:flex;align-items:center;gap:3px">${t('criteria.' + cat)}${criteriaInfoIcon(capName)}</span>
+                  <span style="font-size:0.85rem;color:var(--gray-600);display:flex;align-items:center;gap:3px">${t(c.label_key)}${criteriaInfoIcon(c.info_key)}</span>
                   <span style="font-weight:700;color:${scoreColor(val)}">${v ? v + '/5' : '-'}</span>
                 </div>`;
               }).join('')}
@@ -4518,12 +4503,10 @@ async function renderAdminModerate() {
                 <span style="font-size:0.85rem;color:var(--gray-600)">${t('review.overall')}</span>
                 <span style="font-weight:700;color:${scoreColor(r.overall_rating)}">${r.overall_rating}/5</span>
               </div>
-              ${['clarity','engagement','fairness','supportiveness','preparation','workload'].map(cat => {
-                const capName = cat.charAt(0).toUpperCase() + cat.slice(1);
-                const k = cat + '_rating';
-                const v = r[k]; const val = v || 0;
+              ${CRITERIA_CONFIG.map(c => {
+                const v = r[c.db_col]; const val = v || 0;
                 return `<div style="padding:10px 14px;background:var(--gray-50);border-radius:8px;display:flex;justify-content:space-between;align-items:center">
-                  <span style="font-size:0.85rem;color:var(--gray-600);display:flex;align-items:center;gap:3px">${t('criteria.' + cat)}${criteriaInfoIcon(capName)}</span>
+                  <span style="font-size:0.85rem;color:var(--gray-600);display:flex;align-items:center;gap:3px">${t(c.label_key)}${criteriaInfoIcon(c.info_key)}</span>
                   <span style="font-weight:700;color:${scoreColor(val)}">${v ? v + '/5' : '-'}</span>
                 </div>`;
               }).join('')}
@@ -4569,12 +4552,10 @@ async function renderAdminFlagged() {
                 <span style="font-size:0.85rem;color:var(--gray-600)">${t('review.overall')}</span>
                 <span style="font-weight:700;color:${scoreColor(r.overall_rating)}">${r.overall_rating}/5</span>
               </div>
-              ${['clarity','engagement','fairness','supportiveness','preparation','workload'].map(cat => {
-                const capName = cat.charAt(0).toUpperCase() + cat.slice(1);
-                const k = cat + '_rating';
-                const v = r[k]; const val = v || 0;
+              ${CRITERIA_CONFIG.map(c => {
+                const v = r[c.db_col]; const val = v || 0;
                 return `<div style="padding:10px 14px;background:var(--gray-50);border-radius:8px;display:flex;justify-content:space-between;align-items:center">
-                  <span style="font-size:0.85rem;color:var(--gray-600);display:flex;align-items:center;gap:3px">${t('criteria.' + cat)}${criteriaInfoIcon(capName)}</span>
+                  <span style="font-size:0.85rem;color:var(--gray-600);display:flex;align-items:center;gap:3px">${t(c.label_key)}${criteriaInfoIcon(c.info_key)}</span>
                   <span style="font-weight:700;color:${scoreColor(val)}">${v ? v + '/5' : '-'}</span>
                 </div>`;
               }).join('')}
@@ -4798,13 +4779,12 @@ async function viewTeacherFeedback(teacherId) {
           </div>
         </div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;padding-top:16px;border-top:1px solid var(--gray-200)">
-          ${['clarity', 'engagement', 'fairness', 'supportiveness', 'preparation', 'workload'].map(cat => {
-            const capName = cat.charAt(0).toUpperCase() + cat.slice(1);
-            const key = 'avg_' + cat;
+          ${CRITERIA_CONFIG.map(c => {
+            const key = `avg_${c.slug}`;
             const val = data.scores[key] || 0;
             return `<div style="text-align:center">
               <div style="font-size:1.3rem;font-weight:600;color:${scoreColor(val)}">${fmtScore(data.scores[key])}</div>
-              <div style="color:var(--gray-500);font-size:0.85rem;display:flex;align-items:center;justify-content:center;gap:3px">${t('criteria.' + cat)}${criteriaInfoIcon(capName)}</div>
+              <div style="color:var(--gray-500);font-size:0.85rem;display:flex;align-items:center;justify-content:center;gap:3px">${t(c.label_key)}${criteriaInfoIcon(c.info_key)}</div>
             </div>`;
           }).join('')}
         </div>
@@ -4824,12 +4804,7 @@ async function viewTeacherFeedback(teacherId) {
               ${r.classroom_subject} (${r.grade_level}) &middot; ${r.term_name} &middot; ${r.period_name}
             </div>
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;padding:8px;background:var(--gray-50);border-radius:var(--radius-sm)">
-              <div style="font-size:0.85rem;display:flex;align-items:center;gap:3px"><strong>${t('criteria.clarity')}</strong>${criteriaInfoIcon('Clarity')}: ${r.clarity_rating}/5 ${starsHTML(r.clarity_rating, 'small')}</div>
-              <div style="font-size:0.85rem;display:flex;align-items:center;gap:3px"><strong>${t('criteria.engagement')}</strong>${criteriaInfoIcon('Engagement')}: ${r.engagement_rating}/5 ${starsHTML(r.engagement_rating, 'small')}</div>
-              <div style="font-size:0.85rem;display:flex;align-items:center;gap:3px"><strong>${t('criteria.fairness')}</strong>${criteriaInfoIcon('Fairness')}: ${r.fairness_rating}/5 ${starsHTML(r.fairness_rating, 'small')}</div>
-              <div style="font-size:0.85rem;display:flex;align-items:center;gap:3px"><strong>${t('criteria.supportiveness')}</strong>${criteriaInfoIcon('Supportiveness')}: ${r.supportiveness_rating}/5 ${starsHTML(r.supportiveness_rating, 'small')}</div>
-              <div style="font-size:0.85rem;display:flex;align-items:center;gap:3px"><strong>${t('criteria.preparation')}</strong>${criteriaInfoIcon('Preparation')}: ${ratingText(r.preparation_rating)} ${starsHTML(r.preparation_rating, 'small')}</div>
-              <div style="font-size:0.85rem;display:flex;align-items:center;gap:3px"><strong>${t('criteria.workload')}</strong>${criteriaInfoIcon('Workload')}: ${ratingText(r.workload_rating)} ${starsHTML(r.workload_rating, 'small')}</div>
+              ${CRITERIA_CONFIG.map(c => `<div style="font-size:0.85rem;display:flex;align-items:center;gap:3px"><strong>${t(c.label_key)}</strong>${criteriaInfoIcon(c.info_key)}: ${ratingText(r[c.db_col])} ${starsHTML(r[c.db_col], 'small')}</div>`).join('')}
             </div>
             ${r.feedback_text ? `<div style="padding:8px;background:var(--gray-50);border-radius:var(--radius-sm);font-size:0.9rem;margin-top:8px">${r.feedback_text}</div>` : ''}
           </div>
@@ -5074,10 +5049,10 @@ function buildAndPrintPDF(tchr, s, reviews) {
   <!-- RIGHT: rating bars + feedback quotes -->
   <td class="col-right">
     <div class="sec" style="margin-top:0">${t('pdf.rating_breakdown')}</div>
-    ${['clarity','engagement','fairness','supportiveness','preparation','workload'].map(cat => `
+    ${CRITERIA_CONFIG.map(c => `
       <div class="crit">
-        <div class="crit-n">${t('criteria.' + cat)}</div>
-        ${bar(s['avg_' + cat])}
+        <div class="crit-n">${t(c.label_key)}</div>
+        ${bar(s[`avg_${c.slug}`])}
       </div>`).join('')}
 
     ${quotes.length ? `
@@ -6499,7 +6474,7 @@ function renderHelpDocs(role) {
   const sections = {
     student: [
       { icon: '🏫', title: 'Joining Classrooms', body: 'Go to <strong>My Classrooms</strong> and click <strong>Join Classroom</strong>. Enter the 6-digit join code provided by your teacher. Once joined, the classroom appears in your list.' },
-      { icon: '⭐', title: 'Writing Reviews', body: 'Navigate to <strong>Write a Review</strong>. Select a classroom, then rate your teacher across 6 criteria (Clarity, Engagement, Fairness, Supportiveness, Preparation, Workload). You can also add optional tags and written feedback.' },
+      { icon: '⭐', title: 'Writing Reviews', body: `Navigate to <strong>Write a Review</strong>. Select a classroom, then rate your teacher across ${CRITERIA_COUNT} criteria. You can also add optional tags and written feedback.` },
       { icon: '📋', title: 'My Reviews', body: 'View all reviews you have submitted under <strong>My Reviews</strong>. You can see their approval status and edit a review while it is still pending.' },
       { icon: '📢', title: 'Announcements & Forms', body: 'Check <strong>Announcements</strong> for messages from your school or teachers. Active forms that require your input will also appear here — submit them before the deadline.' },
       { icon: '👥', title: 'Classroom Members', body: 'On any classroom card, click <strong>Members</strong> to see who else is enrolled in that class.' },
@@ -6699,16 +6674,13 @@ async function renderDeptDetail(deptName) {
   }
 
   const { teachers, trend, org_averages } = data;
-  const criteria = ['clarity', 'engagement', 'fairness', 'supportiveness', 'preparation', 'workload'];
-  const criteriaLabels = ['Clarity', 'Engagement', 'Fairness', 'Supportiveness', 'Preparation', 'Workload'];
-
   // Dept averages per criterion
   const validTeachers = teachers.filter(t => t.review_count > 0);
-  const deptCriteriaAvg = criteria.map(c => {
-    const vals = validTeachers.map(t => t[`avg_${c}`]).filter(v => v !== null);
+  const deptCriteriaAvg = CRITERIA_CONFIG.map(c => {
+    const vals = validTeachers.map(t => t[`avg_${c.slug}`]).filter(v => v !== null);
     return vals.length ? Math.round(vals.reduce((a, b) => a + b, 0) / vals.length * 100) / 100 : 0;
   });
-  const orgCriteriaAvg = org_averages ? criteria.map(c => org_averages[`avg_${c}`] || 0) : [];
+  const orgCriteriaAvg = org_averages ? CRITERIA_CONFIG.map(c => org_averages[`avg_${c.slug}`] || 0) : [];
 
   // Teacher ranking sorted by overall score
   const ranked = [...teachers].filter(t => t.review_count > 0).sort((a, b) => (b.avg_overall || 0) - (a.avg_overall || 0));
@@ -6725,7 +6697,7 @@ async function renderDeptDetail(deptName) {
     ` : `
       <div class="grid grid-3" style="margin-bottom:32px">
         <div class="stat-card"><div class="stat-label">Teachers</div><div class="stat-value">${teachers.length}</div></div>
-        <div class="stat-card"><div class="stat-label">Avg Score</div><div class="stat-value" style="color:${scoreColor(validTeachers.length ? deptCriteriaAvg.reduce((a,b)=>a+b,0)/6 : 0)}">${validTeachers.length ? fmtScore(deptCriteriaAvg.reduce((a,b)=>a+b,0)/6) : '—'}</div></div>
+        <div class="stat-card"><div class="stat-label">Avg Score</div><div class="stat-value" style="color:${scoreColor(validTeachers.length ? deptCriteriaAvg.reduce((a,b)=>a+b,0)/CRITERIA_COUNT : 0)}">${validTeachers.length ? fmtScore(deptCriteriaAvg.reduce((a,b)=>a+b,0)/CRITERIA_COUNT) : '—'}</div></div>
         <div class="stat-card"><div class="stat-label">Total Reviews</div><div class="stat-value">${teachers.reduce((s,t)=>s+(t.review_count||0),0)}</div></div>
       </div>
 
@@ -6804,7 +6776,7 @@ async function renderDeptDetail(deptName) {
     }
     const radarChart = new Chart(document.getElementById('deptRadarChart'), {
       type: 'radar',
-      data: { labels: criteriaLabels, datasets: radarDatasets },
+      data: { labels: CRITERIA_CONFIG.map(c => t(c.label_key)), datasets: radarDatasets },
       options: {
         responsive: true, maintainAspectRatio: false,
         scales: { r: { min: 0, max: 5, ticks: { stepSize: 1, font: { size: 11 } }, pointLabels: { font: { size: 12 } } } },

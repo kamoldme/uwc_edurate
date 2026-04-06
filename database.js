@@ -876,6 +876,33 @@ try {
   console.error('Org seeding error:', err.message);
 }
 
+// Migration: Add 13 new criteria columns to reviews table
+try {
+  const { CRITERIA_CONFIG } = require('./utils/criteriaConfig');
+  const revCols = db.prepare("PRAGMA table_info(reviews)").all().map(c => c.name);
+  for (const crit of CRITERIA_CONFIG) {
+    if (!revCols.includes(crit.db_col)) {
+      db.exec(`ALTER TABLE reviews ADD COLUMN ${crit.db_col} INTEGER CHECK(${crit.db_col} BETWEEN 1 AND 5)`);
+      console.log(`✅ Migration: Added ${crit.db_col} to reviews`);
+    }
+  }
+} catch (err) {
+  console.error('Migration error (new criteria cols):', err.message);
+}
+
+// Migration: Add teacher_private to feedback_periods for progressive visibility
+try {
+  const fpCols = db.prepare("PRAGMA table_info(feedback_periods)").all().map(c => c.name);
+  if (!fpCols.includes('teacher_private')) {
+    db.exec('ALTER TABLE feedback_periods ADD COLUMN teacher_private INTEGER DEFAULT 1');
+    // Backfill: existing closed periods should be visible to heads/admins
+    db.prepare("UPDATE feedback_periods SET teacher_private = 0 WHERE active_status = 0").run();
+    console.log('✅ Migration: Added teacher_private to feedback_periods');
+  }
+} catch (err) {
+  console.error('Migration error (teacher_private):', err.message);
+}
+
 // Seed default accounts if they don't exist
 const seedAccounts = [
   { email: 'admin@uwc.edu',   password: 'Admin1234',   role: 'admin',   name: 'UWC Admin' },

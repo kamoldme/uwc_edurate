@@ -3,6 +3,7 @@ const db = require('../database');
 const { authenticate, authorize, authorizeOrg } = require('../middleware/auth');
 const { getTeacherScores, getRatingDistribution, getTeacherTrend, getDepartmentAverage, getClassroomCompletionRate } = require('../utils/scoring');
 const { logAuditEvent } = require('../utils/audit');
+const { CRITERIA_CONFIG, CRITERIA_COUNT, CRITERIA_COLS } = require('../utils/criteriaConfig');
 
 const router = express.Router();
 
@@ -114,9 +115,9 @@ router.get('/teacher', authenticate, authorize('teacher'), (req, res) => {
     const deptAvg = teacher.department ? getDepartmentAverage(teacher.department, activeTerm?.id, teacher.org_id) : null;
 
     // Approved reviews only — teachers must not see pending/flagged moderation status
+    const critCols = CRITERIA_COLS.map(c => `r.${c}`).join(', ');
     const recentReviews = db.prepare(`
-      SELECT r.overall_rating, r.clarity_rating, r.engagement_rating,
-        r.fairness_rating, r.supportiveness_rating, r.preparation_rating, r.workload_rating,
+      SELECT r.overall_rating, ${critCols},
         r.feedback_text, r.tags, r.approved_status,
         r.created_at,
         fp.name as period_name, t.name as term_name, c.subject as classroom_subject,
@@ -184,9 +185,9 @@ router.get('/teacher/reviews', authenticate, authorize('teacher'), (req, res) =>
 
     const total = db.prepare('SELECT COUNT(*) as count FROM reviews WHERE teacher_id = ? AND approved_status = 1').get(teacher.id).count;
 
+    const critCols2 = CRITERIA_COLS.map(c => `r.${c}`).join(', ');
     const reviews = db.prepare(`
-      SELECT r.overall_rating, r.clarity_rating, r.engagement_rating,
-        r.fairness_rating, r.supportiveness_rating, r.preparation_rating, r.workload_rating,
+      SELECT r.overall_rating, ${critCols2},
         r.feedback_text, r.tags, r.approved_status, r.created_at,
         fp.name as period_name, t.name as term_name, c.subject as classroom_subject, c.grade_level
       FROM reviews r
@@ -222,31 +223,29 @@ router.get('/school-head', authenticate, authorize('head', 'admin'), authorizeOr
     const orgFilter2 = orgId ? 'AND r.org_id = ?' : '';
     const bulkParams = [...(activeTerm ? [activeTerm.id] : []), ...(orgId ? [orgId] : [])];
 
+    // Dynamic SQL fragments from criteria config
+    const innerAvgCols = CRITERIA_CONFIG.map(c => `AVG(r.${c.db_col}) as avg_${c.slug}`).join(', ');
+    const outerAvgCols = CRITERIA_CONFIG.map(c => `ROUND(AVG(avg_${c.slug}), 2) as avg_${c.slug}`).join(', ');
+    const sumExpr = CRITERIA_CONFIG.map(c => `AVG(avg_${c.slug})`).join(' + ');
+
+    // Visibility filter: heads cannot see reviews from teacher-private periods
+    const visFilter = req.user.role === 'head'
+      ? 'AND EXISTS (SELECT 1 FROM feedback_periods fp WHERE fp.id = r.feedback_period_id AND fp.teacher_private = 0)'
+      : '';
+
     // 1 query: all teacher aggregate scores (classroom-weighted)
     const scoresData = db.prepare(`
       SELECT teacher_id,
         SUM(review_count) as review_count,
-        ROUND(AVG(avg_clarity), 2) as avg_clarity,
-        ROUND(AVG(avg_engagement), 2) as avg_engagement,
-        ROUND(AVG(avg_fairness), 2) as avg_fairness,
-        ROUND(AVG(avg_supportiveness), 2) as avg_supportiveness,
-        ROUND(AVG(avg_preparation), 2) as avg_preparation,
-        ROUND(AVG(avg_workload), 2) as avg_workload,
-        ROUND((AVG(avg_clarity)+AVG(avg_engagement)+AVG(avg_fairness)+
-               AVG(avg_supportiveness)+AVG(avg_preparation)+AVG(avg_workload))/6,2) as avg_overall,
-        ROUND((AVG(avg_clarity)+AVG(avg_engagement)+AVG(avg_fairness)+
-               AVG(avg_supportiveness)+AVG(avg_preparation)+AVG(avg_workload))/6,2) as final_score
+        ${outerAvgCols},
+        ROUND((${sumExpr}) / ${CRITERIA_COUNT}, 2) as avg_overall,
+        ROUND((${sumExpr}) / ${CRITERIA_COUNT}, 2) as final_score
       FROM (
         SELECT r.teacher_id, r.classroom_id,
           COUNT(*) as review_count,
-          AVG(r.clarity_rating) as avg_clarity,
-          AVG(r.engagement_rating) as avg_engagement,
-          AVG(r.fairness_rating) as avg_fairness,
-          AVG(r.supportiveness_rating) as avg_supportiveness,
-          AVG(r.preparation_rating) as avg_preparation,
-          AVG(r.workload_rating) as avg_workload
+          ${innerAvgCols}
         FROM reviews r
-        WHERE r.approved_status = 1 ${termFilter} ${orgFilter2}
+        WHERE r.approved_status = 1 ${termFilter} ${orgFilter2} ${visFilter}
         GROUP BY r.teacher_id, r.classroom_id
       )
       GROUP BY teacher_id
@@ -255,11 +254,13 @@ router.get('/school-head', authenticate, authorize('head', 'admin'), authorizeOr
     // 1 query: rating distributions
     const distData = db.prepare(`
       SELECT r.teacher_id, r.overall_rating as rating, COUNT(*) as count
-      FROM reviews r WHERE r.approved_status = 1 ${termFilter} ${orgFilter2}
+      FROM reviews r WHERE r.approved_status = 1 ${termFilter} ${orgFilter2} ${visFilter}
       GROUP BY r.teacher_id, r.overall_rating
     `).all(...bulkParams);
 
     // 1 query: monthly scores for trend — classroom-weighted, grouped by calendar month
+    const classroomScoreExpr = CRITERIA_CONFIG.map(c => `AVG(r.${c.db_col})`).join(' + ');
+    const monthVisFilter = req.user.role === 'head' ? 'AND fp.teacher_private = 0' : '';
     let monthData = [];
     if (activeTerm) {
       monthData = db.prepare(`
@@ -272,11 +273,10 @@ router.get('/school-head', authenticate, authorize('head', 'admin'), authorizeOr
             fp.start_date as month_start,
             r.teacher_id, r.classroom_id,
             COUNT(r.id) as review_count,
-            ROUND((AVG(r.clarity_rating)+AVG(r.engagement_rating)+AVG(r.fairness_rating)+
-                   AVG(r.supportiveness_rating)+AVG(r.preparation_rating)+AVG(r.workload_rating))/6,2) as classroom_score
+            ROUND((${classroomScoreExpr}) / ${CRITERIA_COUNT}, 2) as classroom_score
           FROM feedback_periods fp
           JOIN reviews r ON r.feedback_period_id = fp.id AND r.approved_status = 1 ${orgFilter2}
-          WHERE fp.term_id = ?
+          WHERE fp.term_id = ? ${monthVisFilter}
           GROUP BY month, r.teacher_id, r.classroom_id
         )
         GROUP BY month, teacher_id
@@ -312,7 +312,9 @@ router.get('/school-head', authenticate, authorize('head', 'admin'), authorizeOr
     });
 
     const teacherPerformance = teachers.map(t => {
-      const scores = scoreMap[t.id] || { review_count: 0, avg_overall: null, avg_clarity: null, avg_engagement: null, avg_fairness: null, avg_supportiveness: null, avg_preparation: null, avg_workload: null, final_score: null };
+      const defaultScores = { review_count: 0, avg_overall: null, final_score: null };
+      CRITERIA_CONFIG.forEach(c => { defaultScores[`avg_${c.slug}`] = null; });
+      const scores = scoreMap[t.id] || defaultScores;
       const distribution = distMap[t.id] || { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
 
       let trend = null;
@@ -416,23 +418,27 @@ router.get('/school-head/teacher/:id', authenticate, authorize('head', 'admin'),
       WHERE c.teacher_id = ?
     `).all(teacher.id);
 
+    const visRole = req.user.role === 'head' ? 'head' : undefined;
     const scores = {};
     const trends = {};
     terms.forEach(term => {
-      scores[term.id] = getTeacherScores(teacher.id, { termId: term.id });
-      trends[term.id] = getTeacherTrend(teacher.id, term.id);
+      scores[term.id] = getTeacherScores(teacher.id, { termId: term.id, visibilityRole: visRole });
+      trends[term.id] = getTeacherTrend(teacher.id, term.id, visRole);
     });
 
+    const detailCritCols = CRITERIA_COLS.map(c => `r.${c}`).join(', ');
+    const detailVisFilter = req.user.role === 'head'
+      ? 'AND EXISTS (SELECT 1 FROM feedback_periods fp2 WHERE fp2.id = r.feedback_period_id AND fp2.teacher_private = 0)'
+      : '';
     const reviews = db.prepare(`
-      SELECT r.overall_rating, r.clarity_rating, r.engagement_rating,
-        r.fairness_rating, r.supportiveness_rating, r.preparation_rating, r.workload_rating,
+      SELECT r.overall_rating, ${detailCritCols},
         r.feedback_text, r.tags,
         r.created_at, fp.name as period_name, t.name as term_name, c.subject as classroom_subject
       FROM reviews r
       JOIN feedback_periods fp ON r.feedback_period_id = fp.id
       JOIN terms t ON r.term_id = t.id
       JOIN classrooms c ON r.classroom_id = c.id
-      WHERE r.teacher_id = ? AND r.approved_status = 1
+      WHERE r.teacher_id = ? AND r.approved_status = 1 ${detailVisFilter}
       ORDER BY r.created_at DESC
     `).all(teacher.id);
 
@@ -465,29 +471,25 @@ router.get('/departments/:name', authenticate, authorize('head', 'admin'), autho
     const teacherIds = teachers.map(t => t.id);
     const placeholders = teacherIds.map(() => '?').join(',');
 
-    // Per-teacher criterion scores — classroom-weighted
+    // Per-teacher criterion scores — classroom-weighted (dynamic)
+    const deptInnerAvg = CRITERIA_CONFIG.map(c => `AVG(r.${c.db_col}) as avg_${c.slug}`).join(', ');
+    const deptOuterAvg = CRITERIA_CONFIG.map(c => `ROUND(AVG(avg_${c.slug}), 2) as avg_${c.slug}`).join(', ');
+    const deptSumExpr = CRITERIA_CONFIG.map(c => `AVG(avg_${c.slug})`).join(' + ');
+    const deptVisFilter = req.user.role === 'head'
+      ? 'AND EXISTS (SELECT 1 FROM feedback_periods fp WHERE fp.id = r.feedback_period_id AND fp.teacher_private = 0)'
+      : '';
+
     const scoresData = db.prepare(`
       SELECT teacher_id,
         SUM(review_count) as review_count,
-        ROUND(AVG(avg_clarity), 2) as avg_clarity,
-        ROUND(AVG(avg_engagement), 2) as avg_engagement,
-        ROUND(AVG(avg_fairness), 2) as avg_fairness,
-        ROUND(AVG(avg_supportiveness), 2) as avg_supportiveness,
-        ROUND(AVG(avg_preparation), 2) as avg_preparation,
-        ROUND(AVG(avg_workload), 2) as avg_workload,
-        ROUND((AVG(avg_clarity)+AVG(avg_engagement)+AVG(avg_fairness)+
-               AVG(avg_supportiveness)+AVG(avg_preparation)+AVG(avg_workload))/6,2) as avg_overall
+        ${deptOuterAvg},
+        ROUND((${deptSumExpr}) / ${CRITERIA_COUNT}, 2) as avg_overall
       FROM (
         SELECT r.teacher_id, r.classroom_id,
           COUNT(*) as review_count,
-          AVG(r.clarity_rating) as avg_clarity,
-          AVG(r.engagement_rating) as avg_engagement,
-          AVG(r.fairness_rating) as avg_fairness,
-          AVG(r.supportiveness_rating) as avg_supportiveness,
-          AVG(r.preparation_rating) as avg_preparation,
-          AVG(r.workload_rating) as avg_workload
+          ${deptInnerAvg}
         FROM reviews r
-        WHERE r.approved_status = 1 AND r.teacher_id IN (${placeholders}) ${orgId ? 'AND r.org_id = ?' : ''}
+        WHERE r.approved_status = 1 AND r.teacher_id IN (${placeholders}) ${orgId ? 'AND r.org_id = ?' : ''} ${deptVisFilter}
         GROUP BY r.teacher_id, r.classroom_id
       )
       GROUP BY teacher_id
@@ -501,14 +503,15 @@ router.get('/departments/:name', authenticate, authorize('head', 'admin'), autho
       full_name: t.full_name,
       subject: t.subject,
       avatar_url: t.avatar_url,
-      ...(scoreMap[t.id] || {
-        review_count: 0, avg_overall: null,
-        avg_clarity: null, avg_engagement: null, avg_fairness: null,
-        avg_supportiveness: null, avg_preparation: null, avg_workload: null
-      })
+      ...(scoreMap[t.id] || Object.assign(
+        { review_count: 0, avg_overall: null },
+        ...CRITERIA_CONFIG.map(c => ({ [`avg_${c.slug}`]: null }))
+      ))
     }));
 
     // Trend: dept avg score by calendar month — classroom-weighted, all terms
+    const deptClassroomScore = CRITERIA_CONFIG.map(c => `AVG(r.${c.db_col})`).join(' + ');
+    const deptTrendVis = req.user.role === 'head' ? 'AND fp.teacher_private = 0' : '';
     const trend = db.prepare(`
       SELECT month, MIN(month_start) as month_start, term_name, term_id,
         SUM(review_count) as review_count,
@@ -519,29 +522,23 @@ router.get('/departments/:name', authenticate, authorize('head', 'admin'), autho
           t.name as term_name, t.id as term_id,
           r.classroom_id,
           COUNT(r.id) as review_count,
-          ROUND((AVG(r.clarity_rating)+AVG(r.engagement_rating)+AVG(r.fairness_rating)+
-                 AVG(r.supportiveness_rating)+AVG(r.preparation_rating)+AVG(r.workload_rating))/6, 2) as classroom_score
+          ROUND((${deptClassroomScore}) / ${CRITERIA_COUNT}, 2) as classroom_score
         FROM feedback_periods fp
         JOIN terms t ON fp.term_id = t.id
         JOIN reviews r ON r.feedback_period_id = fp.id AND r.approved_status = 1
           AND r.teacher_id IN (${placeholders})
-        WHERE ${orgId ? 't.org_id = ? AND' : ''} 1=1
+        WHERE ${orgId ? 't.org_id = ? AND' : ''} 1=1 ${deptTrendVis}
         GROUP BY month, r.classroom_id
       )
       GROUP BY month ORDER BY month ASC
     `).all(...teacherIds, ...(orgId ? [orgId] : []));
 
     // Org-wide averages for radar chart comparison
+    const orgAvgCols = CRITERIA_CONFIG.map(c => `ROUND(AVG(r.${c.db_col}), 2) as avg_${c.slug}`).join(', ');
     const orgAvg = db.prepare(`
-      SELECT
-        ROUND(AVG(r.clarity_rating), 2) as avg_clarity,
-        ROUND(AVG(r.engagement_rating), 2) as avg_engagement,
-        ROUND(AVG(r.fairness_rating), 2) as avg_fairness,
-        ROUND(AVG(r.supportiveness_rating), 2) as avg_supportiveness,
-        ROUND(AVG(r.preparation_rating), 2) as avg_preparation,
-        ROUND(AVG(r.workload_rating), 2) as avg_workload
+      SELECT ${orgAvgCols}
       FROM reviews r
-      WHERE r.approved_status = 1 ${orgId ? 'AND r.org_id = ?' : ''}
+      WHERE r.approved_status = 1 ${orgId ? 'AND r.org_id = ?' : ''} ${deptVisFilter}
     `).get(...(orgId ? [orgId] : []));
 
     res.json({

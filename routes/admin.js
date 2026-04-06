@@ -5,6 +5,7 @@ const { authenticate, authorize, authorizeOrg, ROLE_HIERARCHY } = require('../mi
 const { sanitizeInput } = require('../utils/moderation');
 const { logAuditEvent, getAuditLogs, getAuditStats } = require('../utils/audit');
 const { createNotifications } = require('../utils/notifications');
+const { CRITERIA_CONFIG, CRITERIA_COUNT, CRITERIA_COLS } = require('../utils/criteriaConfig');
 
 const router = express.Router();
 
@@ -535,7 +536,7 @@ router.get('/feedback-periods', authenticate, authorize('admin', 'teacher', 'hea
 // POST /api/admin/feedback-periods
 router.post('/feedback-periods', authenticate, authorize('admin'), authorizeOrg, (req, res) => {
   try {
-    const { term_id, name, start_date, end_date, classroom_ids } = req.body;
+    const { term_id, name, start_date, end_date, classroom_ids, teacher_private: tp } = req.body;
     if (!term_id || !start_date || !end_date) {
       return res.status(400).json({ error: 'term_id, start_date, and end_date are required' });
     }
@@ -581,8 +582,8 @@ router.post('/feedback-periods', authenticate, authorize('admin'), authorizeOrg,
 
     const periodId = db.transaction(() => {
       const r = db.prepare(
-        'INSERT INTO feedback_periods (term_id, name, start_date, end_date, active_status) VALUES (?, ?, ?, ?, 0)'
-      ).run(term_id, periodName, start_date, end_date);
+        'INSERT INTO feedback_periods (term_id, name, start_date, end_date, active_status, teacher_private) VALUES (?, ?, ?, ?, 0, ?)'
+      ).run(term_id, periodName, start_date, end_date, tp !== undefined ? (tp ? 1 : 0) : 1);
       const pid = r.lastInsertRowid;
       const ins = db.prepare('INSERT OR IGNORE INTO feedback_period_classrooms (feedback_period_id, classroom_id) VALUES (?, ?)');
       classroom_ids.forEach(cid => ins.run(pid, cid));
@@ -614,7 +615,7 @@ router.post('/feedback-periods', authenticate, authorize('admin'), authorizeOrg,
 // PUT /api/admin/feedback-periods/:id
 router.put('/feedback-periods/:id', authenticate, authorize('admin'), authorizeOrg, (req, res) => {
   try {
-    const { active_status, name, start_date, end_date, classroom_ids } = req.body;
+    const { active_status, name, start_date, end_date, classroom_ids, teacher_private } = req.body;
     const period = db.prepare(`
       SELECT fp.*, t.org_id FROM feedback_periods fp JOIN terms t ON fp.term_id = t.id WHERE fp.id = ?
     `).get(req.params.id);
@@ -667,9 +668,10 @@ router.put('/feedback-periods/:id', authenticate, authorize('admin'), authorizeO
           name = COALESCE(?, name),
           active_status = COALESCE(?, active_status),
           start_date = COALESCE(?, start_date),
-          end_date = COALESCE(?, end_date)
+          end_date = COALESCE(?, end_date),
+          teacher_private = COALESCE(?, teacher_private)
         WHERE id = ?
-      `).run(name || null, active_status ?? null, start_date || null, end_date || null, req.params.id);
+      `).run(name || null, active_status ?? null, start_date || null, end_date || null, teacher_private ?? null, req.params.id);
     })();
 
     const updated = db.prepare('SELECT * FROM feedback_periods WHERE id = ?').get(req.params.id);
@@ -682,7 +684,7 @@ router.put('/feedback-periods/:id', authenticate, authorize('admin'), authorizeO
       actionDescription: `${active_status === 1 ? 'Opened' : 'Updated'} feedback period: ${period.name}`,
       targetType: 'feedback_period',
       targetId: period.id,
-      metadata: { active_status, name, start_date, end_date, classroom_ids },
+      metadata: { active_status, name, start_date, end_date, classroom_ids, teacher_private },
       ipAddress: req.ip,
       orgId: req.orgId
     });
@@ -1329,9 +1331,13 @@ router.get('/teacher/:id/feedback', authenticate, authorize('admin', 'head'), au
 
     const { term_id, period_id, classroom_id } = req.query;
 
+    const adminCritCols = CRITERIA_COLS.map(c => `r.${c}`).join(', ');
+    // Heads cannot see reviews from teacher-private periods
+    const adminVisFilter = req.user.role === 'head'
+      ? 'AND EXISTS (SELECT 1 FROM feedback_periods fp2 WHERE fp2.id = r.feedback_period_id AND fp2.teacher_private = 0)'
+      : '';
     let query = `
-      SELECT r.id, r.overall_rating, r.clarity_rating, r.engagement_rating,
-        r.fairness_rating, r.supportiveness_rating, r.preparation_rating, r.workload_rating,
+      SELECT r.id, r.overall_rating, ${adminCritCols},
         r.feedback_text, r.tags, r.created_at, r.flagged_status, r.approved_status,
         c.subject as classroom_subject, c.grade_level,
         fp.name as period_name, t.name as term_name
@@ -1339,7 +1345,7 @@ router.get('/teacher/:id/feedback', authenticate, authorize('admin', 'head'), au
       JOIN classrooms c ON r.classroom_id = c.id
       JOIN feedback_periods fp ON r.feedback_period_id = fp.id
       JOIN terms t ON r.term_id = t.id
-      WHERE r.teacher_id = ? AND r.approved_status = 1
+      WHERE r.teacher_id = ? AND r.approved_status = 1 ${adminVisFilter}
     `;
     const params = [req.params.id];
 
@@ -1352,16 +1358,19 @@ router.get('/teacher/:id/feedback', authenticate, authorize('admin', 'head'), au
     const reviews = db.prepare(query).all(...params);
 
     const { getTeacherScores, getRatingDistribution } = require('../utils/scoring');
+    const fbVisRole = req.user.role === 'head' ? 'head' : undefined;
     const scores = getTeacherScores(teacher.id, {
       termId: term_id ? parseInt(term_id) : undefined,
       feedbackPeriodId: period_id ? parseInt(period_id) : undefined,
-      classroomId: classroom_id ? parseInt(classroom_id) : undefined
+      classroomId: classroom_id ? parseInt(classroom_id) : undefined,
+      visibilityRole: fbVisRole
     });
 
     const distribution = getRatingDistribution(teacher.id, {
       termId: term_id ? parseInt(term_id) : undefined,
       feedbackPeriodId: period_id ? parseInt(period_id) : undefined,
-      classroomId: classroom_id ? parseInt(classroom_id) : undefined
+      classroomId: classroom_id ? parseInt(classroom_id) : undefined,
+      visibilityRole: fbVisRole
     });
 
     res.json({ teacher, reviews, scores, distribution });
@@ -1559,24 +1568,15 @@ router.get('/org-period-trend', authenticate, authorize('admin'), (req, res) => 
   try {
     const orgId = req.user.org_id || 1;
 
+    const trendAvgCols = CRITERIA_CONFIG.map(c => `ROUND(AVG(NULLIF(r.${c.db_col},0)), 2) as avg_${c.slug}`).join(',\n        ');
+    const trendSumExpr = CRITERIA_CONFIG.map(c => `AVG(NULLIF(r.${c.db_col},0))`).join(' + ');
     const periods = db.prepare(`
       SELECT
         fp.id, fp.name as period_name, t.id as term_id, t.name as term_name,
+        fp.teacher_private,
         COUNT(r.id) as review_count,
-        ROUND((
-          AVG(NULLIF(r.clarity_rating,0)) +
-          AVG(NULLIF(r.engagement_rating,0)) +
-          AVG(NULLIF(r.fairness_rating,0)) +
-          AVG(NULLIF(r.supportiveness_rating,0)) +
-          AVG(NULLIF(r.preparation_rating,0)) +
-          AVG(NULLIF(r.workload_rating,0))
-        ) / 6, 2) as avg_overall,
-        ROUND(AVG(NULLIF(r.clarity_rating,0)), 2) as avg_clarity,
-        ROUND(AVG(NULLIF(r.engagement_rating,0)), 2) as avg_engagement,
-        ROUND(AVG(NULLIF(r.fairness_rating,0)), 2) as avg_fairness,
-        ROUND(AVG(NULLIF(r.supportiveness_rating,0)), 2) as avg_supportiveness,
-        ROUND(AVG(NULLIF(r.preparation_rating,0)), 2) as avg_preparation,
-        ROUND(AVG(NULLIF(r.workload_rating,0)), 2) as avg_workload
+        ROUND((${trendSumExpr}) / ${CRITERIA_COUNT}, 2) as avg_overall,
+        ${trendAvgCols}
       FROM feedback_periods fp
       JOIN terms t ON fp.term_id = t.id
       LEFT JOIN reviews r ON r.feedback_period_id = fp.id

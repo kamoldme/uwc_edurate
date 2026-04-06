@@ -3,6 +3,7 @@ const db = require('../database');
 const { authenticate, authorize } = require('../middleware/auth');
 const { moderateText, sanitizeInput } = require('../utils/moderation');
 const { logAuditEvent } = require('../utils/audit');
+const { CRITERIA_CONFIG, CRITERIA_COUNT, CRITERIA_COLS } = require('../utils/criteriaConfig');
 
 const router = express.Router();
 
@@ -107,28 +108,26 @@ router.get('/eligible-teachers', authenticate, authorize('student'), (req, res) 
 // POST /api/reviews - submit a review
 router.post('/', authenticate, authorize('student'), (req, res) => {
   try {
-    const {
-      teacher_id, classroom_id,
-      clarity_rating, engagement_rating,
-      fairness_rating, supportiveness_rating,
-      preparation_rating, workload_rating,
-      feedback_text, tags
-    } = req.body;
+    const { teacher_id, classroom_id, feedback_text, tags } = req.body;
 
     // Validate required fields
     if (!teacher_id || !classroom_id) {
       return res.status(400).json({ error: 'Teacher and classroom are required' });
     }
 
-    const ratings = [clarity_rating, engagement_rating, fairness_rating, supportiveness_rating, preparation_rating, workload_rating];
-    for (const r of ratings) {
+    // Extract and validate all criteria ratings dynamically
+    const ratings = {};
+    for (const crit of CRITERIA_CONFIG) {
+      const r = req.body[crit.db_col];
       if (!r || r < 1 || r > 5) {
         return res.status(400).json({ error: 'All ratings must be between 1 and 5' });
       }
+      ratings[crit.db_col] = r;
     }
 
-    // Auto-calculate overall rating as average of 6 criteria
-    const overall_rating = Math.round((clarity_rating + engagement_rating + fairness_rating + supportiveness_rating + preparation_rating + workload_rating) / 6);
+    // Auto-calculate overall rating as average of all criteria
+    const ratingValues = CRITERIA_COLS.map(col => ratings[col]);
+    const overall_rating = Math.round(ratingValues.reduce((s, v) => s + v, 0) / CRITERIA_COUNT);
 
     // Verify student is in the classroom
     const membership = db.prepare(
@@ -187,17 +186,17 @@ router.post('/', authenticate, authorize('student'), (req, res) => {
       ).get(teacher_id, req.user.id, activePeriod.id);
       if (dup) return null;
 
+      const colList = CRITERIA_COLS.join(', ');
+      const placeholders = CRITERIA_COLS.map(() => '?').join(', ');
       return db.prepare(`
         INSERT INTO reviews (
           teacher_id, classroom_id, student_id, school_id, org_id, term_id, feedback_period_id,
-          overall_rating, clarity_rating, engagement_rating, fairness_rating, supportiveness_rating,
-          preparation_rating, workload_rating,
+          overall_rating, ${colList},
           feedback_text, tags, flagged_status, approved_status
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ${placeholders}, ?, ?, ?, 0)
       `).run(
         teacher_id, classroom_id, req.user.id, reviewOrgId || 1, reviewOrgId, activePeriod.term_id, activePeriod.id,
-        overall_rating, clarity_rating, engagement_rating, fairness_rating, supportiveness_rating,
-        preparation_rating, workload_rating,
+        overall_rating, ...ratingValues,
         sanitized, JSON.stringify(validatedTags), flaggedStatus
       );
     });
@@ -281,30 +280,25 @@ router.put('/:id', authenticate, authorize('student'), (req, res) => {
       .get(review.feedback_period_id);
     if (!period) return res.status(400).json({ error: 'Feedback period is closed. Cannot edit.' });
 
-    const {
-      clarity_rating, engagement_rating,
-      fairness_rating, supportiveness_rating,
-      preparation_rating, workload_rating,
-      feedback_text, tags
-    } = req.body;
+    const { feedback_text, tags } = req.body;
 
-    const ratings = [clarity_rating, engagement_rating, fairness_rating, supportiveness_rating, preparation_rating, workload_rating];
-    for (const r of ratings) {
+    // Validate any provided ratings
+    for (const crit of CRITERIA_CONFIG) {
+      const r = req.body[crit.db_col];
       if (r !== undefined && (r < 1 || r > 5)) {
         return res.status(400).json({ error: 'Ratings must be between 1 and 5' });
       }
     }
 
     // Get final rating values (use new if provided, otherwise keep existing)
-    const finalClarity = clarity_rating !== undefined ? clarity_rating : review.clarity_rating;
-    const finalEngagement = engagement_rating !== undefined ? engagement_rating : review.engagement_rating;
-    const finalFairness = fairness_rating !== undefined ? fairness_rating : review.fairness_rating;
-    const finalSupportiveness = supportiveness_rating !== undefined ? supportiveness_rating : review.supportiveness_rating;
-    const finalPreparation = preparation_rating !== undefined ? preparation_rating : review.preparation_rating;
-    const finalWorkload = workload_rating !== undefined ? workload_rating : review.workload_rating;
+    const finalRatings = {};
+    for (const crit of CRITERIA_CONFIG) {
+      finalRatings[crit.db_col] = req.body[crit.db_col] !== undefined ? req.body[crit.db_col] : review[crit.db_col];
+    }
 
-    // Auto-calculate overall rating as average of 6 criteria
-    const overall_rating = Math.round((finalClarity + finalEngagement + finalFairness + finalSupportiveness + finalPreparation + finalWorkload) / 6);
+    // Auto-calculate overall rating as average of all criteria
+    const finalValues = CRITERIA_COLS.map(col => finalRatings[col] || 0);
+    const overall_rating = Math.round(finalValues.reduce((s, v) => s + v, 0) / CRITERIA_COUNT);
 
     const sanitized = feedback_text !== undefined ? sanitizeInput(feedback_text) : review.feedback_text;
     const moderation = feedback_text !== undefined ? moderateText(feedback_text) : { flagged: false };
@@ -314,24 +308,20 @@ router.put('/:id', authenticate, authorize('student'), (req, res) => {
       validatedTags = tags.filter(t => VALID_TAGS.includes(t));
     }
 
+    const setClauses = CRITERIA_COLS.map(col => `${col} = COALESCE(?, ${col})`).join(',\n        ');
+    const setValues = CRITERIA_COLS.map(col => req.body[col] ?? null);
+
     db.prepare(`
       UPDATE reviews SET
         overall_rating = ?,
-        clarity_rating = COALESCE(?, clarity_rating),
-        engagement_rating = COALESCE(?, engagement_rating),
-        fairness_rating = COALESCE(?, fairness_rating),
-        supportiveness_rating = COALESCE(?, supportiveness_rating),
-        preparation_rating = COALESCE(?, preparation_rating),
-        workload_rating = COALESCE(?, workload_rating),
+        ${setClauses},
         feedback_text = ?,
         tags = ?,
         flagged_status = ?,
         approved_status = 0
       WHERE id = ?
     `).run(
-      overall_rating, clarity_rating, engagement_rating,
-      fairness_rating, supportiveness_rating,
-      preparation_rating, workload_rating,
+      overall_rating, ...setValues,
       sanitized, JSON.stringify(validatedTags),
       moderation.flagged ? 'flagged' : 'pending',
       req.params.id

@@ -1289,8 +1289,8 @@ tbody tr:last-child td { border-bottom: none; }
 
 .feedback-rating-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 16px;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 12px;
   margin-top: 12px;
 }
 
