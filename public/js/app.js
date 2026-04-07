@@ -3901,8 +3901,6 @@ async function renderAdminUsers(refetch = true) {
 }
 
 async function showCreateUser() {
-  const orgOptions = '';
-
   openModal(`
     <div class="modal-header"><h3>${t('admin.create_user_title')}</h3><button class="modal-close" onclick="closeModal()">&times;</button></div>
     <div class="modal-body">
@@ -3924,17 +3922,7 @@ async function showCreateUser() {
           <option value="student">${t('common.student')}</option>
           <option value="teacher">${t('common.teacher')}</option>
           <option value="head">${t('common.school_head')}</option>
-          <option value="admin">${t('common.org_admin')}</option>
         </select>
-      </div>
-      <div id="orgFields" style="display:none">
-        <div class="form-group">
-          <label>${t('admin.organization')} <span style="color:var(--danger)">*</span></label>
-          <select class="form-control" id="newUserOrgId">
-            <option value="">${t('admin.select_org')}</option>
-            ${orgOptions}
-          </select>
-        </div>
       </div>
       <div class="form-group" id="gradeFieldWrap">
         <label>${t('admin.grade_position_label')}</label>
@@ -3955,10 +3943,6 @@ async function showCreateUser() {
 
 function onNewUserRoleChange(role) {
   document.getElementById('teacherFields').style.display = role === 'teacher' ? 'block' : 'none';
-  const orgFields = document.getElementById('orgFields');
-  if (orgFields) {
-    orgFields.style.display = (role === 'head' || role === 'admin') ? 'block' : 'none';
-  }
   // Grade/Position only applies to students and teachers
   const gradeWrap = document.getElementById('gradeFieldWrap');
   if (gradeWrap) {
@@ -3981,13 +3965,6 @@ async function createUser() {
     body.subject = document.getElementById('newTeacherSubject').value;
     body.department = document.getElementById('newTeacherDept').value;
     body.experience_years = parseInt(document.getElementById('newTeacherExp').value) || 0;
-  }
-  const orgSelect = document.getElementById('newUserOrgId');
-  if (orgSelect && orgSelect.value) {
-    body.org_id = parseInt(orgSelect.value);
-  }
-  if ((body.role === 'head' || body.role === 'admin') && !body.org_id) {
-    return toast(t('admin.org_required_for_role'), 'error');
   }
   if (!body.full_name || !body.email || !body.password) return toast(t('admin.fill_required'), 'error');
   try {
@@ -4027,7 +4004,6 @@ function editUser(user) {
           <option value="student" ${user.role === 'student' ? 'selected' : ''}>${t('common.student')}</option>
           <option value="teacher" ${user.role === 'teacher' ? 'selected' : ''}>${t('common.teacher')}</option>
           <option value="head" ${user.role === 'head' ? 'selected' : ''}>${t('common.school_head')}</option>
-          <option value="admin" ${user.role === 'admin' ? 'selected' : ''}>${t('common.org_admin')}</option>
         </select>
       </div>
     </div>
