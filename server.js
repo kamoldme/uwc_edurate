@@ -145,6 +145,16 @@ app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'landing.html'));
 });
 
+// Avatars live on the persistent volume (AVATARS_DIR) so they survive redeploys.
+// Mount this BEFORE the public/ static handler so it wins for /avatars/* even if
+// a stale file exists under public/avatars/ from earlier local runs.
+const { AVATARS_DIR, ensureDir: ensureAvatarsDir } = require('./utils/avatars');
+ensureAvatarsDir();
+app.use('/avatars', express.static(AVATARS_DIR, {
+  maxAge: '7d',
+  fallthrough: false,
+}));
+
 // Static files (AFTER specific routes)
 app.use(express.static(path.join(__dirname, 'public')));
 

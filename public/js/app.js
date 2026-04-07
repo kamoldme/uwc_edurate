@@ -3983,9 +3983,23 @@ function editUserById(id) {
 
 function editUser(user) {
   const showGrade = (user.role === 'student' || user.role === 'teacher');
+  const showAvatar = (user.role === 'teacher' || user.role === 'head');
+  const initials = (user.full_name || '?').split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase();
   openModal(`
     <div class="modal-header"><h3>${t('admin.edit_user_title', {name: user.full_name})}</h3><button class="modal-close" onclick="closeModal()">&times;</button></div>
     <div class="modal-body">
+      ${showAvatar ? `
+      <div class="form-group" style="display:flex;align-items:center;gap:16px">
+        <div id="editUserAvatarPreview" style="width:64px;height:64px;border-radius:50%;background:var(--gray-100);display:flex;align-items:center;justify-content:center;font-weight:600;color:var(--gray-600);overflow:hidden;flex-shrink:0">
+          ${user.avatar_url ? `<img src="${user.avatar_url}" alt="" style="width:100%;height:100%;object-fit:cover">` : initials}
+        </div>
+        <div style="display:flex;flex-direction:column;gap:6px">
+          <input type="file" id="editUserAvatarFile" accept="image/*" style="display:none" onchange="adminUploadAvatar(${user.id}, this)">
+          <button type="button" class="btn btn-sm btn-outline" onclick="document.getElementById('editUserAvatarFile').click()">${user.avatar_url ? t('account.change_photo') || 'Change photo' : t('account.upload_photo') || 'Upload photo'}</button>
+          ${user.avatar_url ? `<button type="button" class="btn btn-sm btn-outline" style="color:var(--danger)" onclick="adminRemoveAvatar(${user.id})">${t('account.remove_photo') || 'Remove photo'}</button>` : ''}
+        </div>
+      </div>
+      ` : ''}
       <div class="form-group">
         <label>${t('account.full_name')}</label>
         <input type="text" class="form-control" id="editUserName" value="${user.full_name}">
@@ -4017,6 +4031,46 @@ function editUser(user) {
 function onEditUserRoleChange(role) {
   const wrap = document.getElementById('editGradeFieldWrap');
   if (wrap) wrap.style.display = (role === 'student' || role === 'teacher') ? 'block' : 'none';
+}
+
+// Admin: upload an avatar for a teacher / head from the edit user modal.
+// Reads the file as a base64 data URL (same shape as the self-serve endpoint
+// expects) and posts to /api/admin/users/:id/avatar.
+async function adminUploadAvatar(userId, input) {
+  const file = input.files && input.files[0];
+  if (!file) return;
+  if (file.size > 5 * 1024 * 1024) {
+    return toast('Image must be smaller than 5MB', 'error');
+  }
+  try {
+    const dataUrl = await new Promise((resolve, reject) => {
+      const r = new FileReader();
+      r.onload = () => resolve(r.result);
+      r.onerror = () => reject(new Error('Could not read file'));
+      r.readAsDataURL(file);
+    });
+    const res = await API.post(`/admin/users/${userId}/avatar`, { avatar: dataUrl });
+    toast('Avatar updated');
+    invalidateCache('/admin/users', '/admin/teachers');
+    // Re-open the modal with refreshed data so the preview + remove button update.
+    const fresh = (await API.get('/admin/users')).find(u => u.id === userId);
+    if (fresh) editUser(fresh);
+  } catch (err) {
+    toast(err.message || 'Failed to upload avatar', 'error');
+  }
+}
+
+async function adminRemoveAvatar(userId) {
+  if (!confirm('Remove this user\'s avatar?')) return;
+  try {
+    await API.delete(`/admin/users/${userId}/avatar`);
+    toast('Avatar removed');
+    invalidateCache('/admin/users', '/admin/teachers');
+    const fresh = (await API.get('/admin/users')).find(u => u.id === userId);
+    if (fresh) editUser(fresh);
+  } catch (err) {
+    toast(err.message || 'Failed to remove avatar', 'error');
+  }
 }
 
 async function saveUserEdit(userId) {

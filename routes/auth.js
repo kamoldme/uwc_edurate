@@ -375,47 +375,23 @@ router.put('/update-profile', authenticate, (req, res) => {
 router.post('/avatar', authenticate, (req, res) => {
   try {
     const { avatar, filename } = req.body;
-    const fs = require('fs');
-    const path = require('path');
+    const { saveAvatarFile, deleteAvatarFile } = require('../utils/avatars');
 
     if (req.user.role !== 'teacher' && req.user.role !== 'head') {
       return res.status(403).json({ error: 'Only teachers and school heads can upload avatars' });
     }
 
-    if (!avatar || !avatar.startsWith('data:image/')) {
-      return res.status(400).json({ error: 'Invalid image data' });
+    let avatarUrl;
+    try {
+      avatarUrl = saveAvatarFile(avatar, req.user.id);
+    } catch (e) {
+      return res.status(400).json({ error: e.message });
     }
-
-    const matches = avatar.match(/^data:image\/(\w+);base64,(.+)$/);
-    if (!matches) {
-      return res.status(400).json({ error: 'Invalid image format' });
-    }
-
-    const ext = matches[1];
-    const base64Data = matches[2];
-    const buffer = Buffer.from(base64Data, 'base64');
-
-    if (buffer.length > 5 * 1024 * 1024) {
-      return res.status(400).json({ error: 'Image must be smaller than 5MB' });
-    }
-
-    const avatarsDir = path.join(__dirname, '..', 'public', 'avatars');
-    if (!fs.existsSync(avatarsDir)) {
-      fs.mkdirSync(avatarsDir, { recursive: true });
-    }
-
-    const avatarFilename = `avatar_${req.user.id}_${Date.now()}.${ext}`;
-    const avatarPath = path.join(avatarsDir, avatarFilename);
-    const avatarUrl = `/avatars/${avatarFilename}`;
 
     if (req.user.avatar_url) {
-      const oldPath = path.join(__dirname, '..', 'public', req.user.avatar_url);
-      if (fs.existsSync(oldPath)) {
-        fs.unlinkSync(oldPath);
-      }
+      deleteAvatarFile(req.user.avatar_url);
     }
 
-    fs.writeFileSync(avatarPath, buffer);
     db.prepare('UPDATE users SET avatar_url = ? WHERE id = ?').run(avatarUrl, req.user.id);
 
     if (req.user.role === 'teacher') {
@@ -443,17 +419,13 @@ router.post('/avatar', authenticate, (req, res) => {
 // DELETE /api/auth/avatar
 router.delete('/avatar', authenticate, (req, res) => {
   try {
-    const fs = require('fs');
-    const path = require('path');
+    const { deleteAvatarFile } = require('../utils/avatars');
 
     if (!req.user.avatar_url) {
       return res.status(400).json({ error: 'No avatar to remove' });
     }
 
-    const avatarPath = path.join(__dirname, '..', 'public', req.user.avatar_url);
-    if (fs.existsSync(avatarPath)) {
-      fs.unlinkSync(avatarPath);
-    }
+    deleteAvatarFile(req.user.avatar_url);
 
     db.prepare('UPDATE users SET avatar_url = NULL WHERE id = ?').run(req.user.id);
 

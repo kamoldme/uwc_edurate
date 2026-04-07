@@ -254,6 +254,95 @@ router.delete('/users/:id', authenticate, authorize('admin'), authorizeOrg, (req
   }
 });
 
+// POST /api/admin/users/:id/avatar — admin uploads/replaces a user's avatar
+// Only teacher / head avatars are manageable (students don't have avatars).
+router.post('/users/:id/avatar', authenticate, authorize('admin'), authorizeOrg, (req, res) => {
+  try {
+    const { saveAvatarFile, deleteAvatarFile } = require('../utils/avatars');
+    const { avatar } = req.body;
+
+    const user = db.prepare('SELECT * FROM users WHERE id = ?').get(req.params.id);
+    if (!user) return res.status(404).json({ error: 'User not found' });
+    if (user.org_id !== req.orgId) {
+      return res.status(403).json({ error: 'User is not in your organization' });
+    }
+    if (user.role !== 'teacher' && user.role !== 'head') {
+      return res.status(400).json({ error: 'Avatars are only supported for teachers and school heads' });
+    }
+
+    let avatarUrl;
+    try {
+      avatarUrl = saveAvatarFile(avatar, user.id);
+    } catch (e) {
+      return res.status(400).json({ error: e.message });
+    }
+
+    // Clean up the previous file so the volume doesn't accumulate orphans.
+    if (user.avatar_url) deleteAvatarFile(user.avatar_url);
+
+    db.prepare('UPDATE users SET avatar_url = ? WHERE id = ?').run(avatarUrl, user.id);
+    if (user.role === 'teacher') {
+      db.prepare('UPDATE teachers SET avatar_url = ? WHERE user_id = ?').run(avatarUrl, user.id);
+    }
+
+    logAuditEvent({
+      userId: req.user.id,
+      userRole: req.user.role,
+      userName: req.user.full_name,
+      actionType: 'user_avatar_update',
+      actionDescription: `Updated avatar for ${user.role}: ${user.full_name}`,
+      targetType: 'user',
+      targetId: user.id,
+      ipAddress: req.ip,
+      orgId: req.orgId || null
+    });
+
+    res.json({ avatarUrl });
+  } catch (err) {
+    console.error('Admin avatar upload error:', err);
+    res.status(500).json({ error: 'Failed to update avatar' });
+  }
+});
+
+// DELETE /api/admin/users/:id/avatar
+router.delete('/users/:id/avatar', authenticate, authorize('admin'), authorizeOrg, (req, res) => {
+  try {
+    const { deleteAvatarFile } = require('../utils/avatars');
+
+    const user = db.prepare('SELECT * FROM users WHERE id = ?').get(req.params.id);
+    if (!user) return res.status(404).json({ error: 'User not found' });
+    if (user.org_id !== req.orgId) {
+      return res.status(403).json({ error: 'User is not in your organization' });
+    }
+    if (!user.avatar_url) {
+      return res.status(400).json({ error: 'User has no avatar to remove' });
+    }
+
+    deleteAvatarFile(user.avatar_url);
+    db.prepare('UPDATE users SET avatar_url = NULL WHERE id = ?').run(user.id);
+    if (user.role === 'teacher') {
+      db.prepare('UPDATE teachers SET avatar_url = NULL WHERE user_id = ?').run(user.id);
+    }
+
+    logAuditEvent({
+      userId: req.user.id,
+      userRole: req.user.role,
+      userName: req.user.full_name,
+      actionType: 'user_avatar_remove',
+      actionDescription: `Removed avatar for ${user.role}: ${user.full_name}`,
+      targetType: 'user',
+      targetId: user.id,
+      ipAddress: req.ip,
+      orgId: req.orgId || null
+    });
+
+    res.json({ message: 'Avatar removed' });
+  } catch (err) {
+    console.error('Admin avatar delete error:', err);
+    res.status(500).json({ error: 'Failed to remove avatar' });
+  }
+});
+
 // PUT /api/admin/users/:id/suspend
 router.put('/users/:id/suspend', authenticate, authorize('admin'), authorizeOrg, (req, res) => {
   try {
