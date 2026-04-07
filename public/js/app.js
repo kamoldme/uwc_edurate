@@ -3658,16 +3658,23 @@ async function viewOrgStats(orgId, orgName) {
   }
 }
 
+window._selectedUserIds = window._selectedUserIds || new Set();
+
 function _buildUserRows(users) {
-  if (users.length === 0) return `<tr><td colspan="6" style="text-align:center;color:var(--gray-400);padding:24px">${t('admin.no_users')}</td></tr>`;
+  if (users.length === 0) return `<tr><td colspan="7" style="text-align:center;color:var(--gray-400);padding:24px">${t('admin.no_users')}</td></tr>`;
   return users.map(u => {
     const isSelf = u.id === currentUser.id;
     const canDelete = !isSelf && (
       (currentUser.role === 'admin' && u.role !== 'admin')
     );
     const safeName = u.full_name.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+    const checked = window._selectedUserIds.has(u.id) ? 'checked' : '';
+    const checkboxCell = canDelete
+      ? `<input type="checkbox" class="user-select-cb" data-user-id="${u.id}" onchange="toggleUserSelect(${u.id}, this.checked)" ${checked}>`
+      : `<input type="checkbox" disabled title="${isSelf ? t('admin.cannot_select_self') : t('admin.cannot_delete_this_user')}" style="opacity:0.3">`;
     return `
     <tr>
+      <td style="width:32px;text-align:center">${checkboxCell}</td>
       <td><strong>${u.full_name}</strong></td>
       <td style="font-size:0.8rem;color:var(--gray-500)">${u.email}</td>
       <td><span class="badge ${u.role === 'super_admin' ? 'badge-flagged' : u.role === 'admin' ? 'badge-flagged' : u.role === 'teacher' ? 'badge-active' : u.role === 'head' ? 'badge-approved' : 'badge-pending'}">${{student: t('common.student'), teacher: t('common.teacher'), school_head: t('common.school_head'), admin: t('common.admin'), super_admin: t('common.super_admin')}[u.role] || u.role}</span></td>
@@ -3688,26 +3695,135 @@ function _buildUserRows(users) {
   }).join('');
 }
 
+function toggleUserSelect(userId, checked) {
+  if (checked) window._selectedUserIds.add(userId);
+  else window._selectedUserIds.delete(userId);
+  _updateBulkBar();
+}
+
+function _getSelectableUsers() {
+  const isSelf = (u) => u.id === currentUser.id;
+  return (window._allUsers || []).filter(u => !isSelf(u) && u.role !== 'admin');
+}
+
+function _getVisibleSelectableUsers() {
+  const search = (window._userSearch || '').toLowerCase();
+  return _getSelectableUsers().filter(u => {
+    const roleMatch = !window._userFilter || (window._userFilter === 'admin' ? u.role === 'admin' : u.role === window._userFilter);
+    const searchMatch = !search || u.full_name.toLowerCase().includes(search) || u.email.toLowerCase().includes(search);
+    return roleMatch && searchMatch;
+  });
+}
+
+function selectAllVisibleUsers(checked) {
+  const visible = _getVisibleSelectableUsers();
+  if (checked) visible.forEach(u => window._selectedUserIds.add(u.id));
+  else visible.forEach(u => window._selectedUserIds.delete(u.id));
+  // Sync checkboxes in table
+  document.querySelectorAll('.user-select-cb').forEach(cb => {
+    const id = parseInt(cb.dataset.userId);
+    if (!isNaN(id)) cb.checked = window._selectedUserIds.has(id);
+  });
+  _updateBulkBar();
+}
+
+function _updateBulkBar() {
+  const bar = document.getElementById('bulkDeleteBar');
+  const count = window._selectedUserIds.size;
+  if (!bar) return;
+  if (count === 0) {
+    bar.style.display = 'none';
+  } else {
+    bar.style.display = 'flex';
+    const label = document.getElementById('bulkDeleteCount');
+    if (label) label.textContent = count;
+  }
+  // Update header checkbox state
+  const headerCb = document.getElementById('selectAllUsersCb');
+  if (headerCb) {
+    const visibleIds = _getVisibleSelectableUsers().map(u => u.id);
+    const selectedVisible = visibleIds.filter(id => window._selectedUserIds.has(id)).length;
+    headerCb.checked = visibleIds.length > 0 && selectedVisible === visibleIds.length;
+    headerCb.indeterminate = selectedVisible > 0 && selectedVisible < visibleIds.length;
+  }
+}
+
+async function bulkDeleteUsers() {
+  const ids = Array.from(window._selectedUserIds);
+  if (ids.length === 0) return;
+  const confirmed = await confirmWithText(
+    t('admin.bulk_delete_confirm', {count: ids.length}),
+    'delete selected',
+    t('admin.bulk_delete_warning')
+  );
+  if (!confirmed) return;
+  let ok = 0, fail = 0;
+  const failures = [];
+  for (const id of ids) {
+    try {
+      await API.delete(`/admin/users/${id}`);
+      ok++;
+    } catch (err) {
+      fail++;
+      const user = (window._allUsers || []).find(u => u.id === id);
+      failures.push(`${user ? user.full_name : id}: ${err.message}`);
+    }
+  }
+  window._selectedUserIds.clear();
+  invalidateCache('/admin/stats', '/admin/users', '/admin/teachers');
+  if (fail === 0) {
+    toast(t('admin.bulk_delete_success', {count: ok}));
+  } else {
+    toast(t('admin.bulk_delete_partial', {ok, fail}) + '\n' + failures.slice(0, 3).join('\n'), 'error');
+  }
+  renderAdminUsers();
+}
+
 function toggleActionMenu(userId, event) {
   event.stopPropagation();
   const menu = document.getElementById(`dropdown-menu-${userId}`);
+  const trigger = event.currentTarget;
   const isOpen = menu.classList.contains('open');
   closeActionMenus();
   if (!isOpen) {
-    menu.classList.add('open');
-    const rect = menu.getBoundingClientRect();
-    if (rect.bottom > window.innerHeight) {
-      menu.classList.add('flip-up');
+    // Make menu a direct child of body so no ancestor overflow clips it
+    if (menu.parentElement !== document.body) {
+      menu.dataset.origParent = menu.parentElement.id || '';
+      document.body.appendChild(menu);
     }
+    menu.classList.add('open');
+    // Measure after display: block so we know the menu's real height
+    const tRect = trigger.getBoundingClientRect();
+    const mRect = menu.getBoundingClientRect();
+    const margin = 4;
+    // Right-align to trigger, clamped to viewport
+    let left = tRect.right - mRect.width;
+    if (left < 8) left = 8;
+    if (left + mRect.width > window.innerWidth - 8) left = window.innerWidth - mRect.width - 8;
+    // Below trigger, flip above if it would overflow
+    let top = tRect.bottom + margin;
+    if (top + mRect.height > window.innerHeight - 8) {
+      top = tRect.top - mRect.height - margin;
+      if (top < 8) top = 8;
+    }
+    menu.style.left = left + 'px';
+    menu.style.top = top + 'px';
   }
 }
 
 function closeActionMenus() {
-  document.querySelectorAll('.action-dropdown-menu.open').forEach(m => m.classList.remove('open', 'flip-up'));
+  document.querySelectorAll('.action-dropdown-menu.open').forEach(m => {
+    m.classList.remove('open');
+    m.style.left = '';
+    m.style.top = '';
+  });
 }
 
 // Close dropdowns when clicking anywhere outside
 document.addEventListener('click', closeActionMenus);
+// Close on scroll/resize (fixed-positioned menus would otherwise stay stuck)
+window.addEventListener('scroll', closeActionMenus, true);
+window.addEventListener('resize', closeActionMenus);
 
 // Close fixed announcement classroom popup when clicking outside
 document.addEventListener('click', (e) => {
@@ -3726,11 +3842,15 @@ function _filterUserTable() {
   });
   const tbody = document.getElementById('userTableBody');
   if (tbody) tbody.innerHTML = _buildUserRows(filtered);
+  _updateBulkBar();
 }
 
 async function renderAdminUsers(refetch = true) {
   if (refetch) {
     window._allUsers = await API.get('/admin/users');
+    // Drop any selected IDs that are no longer in the list
+    const ids = new Set((window._allUsers || []).map(u => u.id));
+    window._selectedUserIds = new Set(Array.from(window._selectedUserIds).filter(id => ids.has(id)));
   }
   const el = document.getElementById('contentArea');
   const search = (window._userSearch || '').toLowerCase();
@@ -3756,10 +3876,20 @@ async function renderAdminUsers(refetch = true) {
         value="${window._userSearch || ''}"
         oninput="window._userSearch=this.value;_filterUserTable()">
     </div>
+    <div id="bulkDeleteBar" style="display:none;align-items:center;justify-content:space-between;gap:12px;background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:12px 16px;margin-bottom:16px">
+      <div style="color:#991b1b;font-weight:600"><span id="bulkDeleteCount">0</span> ${t('admin.selected')}</div>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-sm btn-outline" onclick="window._selectedUserIds.clear();renderAdminUsers(false)">${t('common.clear')}</button>
+        <button class="btn btn-sm btn-danger" onclick="bulkDeleteUsers()">${t('admin.delete_selected')}</button>
+      </div>
+    </div>
     <div class="card">
       <div class="table-container">
         <table>
-          <thead><tr><th>${t('common.name')}</th><th>${t('common.email')}</th><th>${t('common.role')}</th><th>${t('admin.grade_position')}</th><th>${t('common.status')}</th><th>${t('common.actions')}</th></tr></thead>
+          <thead><tr>
+            <th style="width:32px;text-align:center"><input type="checkbox" id="selectAllUsersCb" onchange="selectAllVisibleUsers(this.checked)" title="${t('admin.select_all')}"></th>
+            <th>${t('common.name')}</th><th>${t('common.email')}</th><th>${t('common.role')}</th><th>${t('admin.grade_position')}</th><th>${t('common.status')}</th><th>${t('common.actions')}</th>
+          </tr></thead>
           <tbody id="userTableBody">
             ${_buildUserRows(users)}
           </tbody>
@@ -3767,6 +3897,7 @@ async function renderAdminUsers(refetch = true) {
       </div>
     </div>
   `;
+  _updateBulkBar();
 }
 
 async function showCreateUser() {
@@ -3792,8 +3923,8 @@ async function showCreateUser() {
         <select class="form-control" id="newUserRole" onchange="onNewUserRoleChange(this.value)">
           <option value="student">${t('common.student')}</option>
           <option value="teacher">${t('common.teacher')}</option>
-          <option value="school_head">${t('common.school_head')}</option>
-          <option value="org_admin">${t('common.org_admin')}</option>
+          <option value="head">${t('common.school_head')}</option>
+          <option value="admin">${t('common.org_admin')}</option>
         </select>
       </div>
       <div id="orgFields" style="display:none">
@@ -3805,7 +3936,7 @@ async function showCreateUser() {
           </select>
         </div>
       </div>
-      <div class="form-group">
+      <div class="form-group" id="gradeFieldWrap">
         <label>${t('admin.grade_position_label')}</label>
         <input type="text" class="form-control" id="newUserGrade" placeholder="${t('admin.grade_position_placeholder')}">
       </div>
@@ -3828,15 +3959,23 @@ function onNewUserRoleChange(role) {
   if (orgFields) {
     orgFields.style.display = (role === 'head' || role === 'admin') ? 'block' : 'none';
   }
+  // Grade/Position only applies to students and teachers
+  const gradeWrap = document.getElementById('gradeFieldWrap');
+  if (gradeWrap) {
+    gradeWrap.style.display = (role === 'student' || role === 'teacher') ? 'block' : 'none';
+  }
 }
 
 async function createUser() {
+  const role = document.getElementById('newUserRole').value;
   const body = {
     full_name: document.getElementById('newUserName').value,
     email: document.getElementById('newUserEmail').value,
     password: document.getElementById('newUserPassword').value,
-    role: document.getElementById('newUserRole').value,
-    grade_or_position: document.getElementById('newUserGrade').value
+    role: role,
+    grade_or_position: (role === 'student' || role === 'teacher')
+      ? document.getElementById('newUserGrade').value
+      : ''
   };
   if (body.role === 'teacher') {
     body.subject = document.getElementById('newTeacherSubject').value;
@@ -3866,6 +4005,7 @@ function editUserById(id) {
 }
 
 function editUser(user) {
+  const showGrade = (user.role === 'student' || user.role === 'teacher');
   openModal(`
     <div class="modal-header"><h3>${t('admin.edit_user_title', {name: user.full_name})}</h3><button class="modal-close" onclick="closeModal()">&times;</button></div>
     <div class="modal-body">
@@ -3877,16 +4017,17 @@ function editUser(user) {
         <label>${t('account.email')}</label>
         <input type="email" class="form-control" id="editUserEmail" value="${user.email}">
       </div>
-      <div class="form-group">
+      <div class="form-group" id="editGradeFieldWrap" style="display:${showGrade ? 'block' : 'none'}">
         <label>${t('admin.grade_position_label')}</label>
         <input type="text" class="form-control" id="editUserGrade" value="${user.grade_or_position || ''}">
       </div>
       <div class="form-group">
         <label>${t('account.role')}</label>
-        <select class="form-control" id="editUserRole">
+        <select class="form-control" id="editUserRole" onchange="onEditUserRoleChange(this.value)">
           <option value="student" ${user.role === 'student' ? 'selected' : ''}>${t('common.student')}</option>
           <option value="teacher" ${user.role === 'teacher' ? 'selected' : ''}>${t('common.teacher')}</option>
           <option value="head" ${user.role === 'head' ? 'selected' : ''}>${t('common.school_head')}</option>
+          <option value="admin" ${user.role === 'admin' ? 'selected' : ''}>${t('common.org_admin')}</option>
         </select>
       </div>
     </div>
@@ -3897,12 +4038,19 @@ function editUser(user) {
   `);
 }
 
+function onEditUserRoleChange(role) {
+  const wrap = document.getElementById('editGradeFieldWrap');
+  if (wrap) wrap.style.display = (role === 'student' || role === 'teacher') ? 'block' : 'none';
+}
+
 async function saveUserEdit(userId) {
+  const role = document.getElementById('editUserRole').value;
+  const gradeEl = document.getElementById('editUserGrade');
   const body = {
     full_name: document.getElementById('editUserName').value,
     email: document.getElementById('editUserEmail').value,
-    grade_or_position: document.getElementById('editUserGrade').value,
-    role: document.getElementById('editUserRole').value
+    grade_or_position: (role === 'student' || role === 'teacher') && gradeEl ? gradeEl.value : '',
+    role: role
   };
   if (!body.full_name || !body.email) return toast(t('admin.name_email_required'), 'error');
   try {

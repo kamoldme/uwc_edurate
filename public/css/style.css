@@ -686,23 +686,17 @@ tbody tr:last-child td { border-bottom: none; }
 
 .action-dropdown-menu {
   display: none;
-  position: absolute;
-  right: 0;
-  top: calc(100% + 4px);
-  min-width: 160px;
+  position: fixed;
+  min-width: 180px;
   background: #fff;
   border: 1px solid var(--gray-200);
   border-radius: 8px;
-  box-shadow: 0 8px 24px rgba(0,0,0,0.12);
-  z-index: 200;
+  box-shadow: 0 12px 32px rgba(0,0,0,0.18);
+  z-index: 2000;
   overflow: hidden;
 }
 
 .action-dropdown-menu.open { display: block; }
-.action-dropdown-menu.open.flip-up {
-  top: auto;
-  bottom: calc(100% + 4px);
-}
 
 .action-dropdown-item {
   display: block;
