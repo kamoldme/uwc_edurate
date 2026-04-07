@@ -254,6 +254,44 @@ router.delete('/users/:id', authenticate, authorize('admin'), authorizeOrg, (req
   }
 });
 
+// POST /api/admin/backup — trigger an on-demand SQLite backup. Useful for
+// verifying the persistent volume works and for ad-hoc snapshots before a
+// risky data change. The actual file rotation / scheduling is in utils/backup.
+router.post('/backup', authenticate, authorize('admin'), async (req, res) => {
+  try {
+    const { runBackup, BACKUPS_DIR, BACKUP_KEEP } = require('../utils/backup');
+    const filePath = await runBackup(db);
+    const fs = require('fs');
+    const path = require('path');
+    const files = fs.existsSync(BACKUPS_DIR)
+      ? fs.readdirSync(BACKUPS_DIR).filter(f => f.endsWith('.db')).sort().reverse()
+      : [];
+
+    logAuditEvent({
+      userId: req.user.id,
+      userRole: req.user.role,
+      userName: req.user.full_name,
+      actionType: 'db_backup',
+      actionDescription: `Manually triggered DB backup: ${path.basename(filePath)}`,
+      targetType: 'system',
+      ipAddress: req.ip,
+      orgId: req.orgId || null
+    });
+
+    res.json({
+      message: 'Backup created',
+      file: path.basename(filePath),
+      dir: BACKUPS_DIR,
+      keep: BACKUP_KEEP,
+      total: files.length,
+      recent: files.slice(0, 5),
+    });
+  } catch (err) {
+    console.error('Manual backup error:', err);
+    res.status(500).json({ error: err.message || 'Backup failed' });
+  }
+});
+
 // POST /api/admin/users/:id/avatar — admin uploads/replaces a user's avatar
 // Only teacher / head avatars are manageable (students don't have avatars).
 router.post('/users/:id/avatar', authenticate, authorize('admin'), authorizeOrg, (req, res) => {

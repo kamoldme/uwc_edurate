@@ -38,6 +38,13 @@ const autoClosePeriods = () => {
 autoClosePeriods(); // run once at startup to catch any periods that expired while server was down
 setInterval(autoClosePeriods, 60 * 1000); // check every minute
 
+// Schedule daily SQLite backups to the persistent volume. Opt-out by setting
+// BACKUP_DISABLED=true (useful for local dev where backups are just noise).
+if (process.env.BACKUP_DISABLED !== 'true') {
+  const { scheduleBackups } = require('./utils/backup');
+  scheduleBackups(db);
+}
+
 
 const authRoutes = require('./routes/auth');
 const classroomRoutes = require('./routes/classrooms');
