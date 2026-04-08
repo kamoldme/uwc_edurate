@@ -25,7 +25,7 @@ router.get('/users', authenticate, authorize('admin'), authorizeOrg, (req, res) 
   try {
     const { role, search } = req.query;
     const params = [];
-    let query = 'SELECT u.id, u.full_name, u.email, u.role, u.grade_or_position, u.school_id, u.org_id, u.verified_status, u.suspended, u.created_at FROM users u WHERE u.org_id = ?';
+    let query = 'SELECT u.id, u.full_name, u.email, u.role, u.grade_or_position, u.school_id, u.org_id, u.verified_status, u.suspended, u.avatar_url, u.is_student_council, u.created_at FROM users u WHERE u.org_id = ?';
     params.push(req.orgId || 1);
 
     if (role) { query += ' AND u.role = ?'; params.push(role); }
@@ -251,6 +251,42 @@ router.delete('/users/:id', authenticate, authorize('admin'), authorizeOrg, (req
   } catch (err) {
     console.error('Delete user error:', err);
     res.status(500).json({ error: 'Failed to delete user' });
+  }
+});
+
+// PUT /api/admin/users/:id/council — toggle Student Council membership.
+// Only valid for students. Audit-logged. The flag unlocks the publish button
+// in the Student Voice sub-view; nothing else changes for the user.
+router.put('/users/:id/council', authenticate, authorize('admin'), authorizeOrg, (req, res) => {
+  try {
+    const { is_council } = req.body;
+    const user = db.prepare('SELECT * FROM users WHERE id = ?').get(req.params.id);
+    if (!user) return res.status(404).json({ error: 'User not found' });
+    if (user.org_id !== req.orgId) {
+      return res.status(403).json({ error: 'User is not in your organization' });
+    }
+    if (user.role !== 'student') {
+      return res.status(400).json({ error: 'Only students can be council members' });
+    }
+    const flag = is_council ? 1 : 0;
+    db.prepare('UPDATE users SET is_student_council = ? WHERE id = ?').run(flag, user.id);
+
+    logAuditEvent({
+      userId: req.user.id,
+      userRole: req.user.role,
+      userName: req.user.full_name,
+      actionType: flag ? 'council_grant' : 'council_revoke',
+      actionDescription: `${flag ? 'Granted' : 'Revoked'} Student Council membership for ${user.full_name}`,
+      targetType: 'user',
+      targetId: user.id,
+      ipAddress: req.ip,
+      orgId: req.orgId || null,
+    });
+
+    res.json({ ok: true, is_student_council: flag });
+  } catch (err) {
+    console.error('Council toggle error:', err);
+    res.status(500).json({ error: 'Failed to update council membership' });
   }
 });
 

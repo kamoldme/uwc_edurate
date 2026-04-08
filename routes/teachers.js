@@ -2,6 +2,7 @@ const express = require('express');
 const db = require('../database');
 const { authenticate, authorize } = require('../middleware/auth');
 const { getTeacherScores } = require('../utils/scoring');
+const { CRITERIA_COLS } = require('../utils/criteriaConfig');
 
 const router = express.Router();
 
@@ -14,10 +15,13 @@ router.get('/:id/profile', authenticate, authorize('admin', 'head'), (req, res) 
       return res.status(404).json({ error: 'Teacher not found' });
     }
 
+    // Heads cannot see reviews from teacher-private periods
+    const visFilter = req.user.role === 'head' ? 'AND fp.teacher_private = 0' : '';
+    const critCols = CRITERIA_COLS.map(c => `r.${c}`).join(', ');
+
     // Get approved reviews only
     const reviews = db.prepare(`
-      SELECT r.id, r.overall_rating, r.clarity_rating, r.engagement_rating,
-        r.fairness_rating, r.supportiveness_rating, r.feedback_text,
+      SELECT r.id, r.overall_rating, ${critCols}, r.feedback_text,
         r.tags, r.created_at, fp.name as period_name, t.name as term_name
       FROM reviews r
       JOIN feedback_periods fp ON r.feedback_period_id = fp.id
@@ -26,11 +30,12 @@ router.get('/:id/profile', authenticate, authorize('admin', 'head'), (req, res) 
         AND r.approved_status = 1
         AND r.flagged_status = 'approved'
         AND t.feedback_visible = 1
+        ${visFilter}
       ORDER BY r.created_at DESC
     `).all(req.params.id);
 
-    // Calculate scores
-    const scores = getTeacherScores(req.params.id);
+    // Calculate scores (with visibility filter applied for heads)
+    const scores = getTeacherScores(req.params.id, { visibilityRole: req.user.role });
 
     res.json({ teacher, reviews, scores });
   } catch (err) {

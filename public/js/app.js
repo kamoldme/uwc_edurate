@@ -1363,26 +1363,32 @@ async function renderCommsUnified(role) {
   el.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
   try {
     const isStudent = role === 'student';
-    const [announcements, forms] = await Promise.all([
+    // Fetch council posts in parallel with the existing announcements/forms.
+    // Council endpoint is best-effort: a 404/500 here should not break Communication.
+    const [announcements, forms, councilPosts] = await Promise.all([
       cachedGet('/announcements', CACHE_TTL.medium).catch(() => []),
       isStudent
         ? API.get('/forms/student/available').catch(() => [])
-        : cachedGet('/forms', CACHE_TTL.medium).catch(() => [])
+        : cachedGet('/forms', CACHE_TTL.medium).catch(() => []),
+      API.get('/council/posts').catch(() => [])
     ]);
 
     // Build unified items list
     const items = [];
     announcements.forEach(a => items.push({ type: 'announcement', date: a.created_at, data: a }));
     forms.forEach(f => items.push({ type: 'form', date: f.created_at || f.updated_at || '2000-01-01', data: f }));
+    councilPosts.forEach(p => items.push({ type: 'council', date: p.published_at, data: p }));
     items.sort((a, b) => new Date(b.date) - new Date(a.date));
 
-    // Action buttons for non-students
-    const actionBtns = !isStudent ? `
+    // Action buttons. Council members get the publish button regardless of role.
+    const isCouncil = currentUser && currentUser.is_student_council && currentUser.role === 'student';
+    const actionBtns = `
       <div style="display:flex;gap:8px;flex-wrap:wrap">
-        <button class="btn btn-primary btn-sm" onclick="navigateTo('${role}-announcements')">+ Announcement</button>
-        <button class="btn btn-outline btn-sm" onclick="navigateTo('${role}-forms')">Manage Forms</button>
+        ${isCouncil ? `<button class="btn btn-primary btn-sm" onclick="openCouncilPublishChooser()">${t('council.new_post')}</button>` : ''}
+        ${!isStudent ? `<button class="btn btn-primary btn-sm" onclick="navigateTo('${role}-announcements')">+ Announcement</button>` : ''}
+        ${!isStudent ? `<button class="btn btn-outline btn-sm" onclick="navigateTo('${role}-forms')">Manage Forms</button>` : ''}
       </div>
-    ` : '';
+    `;
 
     const formCardHTML = (f) => {
       if (isStudent) {
@@ -1432,11 +1438,17 @@ async function renderCommsUnified(role) {
       </div>
       ${items.length === 0
         ? '<div class="card"><div class="card-body"><div class="empty-state"><h3>Nothing here yet</h3><p>Announcements and forms will appear here.</p></div></div></div>'
-        : items.map(item => item.type === 'announcement'
-            ? announcementCardHTML(item.data, !isStudent, isStudent)
-            : formCardHTML(item.data)
-          ).join('')}
+        : items.map(item => {
+            if (item.type === 'announcement') return announcementCardHTML(item.data, !isStudent, isStudent);
+            if (item.type === 'council') return councilPostCardHTML(item.data);
+            return formCardHTML(item.data);
+          }).join('')}
     `;
+
+    // Council posts mounted asynchronously: load each petition's results so the
+    // tally bar can render. Do it after innerHTML so the DOM nodes exist.
+    items.filter(i => i.type === 'council' && i.data.type === 'petition' && i.data.status !== 'removed')
+         .forEach(i => loadPetitionResults(i.data.id));
 
     // Mark comms as seen (for badge clearing)
     const total = items.length;
@@ -1471,13 +1483,14 @@ async function checkCommsBadge() {
   const role = currentUser.role;
   const isStudent = role === 'student';
   try {
-    const [announcements, forms] = await Promise.all([
+    const [announcements, forms, councilPosts] = await Promise.all([
       cachedGet('/announcements', CACHE_TTL.medium).catch(() => []),
       isStudent
         ? API.get('/forms/student/available').catch(() => [])
-        : cachedGet('/forms', CACHE_TTL.medium).catch(() => [])
+        : cachedGet('/forms', CACHE_TTL.medium).catch(() => []),
+      API.get('/council/posts').catch(() => [])
     ]);
-    const total = announcements.length + forms.length;
+    const total = announcements.length + forms.length + councilPosts.length;
     const badge = document.getElementById('commsBadge');
     if (badge) {
       badge.dataset.total = total;
@@ -3686,6 +3699,7 @@ function _buildUserRows(users) {
           <div class="action-dropdown-menu" id="dropdown-menu-${u.id}">
             <button class="action-dropdown-item" onclick="closeActionMenus();editUserById(${u.id})">${t('common.edit')}</button>
             <button class="action-dropdown-item" onclick="closeActionMenus();resetPassword(${u.id}, '${safeName}')">${t('admin.reset_password')}</button>
+            ${u.role === 'student' ? `<button class="action-dropdown-item" onclick="closeActionMenus();toggleCouncilMember(${u.id}, ${u.is_student_council ? 0 : 1})">${u.is_student_council ? 'Revoke council access' : 'Grant council access'}</button>` : ''}
             ${!isSelf ? `<button class="action-dropdown-item" onclick="closeActionMenus();toggleSuspend(${u.id})">${u.suspended ? t('admin.unsuspend') : t('admin.suspend')}</button>` : ''}
             ${canDelete ? `<button class="action-dropdown-item danger" onclick="closeActionMenus();deleteUser(${u.id}, '${safeName}')">${t('admin.delete_account')}</button>` : ''}
           </div>
@@ -6496,6 +6510,382 @@ function announcementCardHTML(a, canDelete, isStudent = false) {
       </div>
     </div>`;
 }
+
+// ============ STUDENT COUNCIL (council posts: announcements + petitions) ============
+// All council UI lives here so the surface is contained. Backend is routes/council.js.
+// Voting is anonymous to other students; staff and council members see counts.
+
+function _councilFmtDate(iso) {
+  if (!iso) return '';
+  const d = new Date(iso + (iso.endsWith('Z') ? '' : 'Z'));
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+    + ' at ' + d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+}
+
+function _councilFmtRelative(iso) {
+  if (!iso) return '';
+  const target = new Date(iso + (iso.endsWith('Z') ? '' : 'Z')).getTime();
+  const diff = target - Date.now();
+  if (diff <= 0) return t('council.closed');
+  const days = Math.floor(diff / (24 * 60 * 60 * 1000));
+  const hours = Math.floor((diff % (24 * 60 * 60 * 1000)) / (60 * 60 * 1000));
+  if (days > 0) return t('council.closes_in', { when: `in ${days}d ${hours}h` });
+  if (hours > 0) return t('council.closes_in', { when: `in ${hours}h` });
+  const mins = Math.max(1, Math.floor(diff / 60000));
+  return t('council.closes_in', { when: `in ${mins}m` });
+}
+
+function councilPostCardHTML(p) {
+  // Soft-deleted: render a stub so admins/heads see something was taken down.
+  if (p.status === 'removed') {
+    return `
+      <div class="card" style="margin-bottom:16px;opacity:0.6">
+        <div class="card-body">
+          <div style="font-style:italic;color:var(--gray-500);font-size:0.9rem">${t('council.removed_stub')}</div>
+        </div>
+      </div>`;
+  }
+
+  const isPetition = p.type === 'petition';
+  const date = _councilFmtDate(p.published_at);
+  const isAuthor = currentUser && p.creator_id === currentUser.id;
+  const isStaff = currentUser && (currentUser.role === 'admin' || currentUser.role === 'head');
+  // Author can edit/take-down within 15 minutes; staff anytime.
+  const publishedMs = new Date(p.published_at + (p.published_at.endsWith('Z') ? '' : 'Z')).getTime();
+  const inEditWindow = (Date.now() - publishedMs) < 15 * 60 * 1000;
+  const canEdit = isStaff || (isAuthor && inEditWindow);
+  const canTakedown = isStaff || (isAuthor && inEditWindow);
+
+  const badgeColor = isPetition ? '#7c3aed' : '#0ea5e9';
+  const badgeLabel = isPetition ? 'Petition' : 'Announcement';
+  const councilBadge = p.author_is_council
+    ? `<span style="font-size:0.7rem;background:#fef3c7;color:#92400e;padding:1px 8px;border-radius:10px;font-weight:600">${t('council.badge')}</span>`
+    : `<span style="font-size:0.7rem;background:var(--gray-100);color:var(--gray-500);padding:1px 8px;border-radius:10px">${t('council.former_member')}</span>`;
+
+  const closedNotice = isPetition && p.status === 'closed'
+    ? `<span style="font-size:0.78rem;color:var(--danger);font-weight:600">&middot; ${t('council.closed')}</span>`
+    : isPetition
+      ? `<span style="font-size:0.78rem;color:var(--gray-500)">&middot; ${escapeHtml(_councilFmtRelative(p.closes_at))}</span>`
+      : '';
+
+  const attachment = p.attachment_url
+    ? `<div style="margin-top:10px"><a href="${p.attachment_url}" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:6px;font-size:0.85rem;color:var(--primary);text-decoration:none">📎 ${escapeHtml(p.attachment_name || t('council.attachment_label'))}</a></div>`
+    : '';
+
+  const voteSection = isPetition && p.status === 'active'
+    ? `<div id="petitionVote-${p.id}" style="margin-top:14px;border-top:1px solid var(--gray-100);padding-top:14px">
+         <div style="font-size:0.78rem;color:var(--gray-500);margin-bottom:8px">${t('council.anonymous_disclaimer')}</div>
+         <div style="display:flex;gap:8px;flex-wrap:wrap">
+           <button class="btn btn-sm btn-outline" data-vote-btn="agree" onclick="submitPetitionVote(${p.id}, 'agree')">${t('council.vote_agree')}</button>
+           <button class="btn btn-sm btn-outline" data-vote-btn="disagree" onclick="submitPetitionVote(${p.id}, 'disagree')">${t('council.vote_disagree')}</button>
+           <button class="btn btn-sm btn-outline" data-vote-btn="neutral" onclick="submitPetitionVote(${p.id}, 'neutral')">${t('council.vote_neutral')}</button>
+         </div>
+         <div id="petitionResults-${p.id}" style="margin-top:12px;font-size:0.85rem;color:var(--gray-500)">…</div>
+       </div>`
+    : isPetition
+      ? `<div id="petitionVote-${p.id}" style="margin-top:14px;border-top:1px solid var(--gray-100);padding-top:14px">
+           <div id="petitionResults-${p.id}" style="font-size:0.85rem;color:var(--gray-500)">…</div>
+         </div>`
+      : '';
+
+  return `
+    <div class="card" style="margin-bottom:16px;border-left:4px solid ${badgeColor}">
+      <div class="card-body">
+        <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:8px;gap:12px">
+          <div style="flex:1;min-width:0">
+            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:4px">
+              <h3 style="margin:0;font-size:1.05rem">${escapeHtml(p.title)}</h3>
+              <span style="font-size:0.7rem;background:${badgeColor};color:#fff;padding:1px 8px;border-radius:10px">${badgeLabel}</span>
+              ${councilBadge}
+            </div>
+            <span style="font-size:0.78rem;color:var(--gray-400)">${escapeHtml(p.creator_name || '')} &middot; ${date} ${closedNotice}</span>
+          </div>
+          ${(canEdit || canTakedown) ? `<div style="display:flex;gap:6px;flex-shrink:0">
+            ${canEdit ? `<button class="btn btn-sm btn-outline" onclick="openCouncilEditModal(${p.id})">${t('council.edit')}</button>` : ''}
+            ${canTakedown ? `<button class="btn btn-sm btn-outline" style="color:var(--danger)" onclick="takedownCouncilPost(${p.id})">${t('council.takedown')}</button>` : ''}
+          </div>` : ''}
+        </div>
+        <div style="color:var(--gray-700);line-height:1.6;font-size:0.92rem;white-space:pre-wrap">${escapeHtml(p.body)}</div>
+        ${attachment}
+        ${voteSection}
+      </div>
+    </div>`;
+}
+
+// Type chooser modal — shown when council member clicks "+ New post".
+// Splits announcement vs petition into separate forms because the field set
+// (and the consequences) are different enough that one combined form would
+// confuse first-time authors.
+function openCouncilPublishChooser() {
+  openModal(`
+    <div class="modal-header"><h3>${t('council.choose_type')}</h3><button class="modal-close" onclick="closeModal()">&times;</button></div>
+    <div class="modal-body">
+      <div style="display:flex;flex-direction:column;gap:12px">
+        <button class="btn btn-outline" style="text-align:left;padding:16px" onclick="openCouncilPublishModal('announcement')">
+          <div style="font-weight:600;margin-bottom:4px">📢 ${t('council.choose_announcement')}</div>
+          <div style="font-size:0.85rem;color:var(--gray-500);font-weight:400">${t('council.choose_announcement_desc')}</div>
+        </button>
+        <button class="btn btn-outline" style="text-align:left;padding:16px" onclick="openCouncilPublishModal('petition')">
+          <div style="font-weight:600;margin-bottom:4px">✊ ${t('council.choose_petition')}</div>
+          <div style="font-size:0.85rem;color:var(--gray-500);font-weight:400">${t('council.choose_petition_desc')}</div>
+        </button>
+      </div>
+    </div>
+  `);
+}
+
+function openCouncilPublishModal(type) {
+  // Default deadline: 7 days from now, in <input type="datetime-local"> format.
+  const def = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+  const tzOffset = def.getTimezoneOffset() * 60000;
+  const localISO = new Date(def.getTime() - tzOffset).toISOString().slice(0, 16);
+
+  const isPetition = type === 'petition';
+  openModal(`
+    <div class="modal-header">
+      <h3>${isPetition ? '✊ ' + t('council.choose_petition') : '📢 ' + t('council.choose_announcement')}</h3>
+      <button class="modal-close" onclick="closeModal()">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label>${t('council.title_label')}</label>
+        <input type="text" class="form-control" id="councilTitle" maxlength="200">
+      </div>
+      <div class="form-group">
+        <label>${t('council.body_label')}</label>
+        <textarea class="form-control" id="councilBody" rows="6" placeholder="${isPetition ? t('council.body_placeholder') : t('council.body_placeholder_announcement')}"></textarea>
+      </div>
+      ${isPetition ? `
+      <div class="form-group">
+        <label>${t('council.deadline')}</label>
+        <input type="datetime-local" class="form-control" id="councilDeadline" value="${localISO}">
+      </div>
+      <div class="form-group">
+        <label>${t('council.attach_pdf')}</label>
+        <input type="file" id="councilAttachment" accept="application/pdf,.pdf">
+      </div>
+      ` : ''}
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal()">${t('common.cancel')}</button>
+      <button class="btn btn-primary" id="councilPublishBtn" onclick="submitCouncilPost('${type}')">${t('council.publish')}</button>
+    </div>
+  `);
+}
+
+async function submitCouncilPost(type) {
+  const title = document.getElementById('councilTitle').value.trim();
+  const body = document.getElementById('councilBody').value.trim();
+  if (!title || !body) return toast(t('admin.fill_required'), 'error');
+
+  const payload = { type, title, body };
+
+  if (type === 'petition') {
+    const deadline = document.getElementById('councilDeadline').value;
+    if (!deadline) return toast(t('council.deadline_must_be_future'), 'error');
+    const deadlineMs = new Date(deadline).getTime();
+    if (deadlineMs <= Date.now()) return toast(t('council.deadline_must_be_future'), 'error');
+    payload.closes_at = new Date(deadline).toISOString();
+
+    const fileInput = document.getElementById('councilAttachment');
+    const file = fileInput?.files?.[0];
+    if (file) {
+      if (file.type !== 'application/pdf') return toast(t('council.pdf_only'), 'error');
+      if (file.size > 8 * 1024 * 1024) return toast(t('council.pdf_too_large'), 'error');
+      try {
+        payload.attachment = await new Promise((resolve, reject) => {
+          const r = new FileReader();
+          r.onload = () => resolve(r.result);
+          r.onerror = () => reject(new Error('Could not read file'));
+          r.readAsDataURL(file);
+        });
+        payload.attachment_name = file.name;
+      } catch (e) {
+        return toast(e.message, 'error');
+      }
+    }
+  }
+
+  const btn = document.getElementById('councilPublishBtn');
+  if (btn) { btn.disabled = true; btn.textContent = t('council.publishing'); }
+  try {
+    await API.post('/council/posts', payload);
+    toast(t('council.publish'));
+    closeModal();
+    // Refresh whichever comms view is visible.
+    const role = currentUser?.role;
+    if (role) renderCommsUnified(role);
+  } catch (err) {
+    if (btn) { btn.disabled = false; btn.textContent = t('council.publish'); }
+    toast(err.message || 'Failed to publish', 'error');
+  }
+}
+
+async function openCouncilEditModal(postId) {
+  try {
+    // Pull the latest version from the feed cache (no edit-specific endpoint needed).
+    const posts = await API.get('/council/posts');
+    const post = posts.find(p => p.id === postId);
+    if (!post) return toast('Post not found', 'error');
+    const isPetition = post.type === 'petition';
+
+    // Format closes_at for datetime-local.
+    let localISO = '';
+    if (post.closes_at) {
+      const d = new Date(post.closes_at + (post.closes_at.endsWith('Z') ? '' : 'Z'));
+      const tzOffset = d.getTimezoneOffset() * 60000;
+      localISO = new Date(d.getTime() - tzOffset).toISOString().slice(0, 16);
+    }
+
+    openModal(`
+      <div class="modal-header"><h3>${t('council.edit')}</h3><button class="modal-close" onclick="closeModal()">&times;</button></div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label>${t('council.title_label')}</label>
+          <input type="text" class="form-control" id="councilEditTitle" maxlength="200" value="${escAttr(post.title)}">
+        </div>
+        <div class="form-group">
+          <label>${t('council.body_label')}</label>
+          <textarea class="form-control" id="councilEditBody" rows="6">${escapeHtml(post.body)}</textarea>
+        </div>
+        ${isPetition ? `
+        <div class="form-group">
+          <label>${t('council.deadline')}</label>
+          <input type="datetime-local" class="form-control" id="councilEditDeadline" value="${localISO}">
+        </div>` : ''}
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-outline" onclick="closeModal()">${t('common.cancel')}</button>
+        <button class="btn btn-primary" onclick="saveCouncilEdit(${post.id}, '${post.type}')">${t('admin.save_changes')}</button>
+      </div>
+    `);
+  } catch (err) {
+    toast(err.message || 'Failed to load post', 'error');
+  }
+}
+
+async function saveCouncilEdit(postId, type) {
+  const body = {
+    title: document.getElementById('councilEditTitle').value.trim(),
+    body: document.getElementById('councilEditBody').value.trim(),
+  };
+  if (type === 'petition') {
+    const deadline = document.getElementById('councilEditDeadline').value;
+    if (deadline) body.closes_at = new Date(deadline).toISOString();
+  }
+  if (!body.title || !body.body) return toast(t('admin.fill_required'), 'error');
+  try {
+    await API.put(`/council/posts/${postId}`, body);
+    toast(t('admin.user_updated'));
+    closeModal();
+    const role = currentUser?.role;
+    if (role) renderCommsUnified(role);
+  } catch (err) {
+    toast(err.message || 'Failed to save', 'error');
+  }
+}
+
+async function takedownCouncilPost(postId) {
+  const ok = await confirmDialog(t('council.confirm_takedown'), t('council.takedown'), t('common.cancel'));
+  if (!ok) return;
+  try {
+    await API.delete(`/council/posts/${postId}`);
+    toast('Removed');
+    const role = currentUser?.role;
+    if (role) renderCommsUnified(role);
+  } catch (err) {
+    toast(err.message || 'Failed to take down', 'error');
+  }
+}
+
+async function submitPetitionVote(postId, vote) {
+  try {
+    await API.post(`/council/posts/${postId}/vote`, { vote });
+    toast(t('council.your_vote') + ': ' + t('council.vote_' + vote));
+    loadPetitionResults(postId);
+  } catch (err) {
+    toast(err.message || 'Failed to vote', 'error');
+  }
+}
+
+async function loadPetitionResults(postId) {
+  const el = document.getElementById(`petitionResults-${postId}`);
+  if (!el) return;
+  try {
+    const [results, mine] = await Promise.all([
+      API.get(`/council/posts/${postId}/results`).catch(() => ({})),
+      API.get(`/council/posts/${postId}/my-vote`).catch(() => ({ vote: null })),
+    ]);
+
+    // Highlight the user's own vote button if they've voted.
+    if (mine.vote) {
+      const wrap = document.getElementById(`petitionVote-${postId}`);
+      if (wrap) {
+        wrap.querySelectorAll('[data-vote-btn]').forEach(btn => {
+          if (btn.dataset.voteBtn === mine.vote) {
+            btn.classList.remove('btn-outline');
+            btn.classList.add('btn-primary');
+          } else {
+            btn.classList.add('btn-outline');
+            btn.classList.remove('btn-primary');
+          }
+        });
+      }
+    }
+
+    if (results.pending) {
+      el.innerHTML = `<em>${t('council.vote_first_to_see_results')}</em>`;
+      return;
+    }
+    const total = results.total || 0;
+    if (total === 0) {
+      el.innerHTML = `<em>0 votes yet</em>`;
+      return;
+    }
+    const pct = (n) => Math.round((n / total) * 100);
+    const bar = (color, n, label) => `
+      <div style="margin-bottom:6px">
+        <div style="display:flex;justify-content:space-between;font-size:0.78rem;margin-bottom:2px">
+          <span>${label}</span><span>${n} (${pct(n)}%)</span>
+        </div>
+        <div style="background:var(--gray-100);border-radius:4px;height:8px;overflow:hidden">
+          <div style="background:${color};height:100%;width:${pct(n)}%"></div>
+        </div>
+      </div>`;
+    el.innerHTML = `
+      ${bar('#16a34a', results.agree || 0, t('council.vote_agree'))}
+      ${bar('#dc2626', results.disagree || 0, t('council.vote_disagree'))}
+      ${bar('#6b7280', results.neutral || 0, t('council.vote_neutral'))}
+      <div style="font-size:0.75rem;color:var(--gray-400);margin-top:4px">${t('council.tally_total', { n: total })}</div>
+    `;
+  } catch (err) {
+    el.innerHTML = `<em>Could not load results</em>`;
+  }
+}
+
+// Admin: toggle Student Council membership for a student. Surfaced as a row
+// action in the user list dropdown. Backend enforces "must be a student".
+async function toggleCouncilMember(userId, makeCouncil) {
+  try {
+    await API.put(`/admin/users/${userId}/council`, { is_council: makeCouncil ? 1 : 0 });
+    toast(makeCouncil ? 'Granted council access' : 'Revoked council access');
+    invalidateCache('/admin/users');
+    renderAdminUsers();
+  } catch (err) {
+    toast(err.message || 'Failed to update', 'error');
+  }
+}
+
+// Expose council functions to inline onclick handlers.
+window.openCouncilPublishChooser = openCouncilPublishChooser;
+window.openCouncilPublishModal = openCouncilPublishModal;
+window.submitCouncilPost = submitCouncilPost;
+window.openCouncilEditModal = openCouncilEditModal;
+window.saveCouncilEdit = saveCouncilEdit;
+window.takedownCouncilPost = takedownCouncilPost;
+window.submitPetitionVote = submitPetitionVote;
+window.loadPetitionResults = loadPetitionResults;
+window.toggleCouncilMember = toggleCouncilMember;
 
 function richTextToolbar(editorId) {
   return `<div style="display:flex;gap:4px;margin-bottom:6px;flex-wrap:wrap">

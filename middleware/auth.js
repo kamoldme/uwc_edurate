@@ -28,7 +28,7 @@ function authenticate(req, res, next) {
   }
   try {
     const decoded = jwt.verify(token, JWT_SECRET);
-    const user = db.prepare('SELECT u.id, u.full_name, u.email, u.role, u.grade_or_position, u.school_id, u.org_id, u.verified_status, u.suspended, u.avatar_url, u.language, u.created_at, o.name as org_name FROM users u LEFT JOIN organizations o ON u.org_id = o.id WHERE u.id = ?').get(decoded.id);
+    const user = db.prepare('SELECT u.id, u.full_name, u.email, u.role, u.grade_or_position, u.school_id, u.org_id, u.verified_status, u.suspended, u.avatar_url, u.language, u.is_student_council, u.created_at, o.name as org_name FROM users u LEFT JOIN organizations o ON u.org_id = o.id WHERE u.id = ?').get(decoded.id);
     if (!user) {
       return res.status(401).json({ error: 'User not found' });
     }

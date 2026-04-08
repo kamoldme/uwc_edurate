@@ -38,6 +38,53 @@ const autoClosePeriods = () => {
 autoClosePeriods(); // run once at startup to catch any periods that expired while server was down
 setInterval(autoClosePeriods, 60 * 1000); // check every minute
 
+// Auto-close petitions whose deadline has passed. Notifies admin + head of the
+// org with the final tally so the loop closes itself even if nobody is watching.
+// Runs every 5 minutes — petitions don't need second-level precision and the
+// notification fan-out is per-org.
+const autoClosePetitions = () => {
+  try {
+    const expired = db.prepare(`
+      SELECT id, org_id, title FROM council_posts
+      WHERE type = 'petition' AND status = 'active'
+        AND closes_at IS NOT NULL AND datetime('now') > closes_at
+    `).all();
+    if (!expired.length) return;
+
+    const { createNotifications } = require('./utils/notifications');
+    const closeStmt = db.prepare("UPDATE council_posts SET status = 'closed' WHERE id = ?");
+    const tallyStmt = db.prepare(`
+      SELECT vote, COUNT(*) AS n FROM petition_votes WHERE post_id = ? GROUP BY vote
+    `);
+
+    for (const p of expired) {
+      closeStmt.run(p.id);
+      const rows = tallyStmt.all(p.id);
+      const counts = { agree: 0, disagree: 0, neutral: 0 };
+      rows.forEach(r => { counts[r.vote] = r.n; });
+      const total = counts.agree + counts.disagree + counts.neutral;
+      const body = `Final tally: ${counts.agree} agree, ${counts.disagree} disagree, ${counts.neutral} neutral (${total} total)`;
+
+      // Notify admin + head of the same org. createNotifications no-ops on
+      // empty userIds so it's safe even if the org has neither role filled.
+      const staff = db.prepare(
+        "SELECT id FROM users WHERE org_id = ? AND role IN ('admin','head')"
+      ).all(p.org_id).map(u => u.id);
+      createNotifications({
+        userIds: staff,
+        orgId: p.org_id,
+        type: 'petition_closed',
+        title: `Petition closed: ${p.title}`,
+        body,
+        link: 'admin-comms-voice',
+      });
+      console.log(`[auto-close] Petition "${p.title}" (id=${p.id}) closed — ${body}`);
+    }
+  } catch (err) { console.error('[auto-close petitions] Error:', err.message); }
+};
+autoClosePetitions();
+setInterval(autoClosePetitions, 5 * 60 * 1000); // every 5 minutes
+
 // Schedule daily SQLite backups to the persistent volume. Opt-out by setting
 // BACKUP_DISABLED=true (useful for local dev where backups are just noise).
 if (process.env.BACKUP_DISABLED !== 'true') {
@@ -57,6 +104,7 @@ const formsRoutes = require('./routes/forms');
 const announcementsRoutes = require('./routes/announcements');
 const notificationsRoutes = require('./routes/notifications');
 const departmentsRoutes = require('./routes/departments');
+const councilRoutes = require('./routes/council');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -91,6 +139,12 @@ app.use(cookieParser());
 const uploadJsonParser = express.json({ limit: '6mb' });
 app.use('/api/auth/avatar', uploadJsonParser);
 app.use('/api/admin/users/:id/avatar', uploadJsonParser);
+
+// Council posts may carry a base64-encoded PDF (~1.33x its raw size). 12mb
+// gives headroom over the 8mb hard cap in utils/attachments.js. Mounted only
+// on the create/edit paths — voting and listing still use the global 10kb cap.
+const councilUploadParser = express.json({ limit: '12mb' });
+app.use('/api/council/posts', councilUploadParser);
 
 app.use(express.json({ limit: '10kb' }));
 app.use(express.urlencoded({ extended: false }));
@@ -139,6 +193,7 @@ app.use('/api/forms', formsRoutes);
 app.use('/api/announcements', announcementsRoutes);
 app.use('/api/notifications', notificationsRoutes);
 app.use('/api/departments', departmentsRoutes);
+app.use('/api/council', councilRoutes);
 
 // Specific page routes (BEFORE static middleware)
 app.get('/app', (req, res) => {
@@ -168,6 +223,15 @@ app.get('/', (req, res) => {
 const { AVATARS_DIR, ensureDir: ensureAvatarsDir } = require('./utils/avatars');
 ensureAvatarsDir();
 app.use('/avatars', express.static(AVATARS_DIR, {
+  maxAge: '7d',
+  fallthrough: false,
+}));
+
+// Petition attachments live on the same persistent volume. Same reasoning as
+// /avatars: mount BEFORE public/ static so the volume copy wins.
+const { ATTACHMENTS_DIR, ensureDir: ensureAttachmentsDir } = require('./utils/attachments');
+ensureAttachmentsDir();
+app.use('/attachments', express.static(ATTACHMENTS_DIR, {
   maxAge: '7d',
   fallthrough: false,
 }));

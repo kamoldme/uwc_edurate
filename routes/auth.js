@@ -40,7 +40,7 @@ router.post('/register', async (req, res) => {
       VALUES (?, ?, ?, 'student', ?, 1, 1, 1)
     `).run(sanitizedName, email.toLowerCase(), hashedPassword, grade_or_position || null);
 
-    const user = db.prepare('SELECT id, full_name, email, role, grade_or_position, school_id, org_id, verified_status, avatar_url, language FROM users WHERE id = ?')
+    const user = db.prepare('SELECT id, full_name, email, role, grade_or_position, school_id, org_id, verified_status, avatar_url, language, is_student_council FROM users WHERE id = ?')
       .get(result.lastInsertRowid);
 
     const token = generateToken(user);
@@ -129,7 +129,7 @@ router.post('/register-teacher', async (req, res) => {
     db.prepare(`INSERT INTO teachers (user_id, full_name, school_id, org_id, department) VALUES (?, ?, 1, ?, ?)`)
       .run(userId, sanitizedName, org.id, departmentName);
 
-    const user = db.prepare('SELECT id, full_name, email, role, org_id, verified_status, avatar_url, language FROM users WHERE id = ?').get(userId);
+    const user = db.prepare('SELECT id, full_name, email, role, org_id, verified_status, avatar_url, language, is_student_council FROM users WHERE id = ?').get(userId);
     const token = generateToken(user);
 
     res.cookie('token', token, { httpOnly: true, secure: process.env.NODE_ENV === 'production', sameSite: 'lax', maxAge: 24 * 60 * 60 * 1000 });

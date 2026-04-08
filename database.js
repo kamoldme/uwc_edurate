@@ -903,45 +903,121 @@ try {
   console.error('Migration error (teacher_private):', err.message);
 }
 
-// Seed default accounts if they don't exist
-const seedAccounts = [
-  { email: 'admin@uwc.edu',   password: 'Admin1234',   role: 'admin',   name: 'UWC Admin' },
-  { email: 'head@uwc.edu',    password: 'Head1234',    role: 'head',    name: 'UWC Head' },
-  { email: 'teacher@uwc.edu', password: 'Teacher1234', role: 'teacher', name: 'UWC Teacher' },
-  { email: 'student@uwc.edu', password: 'Student1234', role: 'student', name: 'UWC Student' },
-];
-
-for (const acc of seedAccounts) {
-  try {
-    const exists = db.prepare('SELECT id FROM users WHERE email = ?').get(acc.email);
-    if (!exists) {
-      const hashed = bcrypt.hashSync(acc.password, 12);
-      db.prepare(`
-        INSERT INTO users (full_name, email, password, role, school_id, org_id, verified_status)
-        VALUES (?, ?, ?, ?, 1, 1, 1)
-      `).run(acc.name, acc.email, hashed, acc.role);
-      console.log(`✅ Seeded ${acc.role}: ${acc.email} / ${acc.password}`);
-    }
-  } catch (err) {
-    console.error(`Seed error (${acc.email}):`, err.message);
-  }
-}
-
-// Also seed teacher profile row for teacher@uwc.edu
+// Migration: Add is_student_council flag to users (Student Council feature)
 try {
-  const teacherUser = db.prepare("SELECT id FROM users WHERE email = 'teacher@uwc.edu'").get();
-  if (teacherUser) {
-    const hasProfile = db.prepare('SELECT id FROM teachers WHERE user_id = ?').get(teacherUser.id);
-    if (!hasProfile) {
-      db.prepare(`
-        INSERT INTO teachers (user_id, full_name, subject, department, school_id, org_id)
-        VALUES (?, 'UWC Teacher', 'General', 'General', 1, 1)
-      `).run(teacherUser.id);
-      console.log('✅ Seeded teacher profile for teacher@uwc.edu');
-    }
+  const userCols = db.prepare("PRAGMA table_info(users)").all().map(c => c.name);
+  if (!userCols.includes('is_student_council')) {
+    db.exec('ALTER TABLE users ADD COLUMN is_student_council INTEGER DEFAULT 0');
+    console.log('✅ Migration: Added is_student_council to users');
   }
 } catch (err) {
-  console.error('Teacher profile seed error:', err.message);
+  console.error('Migration error (is_student_council):', err.message);
+}
+
+// Migration: council_posts (announcements + petitions published by Student Council)
+// creator_id uses ON DELETE SET NULL so a graduating council member doesn't wipe
+// out posts the school cared about. creator_name is denormalized for that case.
+try {
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS council_posts (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      org_id INTEGER REFERENCES organizations(id) ON DELETE CASCADE,
+      creator_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+      creator_name TEXT NOT NULL,
+      type TEXT NOT NULL CHECK(type IN ('announcement', 'petition')),
+      title TEXT NOT NULL,
+      body TEXT NOT NULL,
+      attachment_url TEXT,
+      attachment_name TEXT,
+      status TEXT NOT NULL DEFAULT 'active' CHECK(status IN ('active', 'closed', 'removed')),
+      closes_at DATETIME,
+      published_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE INDEX IF NOT EXISTS idx_council_posts_org ON council_posts(org_id, status);
+    CREATE INDEX IF NOT EXISTS idx_council_posts_published ON council_posts(published_at DESC);
+  `);
+} catch (err) {
+  console.error('Migration error (council_posts):', err.message);
+}
+
+// Migration: petition_votes — anonymous-aggregate ballot. (post_id, user_id) is
+// UNIQUE so a student can change their vote, but each student counts at most once.
+try {
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS petition_votes (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      post_id INTEGER NOT NULL REFERENCES council_posts(id) ON DELETE CASCADE,
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      vote TEXT NOT NULL CHECK(vote IN ('agree', 'disagree', 'neutral')),
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(post_id, user_id)
+    );
+    CREATE INDEX IF NOT EXISTS idx_petition_votes_post ON petition_votes(post_id);
+  `);
+} catch (err) {
+  console.error('Migration error (petition_votes):', err.message);
+}
+
+// Migration: extend in_app_notifications.type CHECK to include petition events.
+// SQLite can't ALTER a CHECK constraint — must rebuild the table. Detection
+// works by try-inserting a row with the new type and seeing if SQLite throws.
+// (Same pattern as the support_new / support_resolved extension above.)
+try {
+  let needsMigration = false;
+  try {
+    db.prepare("INSERT INTO in_app_notifications (user_id, type, title) VALUES (0, 'petition_published', 'test')").run();
+    db.prepare("DELETE FROM in_app_notifications WHERE user_id = 0 AND type = 'petition_published'").run();
+  } catch (e) {
+    needsMigration = true;
+  }
+  if (needsMigration) {
+    db.exec(`
+      PRAGMA foreign_keys = OFF;
+      BEGIN;
+      CREATE TABLE in_app_notifications_v3 (
+        id         INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        org_id     INTEGER REFERENCES organizations(id)  ON DELETE CASCADE,
+        type       TEXT NOT NULL CHECK(type IN (
+                     'announcement', 'form_active', 'period_open',
+                     'review_approved', 'support_new', 'support_resolved',
+                     'petition_published', 'petition_closed')),
+        title      TEXT NOT NULL,
+        body       TEXT,
+        link       TEXT,
+        read       INTEGER NOT NULL DEFAULT 0,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      );
+      INSERT INTO in_app_notifications_v3 SELECT * FROM in_app_notifications;
+      DROP TABLE in_app_notifications;
+      ALTER TABLE in_app_notifications_v3 RENAME TO in_app_notifications;
+      CREATE INDEX IF NOT EXISTS idx_notif_user    ON in_app_notifications(user_id, read);
+      CREATE INDEX IF NOT EXISTS idx_notif_org     ON in_app_notifications(org_id);
+      CREATE INDEX IF NOT EXISTS idx_notif_created ON in_app_notifications(created_at);
+      COMMIT;
+    `);
+    db.pragma('foreign_keys = ON');
+    console.log('✅ Migration: extended notification types with petition_published, petition_closed');
+  }
+} catch (err) {
+  console.error('Migration error (extend notification types for petitions):', err.message);
+}
+
+// Seed the default admin only. Teacher / head / student accounts are created
+// through the admin UI on each deploy as needed — no need to seed them every
+// boot. The admin seed remains so a fresh DB is recoverable without DB access.
+try {
+  const exists = db.prepare("SELECT id FROM users WHERE email = 'admin@uwc.edu'").get();
+  if (!exists) {
+    const hashed = bcrypt.hashSync('Admin1234', 12);
+    db.prepare(`
+      INSERT INTO users (full_name, email, password, role, school_id, org_id, verified_status)
+      VALUES ('UWC Admin', 'admin@uwc.edu', ?, 'admin', 1, 1, 1)
+    `).run(hashed);
+    console.log('✅ Seeded admin: admin@uwc.edu / Admin1234');
+  }
+} catch (err) {
+  console.error('Admin seed error:', err.message);
 }
 
 module.exports = db;

@@ -14,6 +14,7 @@ COPY . .
 # volume mounted at /data so they survive container restarts and redeploys.
 ENV DB_PATH=/data/oasis.db
 ENV AVATARS_DIR=/data/avatars
+ENV ATTACHMENTS_DIR=/data/attachments
 ENV BACKUPS_DIR=/data/backups
 ENV NODE_ENV=production
 
