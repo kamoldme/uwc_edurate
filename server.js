@@ -82,6 +82,16 @@ app.use(helmet({
 
 app.use(cors({ origin: process.env.FRONTEND_URL || 'http://localhost:3000', credentials: true }));
 app.use(cookieParser());
+
+// Body parsers. The global JSON limit is intentionally tiny (10kb) to keep the
+// attack surface small for normal API endpoints, but a few routes legitimately
+// receive base64-encoded image / file uploads and need a larger limit. Mount
+// the larger parser ONLY on those specific routes, BEFORE the global one,
+// so it wins for matching paths and the global cap protects everything else.
+const uploadJsonParser = express.json({ limit: '6mb' });
+app.use('/api/auth/avatar', uploadJsonParser);
+app.use('/api/admin/users/:id/avatar', uploadJsonParser);
+
 app.use(express.json({ limit: '10kb' }));
 app.use(express.urlencoded({ extended: false }));
 
