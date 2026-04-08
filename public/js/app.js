@@ -3690,7 +3690,7 @@ function _buildUserRows(users) {
       <td style="width:32px;text-align:center">${checkboxCell}</td>
       <td><strong>${u.full_name}</strong></td>
       <td style="font-size:0.8rem;color:var(--gray-500)">${u.email}</td>
-      <td><span class="badge ${u.role === 'super_admin' ? 'badge-flagged' : u.role === 'admin' ? 'badge-flagged' : u.role === 'teacher' ? 'badge-active' : u.role === 'head' ? 'badge-approved' : 'badge-pending'}">${{student: t('common.student'), teacher: t('common.teacher'), school_head: t('common.school_head'), admin: t('common.admin'), super_admin: t('common.super_admin')}[u.role] || u.role}</span></td>
+      <td><span class="badge ${u.role === 'super_admin' ? 'badge-flagged' : u.role === 'admin' ? 'badge-flagged' : u.role === 'teacher' ? 'badge-active' : u.role === 'head' ? 'badge-approved' : (u.role === 'student' && u.is_student_council) ? 'badge-active' : 'badge-pending'}">${(u.role === 'student' && u.is_student_council) ? 'StuCo' : ({student: t('common.student'), teacher: t('common.teacher'), school_head: t('common.school_head'), admin: t('common.admin'), super_admin: t('common.super_admin')}[u.role] || u.role)}</span></td>
       <td>${u.grade_or_position || '-'}</td>
       <td>${u.suspended ? `<span class="badge badge-rejected">${t('common.suspended')}</span>` : `<span class="badge badge-approved">${t('common.active')}</span>`}</td>
       <td>
@@ -3847,10 +3847,18 @@ document.addEventListener('click', (e) => {
   }
 });
 
+// 'stuco' is a virtual filter: matches students with the council flag set.
+// All other filter keys map straight to the user.role column.
+function _userMatchesFilter(u, filter) {
+  if (!filter) return true;
+  if (filter === 'stuco') return u.role === 'student' && !!u.is_student_council;
+  return u.role === filter;
+}
+
 function _filterUserTable() {
   const search = (window._userSearch || '').toLowerCase();
   const filtered = (window._allUsers || []).filter(u => {
-    const roleMatch = !window._userFilter || (window._userFilter === 'admin' ? u.role === 'admin' : u.role === window._userFilter);
+    const roleMatch = _userMatchesFilter(u, window._userFilter);
     const searchMatch = !search || u.full_name.toLowerCase().includes(search) || u.email.toLowerCase().includes(search);
     return roleMatch && searchMatch;
   });
@@ -3869,16 +3877,16 @@ async function renderAdminUsers(refetch = true) {
   const el = document.getElementById('contentArea');
   const search = (window._userSearch || '').toLowerCase();
   const users = (window._allUsers || []).filter(u => {
-    const roleMatch = !window._userFilter || (window._userFilter === 'admin' ? u.role === 'admin' : u.role === window._userFilter);
+    const roleMatch = _userMatchesFilter(u, window._userFilter);
     const searchMatch = !search || u.full_name.toLowerCase().includes(search) || u.email.toLowerCase().includes(search);
     return roleMatch && searchMatch;
   });
 
   el.innerHTML = `
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
-      <div style="display:flex;gap:8px">
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
         <button class="btn btn-sm ${!window._userFilter ? 'btn-primary' : 'btn-outline'}" onclick="window._userFilter=null;renderAdminUsers()">${t('common.all')}</button>
-        ${[{key: 'student', label: t('common.student')}, {key: 'teacher', label: t('common.teacher')}, {key: 'head', label: t('common.school_head')}, {key: 'admin', label: t('common.admin')}].map(r =>
+        ${[{key: 'student', label: t('common.student')}, {key: 'stuco', label: 'StuCo'}, {key: 'teacher', label: t('common.teacher')}, {key: 'head', label: t('common.school_head')}, {key: 'admin', label: t('common.admin')}].map(r =>
           `<button class="btn btn-sm ${window._userFilter === r.key ? 'btn-primary' : 'btn-outline'}" onclick="window._userFilter='${r.key}';renderAdminUsers()">${r.label}</button>`
         ).join('')}
       </div>
