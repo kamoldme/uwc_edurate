@@ -1407,11 +1407,7 @@ tbody tr:last-child td { border-bottom: none; }
     flex-wrap: wrap;
   }
 
-  /* Teacher classrooms: join code + buttons row */
-  .classroom-card [style*="justify-content:space-between"] {
-    flex-direction: column;
-    gap: 12px;
-  }
+  /* Teacher classrooms: join code + buttons row stays as row */
 
   /* School head analytics heatmap: make scrollable */
   .content-area table {

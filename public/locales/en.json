@@ -841,7 +841,7 @@
   "council.tally_total": "{{n}} votes",
   "council.closes_in": "Closes {{when}}",
   "council.closed": "Closed",
-  "council.removed_stub": "This post was removed by a moderator.",
+  "council.removed_stub": "Deleted",
   "council.anonymous_disclaimer": "Your vote is anonymous to other students. Admins can review individual votes only in case of abuse.",
   "council.badge": "Council",
   "council.former_member": "Former Council Member",

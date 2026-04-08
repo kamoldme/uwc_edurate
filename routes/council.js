@@ -48,9 +48,8 @@ function requireCouncilMember(req, res, next) {
 }
 
 // ─── GET /api/council/posts ──────────────────────────────────────────────────
-// All authenticated users in the org see the same feed. Hidden ('removed')
-// posts still come back with their status so admin/head can see what was taken
-// down; the UI renders them as a stub.
+// All authenticated users in the org see the same feed. Removed posts are
+// filtered out entirely — once deleted, they vanish from the feed for everyone.
 router.get('/posts', authenticate, (req, res) => {
   try {
     const orgId = resolveOrgId(req.user);
@@ -63,6 +62,7 @@ router.get('/posts', authenticate, (req, res) => {
       FROM council_posts cp
       LEFT JOIN users u ON u.id = cp.creator_id
       WHERE cp.org_id = ?
+        AND cp.status != 'removed'
       ORDER BY cp.published_at DESC
       LIMIT 200
     `).all(orgId);

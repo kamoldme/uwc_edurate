@@ -1005,12 +1005,14 @@ async function renderStudentReview() {
 
     el.innerHTML = `
       <div class="card" style="margin-bottom:24px;border-left:4px solid var(--success)">
-        <div class="card-body" style="display:flex;justify-content:space-between;align-items:center">
-          <div>
-            <strong>${t('student.active_period_label')}</strong> ${data.period.name}
-            <span style="color:var(--gray-500);margin-left:12px">${t('student.anonymous_hint')}</span>
+        <div class="card-body" style="display:flex;align-items:center;gap:12px">
+          <div style="flex:0 0 80%;display:flex;flex-direction:column;gap:4px;min-width:0">
+            <div><strong>${t('student.active_period_label')}</strong> ${data.period.name}</div>
+            <div style="color:var(--gray-500);font-size:0.85rem">${t('student.anonymous_hint')}</div>
           </div>
-          <span class="badge badge-active">${t('status.open')}</span>
+          <div style="flex:0 0 20%;display:flex;justify-content:flex-end">
+            <span class="badge badge-active">${t('status.open')}</span>
+          </div>
         </div>
       </div>
 
@@ -6583,15 +6585,8 @@ function _councilFmtRelative(iso) {
 }
 
 function councilPostCardHTML(p) {
-  // Soft-deleted: render a stub so admins/heads see something was taken down.
-  if (p.status === 'removed') {
-    return `
-      <div class="card" style="margin-bottom:16px;opacity:0.6">
-        <div class="card-body">
-          <div style="font-style:italic;color:var(--gray-500);font-size:0.9rem">${t('council.removed_stub')}</div>
-        </div>
-      </div>`;
-  }
+  // Soft-deleted posts are filtered out by the API; this guard is defensive.
+  if (p.status === 'removed') return '';
 
   const isPetition = p.type === 'petition';
   const date = _councilFmtDate(p.published_at);
