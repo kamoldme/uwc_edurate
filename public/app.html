@@ -15,6 +15,7 @@
     <!-- Sidebar -->
     <aside class="sidebar" id="sidebar">
       <div class="sidebar-header">
+        <button class="sidebar-close" id="sidebarClose" onclick="closeSidebar()" aria-label="Close menu">&times;</button>
         <h1 style="display:flex;align-items:center;gap:8px"><span style="display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;background:var(--primary);border-radius:7px;font-size:14px;font-weight:700;color:#fff;flex-shrink:0">O</span>Oasis</h1>
         <div class="role-badge" id="roleBadge"></div>
       </div>
@@ -38,7 +39,7 @@
     <main class="main-content">
       <header class="top-bar">
         <div style="display:flex;align-items:center;gap:12px;">
-          <button class="mobile-toggle" onclick="document.getElementById('sidebar').classList.toggle('open');document.getElementById('sidebarBackdrop').classList.toggle('active')">&#9776;</button>
+          <button class="mobile-toggle" onclick="openSidebar()" aria-label="Open menu">&#9776;</button>
           <h2 id="pageTitle">Dashboard</h2>
         </div>
         <div class="top-bar-actions" id="topBarActions"></div>
@@ -50,7 +51,7 @@
   </div>
 
   <!-- Sidebar backdrop (mobile) -->
-  <div class="sidebar-backdrop" id="sidebarBackdrop" onclick="document.getElementById('sidebar').classList.remove('open');this.classList.remove('active');"></div>
+  <div class="sidebar-backdrop" id="sidebarBackdrop" onclick="closeSidebar()"></div>
 
   <!-- Toast container -->
   <div class="toast-container" id="toastContainer"></div>

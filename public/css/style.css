@@ -66,7 +66,29 @@ body {
 .sidebar-header {
   padding: 24px 20px;
   border-bottom: 1px solid rgba(255,255,255,0.08);
+  position: relative;
 }
+
+/* Close button is mobile-only — desktop users have no need for it. */
+.sidebar-close {
+  display: none;
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 36px;
+  height: 36px;
+  background: rgba(255,255,255,0.08);
+  border: none;
+  border-radius: 8px;
+  color: #fff;
+  font-size: 1.6rem;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0;
+  align-items: center;
+  justify-content: center;
+}
+.sidebar-close:hover { background: rgba(255,255,255,0.16); }
 
 .sidebar-header h1 {
   font-size: 1.5rem;
@@ -218,21 +240,35 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 12px;
   position: sticky;
   top: 0;
   z-index: 50;
+}
+
+.top-bar > div:first-child {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  flex: 1;
 }
 
 .top-bar h2 {
   font-size: 1.25rem;
   font-weight: 600;
   color: var(--gray-800);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
 }
 
 .top-bar-actions {
   display: flex;
   align-items: center;
   gap: 12px;
+  flex-shrink: 0;
 }
 
 .content-area {
@@ -1035,10 +1071,19 @@ tbody tr:last-child td { border-bottom: none; }
 
 /* Tablet portrait / small tablet */
 @media (max-width: 768px) {
-  .sidebar { transform: translateX(-100%); }
+  .sidebar {
+    transform: translateX(-100%);
+    width: 280px;
+    max-width: 85vw;
+    box-shadow: 4px 0 24px rgba(0,0,0,0.2);
+  }
   .sidebar.open { transform: translateX(0); }
+  .sidebar-close { display: flex; }
+  .sidebar-header { padding-right: 60px; }
   .main-content { margin-left: 0; }
   .mobile-toggle { display: block; }
+  /* Lock body scroll under the open drawer so iOS Safari doesn't bleed through */
+  body.sidebar-open { overflow: hidden; touch-action: none; }
   .content-area { padding: 16px 12px; }
   .top-bar { padding: 12px 16px; }
   .top-bar h2 { font-size: 1.05rem; }
@@ -1782,4 +1827,49 @@ tbody tr:last-child td { border-bottom: none; }
   .help-doc-card { padding: 18px 20px; }
   .help-options { grid-template-columns: 1fr; }
   .help-option-card { padding: 20px 18px; }
+}
+
+/* ============ MOBILE LAYOUT FIXES ============ */
+/* These run last so they win against earlier @media blocks. The goal: nothing
+   on the page horizontally overflows or pushes the top bar off-screen on a
+   320–480px viewport. */
+@media (max-width: 768px) {
+  /* Notif panel was a fixed 340px wide — overflowed on small phones. Anchor
+     it to the viewport edges instead so it always fits. */
+  .notif-panel {
+    position: fixed;
+    top: 60px;
+    left: 12px;
+    right: 12px;
+    width: auto;
+    max-width: none;
+    max-height: calc(100vh - 80px);
+  }
+
+  /* Top bar buttons get tighter so the title has room */
+  .top-bar { padding: 10px 14px; gap: 8px; }
+  .top-bar-actions { gap: 6px; }
+  .top-bar-actions .btn { padding: 6px 10px; font-size: 0.75rem; }
+  .top-bar h2 { font-size: 1rem; }
+  .mobile-toggle { font-size: 1.4rem; padding: 6px 8px; flex-shrink: 0; }
+
+  /* Stop wide tables and pre/code blocks from forcing horizontal page scroll.
+     Each direct child of content-area gets its own scroll container instead. */
+  body, html { overflow-x: hidden; }
+  .content-area > * { max-width: 100%; }
+  .content-area pre, .content-area code { max-width: 100%; overflow-x: auto; }
+
+  /* Modals were already 95vw, but inner content sometimes pushed wider */
+  .modal { width: 95vw; max-width: 95vw; }
+  .modal-body, .modal-header, .modal-footer { word-break: break-word; }
+
+  /* Tighten chart-container so the radar/bar charts don't overflow */
+  .chart-container { width: 100%; max-width: 100%; }
+}
+
+@media (max-width: 480px) {
+  /* Even smaller — collapse the language switcher / extras to icons only */
+  .top-bar h2 { font-size: 0.9rem; }
+  .top-bar-actions .btn { padding: 5px 8px; font-size: 0.7rem; }
+  .top-bar-actions .btn-icon-only { padding: 6px; }
 }

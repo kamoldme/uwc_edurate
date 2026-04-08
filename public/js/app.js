@@ -542,6 +542,45 @@ function closeModal() {
   document.getElementById('modalOverlay').classList.remove('active');
 }
 
+// Mobile sidebar control. Locks body scroll when open so the underlying
+// content doesn't scroll behind the drawer (a common iOS Safari annoyance).
+// Also wires ESC + nav-item-click + window-resize to auto-close.
+function openSidebar() {
+  document.getElementById('sidebar').classList.add('open');
+  document.getElementById('sidebarBackdrop').classList.add('active');
+  document.body.classList.add('sidebar-open');
+}
+
+function closeSidebar() {
+  document.getElementById('sidebar').classList.remove('open');
+  document.getElementById('sidebarBackdrop').classList.remove('active');
+  document.body.classList.remove('sidebar-open');
+}
+
+// Auto-close sidebar when a nav item is tapped (mobile only). Uses event
+// delegation so dynamically rendered nav items still get the behavior.
+document.addEventListener('click', (e) => {
+  if (window.innerWidth > 768) return;
+  const navItem = e.target.closest('#sidebarNav .nav-item');
+  if (navItem) closeSidebar();
+});
+
+// ESC closes the sidebar before falling through to anything else.
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && document.getElementById('sidebar')?.classList.contains('open')) {
+    closeSidebar();
+  }
+});
+
+// If user resizes from mobile → desktop while drawer is open, clean up state
+// so body scroll lock and backdrop don't linger on the desktop layout.
+window.addEventListener('resize', () => {
+  if (window.innerWidth > 768) closeSidebar();
+});
+
+window.openSidebar = openSidebar;
+window.closeSidebar = closeSidebar;
+
 function confirmDialog(message, confirmText = t('common.confirm'), cancelText = t('common.cancel')) {
   return new Promise((resolve) => {
     openModal(`
