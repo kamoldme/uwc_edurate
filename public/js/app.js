@@ -1473,7 +1473,7 @@ async function renderCommsUnified(role) {
     };
 
     el.innerHTML = `
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
+      <div class="comms-header-row" style="display:flex;justify-content:space-between;align-items:center;gap:12px;margin:0 0 20px">
         <h2 style="margin:0">Communication</h2>
         ${actionBtns}
       </div>
@@ -6663,12 +6663,12 @@ function openCouncilPublishChooser() {
     <div class="modal-header"><h3>${t('council.choose_type')}</h3><button class="modal-close" onclick="closeModal()">&times;</button></div>
     <div class="modal-body">
       <div style="display:flex;flex-direction:column;gap:12px">
-        <button class="btn btn-outline" style="text-align:left;padding:16px" onclick="openCouncilPublishModal('announcement')">
-          <div style="font-weight:600;margin-bottom:4px">📢 ${t('council.choose_announcement')}</div>
+        <button class="btn btn-outline" style="text-align:left;padding:16px;display:flex;flex-direction:column;justify-content:center;align-items:flex-start;gap:4px" onclick="openCouncilPublishModal('announcement')">
+          <div style="font-weight:600">📢 ${t('council.choose_announcement')}</div>
           <div style="font-size:0.85rem;color:var(--gray-500);font-weight:400">${t('council.choose_announcement_desc')}</div>
         </button>
-        <button class="btn btn-outline" style="text-align:left;padding:16px" onclick="openCouncilPublishModal('petition')">
-          <div style="font-weight:600;margin-bottom:4px">✊ ${t('council.choose_petition')}</div>
+        <button class="btn btn-outline" style="text-align:left;padding:16px;display:flex;flex-direction:column;justify-content:center;align-items:flex-start;gap:4px" onclick="openCouncilPublishModal('petition')">
+          <div style="font-weight:600">✊ ${t('council.choose_petition')}</div>
           <div style="font-size:0.85rem;color:var(--gray-500);font-weight:400">${t('council.choose_petition_desc')}</div>
         </button>
       </div>
