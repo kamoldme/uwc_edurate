@@ -200,13 +200,11 @@ app.get('/app', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'app.html'));
 });
 
-app.get('/register', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'register.html'));
-});
-
-app.get('/join', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'join.html'));
-});
+// Self-registration disabled — bounce both signup pages to login. The
+// register.html / join.html files are kept on disk so they can be rewired
+// once school-email verification lands. See routes/auth.js comment.
+app.get('/register', (req, res) => res.redirect('/login'));
+app.get('/join', (req, res) => res.redirect('/login'));
 
 app.get('/login', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));

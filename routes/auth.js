@@ -7,8 +7,19 @@ const { logAuditEvent } = require('../utils/audit');
 
 const router = express.Router();
 
+// Self-registration is disabled until we wire up school-email verification.
+// Flip ALLOW_SELF_REGISTRATION=true in env to re-enable both /register and
+// /register-teacher. Until then, accounts must be created by an admin via
+// /api/admin/users. The handler bodies below are preserved intact so the
+// flow can be re-enabled with a single env var change.
+const SELF_REGISTRATION_ENABLED = process.env.ALLOW_SELF_REGISTRATION === 'true';
+const SELF_REG_DISABLED_MSG = 'Self-registration is currently disabled. Please contact your school administrator to get an account.';
+
 // POST /api/auth/register - student self-registration (no email verification)
 router.post('/register', async (req, res) => {
+  if (!SELF_REGISTRATION_ENABLED) {
+    return res.status(403).json({ error: SELF_REG_DISABLED_MSG });
+  }
   try {
     const { full_name, email, password, grade_or_position } = req.body;
 
@@ -72,6 +83,9 @@ router.post('/register', async (req, res) => {
 
 // POST /api/auth/register-teacher - teacher self-registration via org invite code (no email verification)
 router.post('/register-teacher', async (req, res) => {
+  if (!SELF_REGISTRATION_ENABLED) {
+    return res.status(403).json({ error: SELF_REG_DISABLED_MSG });
+  }
   try {
     const { full_name, email, password, invite_code, department_id, department } = req.body;
 
