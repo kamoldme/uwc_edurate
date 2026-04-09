@@ -1068,7 +1068,7 @@
         <a href="#about-uwc" class="nav-link">About UWC</a>
         <div class="nav-sep"></div>
         <a href="/login" class="btn-signin">Sign In</a>
-        <a href="/login" class="btn-getstarted">Get Started</a>
+        <button onclick="openModal()" class="btn-getstarted">Get Started</button>
       </nav>
     </div>
   </header>
@@ -1092,9 +1092,10 @@
           Oasis empowers UWC Dilijan students to share anonymous, meaningful feedback &mdash; helping teachers grow and building a culture of open, constructive dialogue.
         </p>
         <div class="hero-ctas au au-3">
-          <a href="/login" class="btn-hero-blue">
-            Sign In <span aria-hidden="true">&#x2192;</span>
-          </a>
+          <button onclick="openModal()" class="btn-hero-blue">
+            Get Started <span aria-hidden="true">&#x2192;</span>
+          </button>
+          <a href="/login" class="btn-hero-ghost">Sign In</a>
         </div>
       </div>
 
@@ -1318,7 +1319,8 @@
           <p class="cta-desc">Join Oasis &mdash; the feedback platform built for the UWC community. Help your teachers grow through honest, anonymous student insights.</p>
         </div>
         <div class="cta-btns">
-          <a href="/login" class="btn-cta-white">Sign In</a>
+          <button onclick="openModal()" class="btn-cta-white">Create Account</button>
+          <a href="/login" class="btn-cta-ghost">Sign In</a>
         </div>
       </div>
     </div>
@@ -1349,8 +1351,34 @@
     </div>
   </footer>
 
-  <!-- Role-chooser modal removed: self-registration is disabled until
-       school-email verification is wired up. Accounts are admin-created. -->
+  <!-- ── ROLE MODAL ── -->
+  <div class="modal-bg" id="roleModal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+    <div class="modal-box">
+      <button class="modal-close" onclick="closeModal()" aria-label="Close">&#x2715;</button>
+      <div class="modal-head">
+        <span class="m-icon">&#128075;</span>
+        <h3 id="modalTitle">Who are you?</h3>
+        <p>Choose your role to get started with Oasis</p>
+      </div>
+      <div class="role-cards">
+        <a href="/register" class="role-card role-card-student">
+          <span class="role-emoji">&#127891;</span>
+          <div class="role-title">Student</div>
+          <div class="role-desc">Join classes and give honest feedback to your teachers</div>
+          <div class="role-arrow">&#x2192;</div>
+        </a>
+        <a href="/join" class="role-card role-card-teacher">
+          <span class="role-emoji">&#128104;&#8205;&#127979;</span>
+          <div class="role-title">Teacher</div>
+          <div class="role-desc">Create your classroom and see what students think</div>
+          <div class="role-arrow">&#x2192;</div>
+        </a>
+      </div>
+      <div class="modal-footer">
+        Already have an account? <a href="/login">Sign in</a>
+      </div>
+    </div>
+  </div>
 
   <script>
     const observer = new IntersectionObserver((entries) => {
@@ -1363,6 +1391,21 @@
     }, { threshold: 0.1, rootMargin: '0px 0px -36px 0px' });
 
     document.querySelectorAll('.reveal, .reveal-stagger').forEach(el => observer.observe(el));
+
+    function openModal() {
+      document.getElementById('roleModal').classList.add('open');
+      document.body.style.overflow = 'hidden';
+    }
+    function closeModal() {
+      document.getElementById('roleModal').classList.remove('open');
+      document.body.style.overflow = '';
+    }
+    document.getElementById('roleModal').addEventListener('click', function(e) {
+      if (e.target === this) closeModal();
+    });
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape') closeModal();
+    });
   </script>
 </body>
 </html>

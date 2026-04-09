@@ -7,12 +7,11 @@ const { logAuditEvent } = require('../utils/audit');
 
 const router = express.Router();
 
-// Self-registration is disabled until we wire up school-email verification.
-// Flip ALLOW_SELF_REGISTRATION=true in env to re-enable both /register and
-// /register-teacher. Until then, accounts must be created by an admin via
-// /api/admin/users. The handler bodies below are preserved intact so the
-// flow can be re-enabled with a single env var change.
-const SELF_REGISTRATION_ENABLED = process.env.ALLOW_SELF_REGISTRATION === 'true';
+// Self-registration: enabled by default. There is no email-ownership check
+// yet (the school network blocks outbound SMTP and we don't have a Google
+// OAuth client provisioned), so anyone with a valid-looking email can sign
+// up. To turn it off, set ALLOW_SELF_REGISTRATION=false in env.
+const SELF_REGISTRATION_ENABLED = process.env.ALLOW_SELF_REGISTRATION !== 'false';
 const SELF_REG_DISABLED_MSG = 'Self-registration is currently disabled. Please contact your school administrator to get an account.';
 
 // POST /api/auth/register - student self-registration (no email verification)
