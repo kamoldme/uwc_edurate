@@ -239,7 +239,6 @@ No database changes required.
 ## Credits
 
 **Developed by**: Your Name
-**AI Assistance**: Claude Sonnet 4.5
 **Version**: 1.1.0
 **Release Date**: February 2026
 

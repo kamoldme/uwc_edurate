@@ -265,7 +265,6 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 ## 🙏 Acknowledgments
 
-- Built with guidance from Claude Sonnet 4.5
 - Chart.js for beautiful data visualization
 - better-sqlite3 for fast, reliable database
 
