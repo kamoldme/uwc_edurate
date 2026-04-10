@@ -1045,6 +1045,7 @@ async function renderStudentReview() {
                 ${CRITERIA_CONFIG.map(c => `
                   <div class="form-group" style="margin-bottom:12px">
                     <label style="display:flex;align-items:center;gap:6px">${t(c.label_key)} ${criteriaInfoIcon(c.info_key)}</label>
+                    <div style="color:var(--gray-500);font-size:0.75rem;margin-top:-2px;margin-bottom:4px">${t(c.hint_key)}</div>
                     <div class="star-rating-input" data-name="${c.db_col}" data-form="review-${teacher.teacher_id}">
                       ${[1,2,3,4,5].map(i => `<button type="button" class="star-btn" data-value="${i}" onclick="setRating(this)">\u2606</button>`).join('')}
                     </div>
