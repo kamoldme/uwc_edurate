@@ -1842,12 +1842,32 @@ tbody tr:last-child td { border-bottom: none; }
     max-height: calc(100vh - 80px);
   }
 
-  /* Top bar buttons get tighter so the title has room, but stay readable */
-  .top-bar { padding: 10px 14px; gap: 8px; }
+  /* Top bar: fixed across the viewport on mobile so it stays visible
+     when scrolling. iOS Safari's position: sticky is unreliable when
+     the scroll ancestor is a nested overflow:auto + height:100vh
+     container, which is exactly our .main-content layout. */
+  .top-bar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    padding: 10px 14px;
+    gap: 8px;
+    z-index: 50;
+    padding-top: calc(10px + env(safe-area-inset-top, 0px));
+  }
   .top-bar-actions { gap: 8px; }
   .top-bar-actions .btn { padding: 9px 14px; font-size: 0.85rem; min-height: 40px; }
   .top-bar h2 { font-size: 1.05rem; }
   .mobile-toggle { font-size: 1.5rem; padding: 6px 10px; flex-shrink: 0; }
+
+  /* Push the scrollable content below the fixed bar. 60px covers the
+     padding + content height; notch devices get extra via safe-area. */
+  .main-content { padding-top: calc(60px + env(safe-area-inset-top, 0px)); }
+
+  /* Notification panel and any top-bar-anchored popover needs a higher
+     z than the fixed bar so it isn't clipped by the bar's stacking. */
+  .notif-panel { z-index: 60; }
 
   /* Stop wide tables and pre/code blocks from forcing horizontal page scroll.
      Each direct child of content-area gets its own scroll container instead. */
