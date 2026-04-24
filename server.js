@@ -126,7 +126,12 @@ app.use(helmet({
       frameSrc: ["https://accounts.google.com"]
     }
   },
-  crossOriginEmbedderPolicy: false
+  crossOriginEmbedderPolicy: false,
+  // Google Sign-In opens a popup and postMessages the credential back.
+  // helmet's default COOP=same-origin blocks that handoff and strands the
+  // user on https://accounts.google.com/gsi/transform. same-origin-allow-popups
+  // keeps the isolation benefits while permitting the GSI callback.
+  crossOriginOpenerPolicy: { policy: 'same-origin-allow-popups' }
 }));
 
 app.use(cors({ origin: process.env.FRONTEND_URL || 'http://localhost:3000', credentials: true }));
