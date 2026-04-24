@@ -1027,6 +1027,35 @@
       .cta-section { padding: 64px 24px; }
       .cta-card { padding: 40px 28px; }
       .cta-btns { flex-direction: column; }
+
+      /* Nav buttons — make them tappable (≥44px) instead of cramped */
+      .navbar { padding: 0 20px; }
+      .navbar-inner { height: 64px; }
+      .btn-signin { padding: 10px 16px; font-size: 0.9rem; min-height: 40px; display: inline-flex; align-items: center; }
+      .btn-getstarted { padding: 10px 18px; font-size: 0.9rem; min-height: 40px; }
+
+      /* Hero description easier to read */
+      .hero-desc { font-size: 1rem; line-height: 1.7; margin-bottom: 28px; }
+
+      /* Hero CTAs: generous tap targets, stretch on mobile */
+      .hero-ctas { gap: 12px; }
+      .btn-hero-blue, .btn-hero-ghost {
+        padding: 15px 24px;
+        font-size: 1rem;
+        justify-content: center;
+        width: 100%;
+        min-height: 50px;
+      }
+      .hero-ctas { flex-direction: column; }
+
+      /* CTA section buttons — same treatment */
+      .btn-cta-white, .btn-cta-ghost {
+        padding: 15px 24px;
+        font-size: 1rem;
+        justify-content: center;
+        width: 100%;
+        min-height: 50px;
+      }
     }
     @media (max-width: 600px) {
       .features-grid { grid-template-columns: 1fr; }
@@ -1035,14 +1064,27 @@
       .footer-nav { gap: 14px; }
     }
     @media (max-width: 480px) {
-      .hero-inner { padding: 48px 20px 64px; }
+      .hero-inner { padding: 44px 18px 56px; }
+      .section, .uwc-section, .cta-section { padding: 52px 18px; }
+      .cta-card { padding: 32px 20px; }
       .stats-grid { grid-template-columns: repeat(2, 1fr); }
       .uwc-values { grid-template-columns: 1fr; }
       .footer-top { flex-direction: column; gap: 16px; }
+
+      /* Tighten nav on very small phones without crushing buttons */
+      .navbar { padding: 0 14px; }
+      .navbar-inner { height: 60px; gap: 8px; }
+      .nav-logo-text { font-size: 1rem; }
+      .btn-signin, .btn-getstarted { padding: 9px 12px; font-size: 0.82rem; min-height: 38px; }
+
+      .hero-pill { font-size: 0.7rem; padding: 5px 11px; margin-bottom: 18px; }
+      .hero-title { font-size: 1.85rem; letter-spacing: -0.3px; }
+      .hero-desc { font-size: 0.95rem; }
     }
     @media (max-width: 400px) {
       .role-cards { grid-template-columns: 1fr; }
       .modal-box { padding: 32px 20px 28px; }
+      .hero-title { font-size: 1.65rem; }
     }
     @media (max-width: 768px) {
       input, select, textarea { font-size: 16px !important; }

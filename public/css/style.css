@@ -1116,10 +1116,10 @@ tbody tr:last-child td { border-bottom: none; }
   thead th { padding: 10px 12px; font-size: 0.7rem; }
   tbody td { padding: 10px 12px; font-size: 0.8rem; }
 
-  /* Buttons */
-  .btn { padding: 8px 16px; font-size: 0.8rem; }
-  .btn-sm { padding: 5px 10px; font-size: 0.72rem; }
-  .btn-lg { padding: 12px 20px; font-size: 0.9rem; }
+  /* Buttons — keep above ~14px body text minimum; tap targets stay ≥44px (set later) */
+  .btn { padding: 10px 18px; font-size: 0.9rem; }
+  .btn-sm { padding: 7px 12px; font-size: 0.8rem; min-height: 36px; }
+  .btn-lg { padding: 14px 24px; font-size: 1rem; }
 
   /* Stars */
   .stars-large .star { font-size: 1.6rem; }
@@ -1163,8 +1163,8 @@ tbody tr:last-child td { border-bottom: none; }
   .tag { padding: 4px 10px; font-size: 0.72rem; }
   .tag-container { gap: 6px; }
 
-  /* Forms */
-  .form-control { padding: 8px 12px; font-size: 0.85rem; }
+  /* Forms — use 16px font so iOS Safari doesn't auto-zoom on focus */
+  .form-control { padding: 10px 14px; font-size: 16px; }
 
   /* Modal full width */
   .modal { max-width: 100vw; border-radius: 12px 12px 0 0; margin: 0; }
@@ -1842,12 +1842,12 @@ tbody tr:last-child td { border-bottom: none; }
     max-height: calc(100vh - 80px);
   }
 
-  /* Top bar buttons get tighter so the title has room */
+  /* Top bar buttons get tighter so the title has room, but stay readable */
   .top-bar { padding: 10px 14px; gap: 8px; }
-  .top-bar-actions { gap: 6px; }
-  .top-bar-actions .btn { padding: 6px 10px; font-size: 0.75rem; }
-  .top-bar h2 { font-size: 1rem; }
-  .mobile-toggle { font-size: 1.4rem; padding: 6px 8px; flex-shrink: 0; }
+  .top-bar-actions { gap: 8px; }
+  .top-bar-actions .btn { padding: 9px 14px; font-size: 0.85rem; min-height: 40px; }
+  .top-bar h2 { font-size: 1.05rem; }
+  .mobile-toggle { font-size: 1.5rem; padding: 6px 10px; flex-shrink: 0; }
 
   /* Stop wide tables and pre/code blocks from forcing horizontal page scroll.
      Each direct child of content-area gets its own scroll container instead. */
@@ -1864,8 +1864,7 @@ tbody tr:last-child td { border-bottom: none; }
 }
 
 @media (max-width: 480px) {
-  /* Even smaller — collapse the language switcher / extras to icons only */
-  .top-bar h2 { font-size: 0.9rem; }
-  .top-bar-actions .btn { padding: 5px 8px; font-size: 0.7rem; }
-  .top-bar-actions .btn-icon-only { padding: 6px; }
+  .top-bar h2 { font-size: 0.95rem; }
+  .top-bar-actions .btn { padding: 8px 12px; font-size: 0.82rem; min-height: 38px; }
+  .top-bar-actions .btn-icon-only { padding: 8px; min-width: 38px; min-height: 38px; }
 }
