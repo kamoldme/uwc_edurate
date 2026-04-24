@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin Login – Oasis</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%23059669'/><text x='16' y='22' font-size='18' font-weight='bold' fill='white' text-anchor='middle' font-family='sans-serif'>O</text></svg>">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet">
+  <style>
+    :root { --blue: #0069AA; --blue-dark: #004f82; --navy-deep: #001830; --red: #BE1E2D; }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: var(--navy-deep);
+      min-height: 100vh;
+      display: flex; align-items: center; justify-content: center;
+      padding: 20px;
+    }
+    .container { width: 100%; max-width: 380px; }
+    .logo { text-align: center; margin-bottom: 24px; }
+    .logo h1 { color: #fff; font-size: 1.8rem; font-weight: 700; }
+    .logo p { color: rgba(255,255,255,0.5); font-size: 0.8rem; margin-top: 6px; }
+    .card {
+      background: #fff; border-radius: 14px; padding: 28px;
+      box-shadow: 0 24px 64px rgba(0,0,0,0.5);
+    }
+    .card h2 { font-family: 'Playfair Display', Georgia, serif; color: var(--navy-deep); font-size: 1.2rem; margin-bottom: 4px; }
+    .card p.subtitle { color: #64748b; font-size: 0.82rem; margin-bottom: 20px; }
+    .form-group { margin-bottom: 14px; }
+    .form-group label { display: block; color: #334155; font-size: 0.82rem; font-weight: 500; margin-bottom: 5px; }
+    .form-group input {
+      width: 100%; padding: 10px 14px; border: 2px solid #e2e8f0; border-radius: 8px;
+      font-size: 0.92rem; font-family: inherit; outline: none;
+    }
+    .form-group input:focus { border-color: var(--blue); }
+    .btn {
+      width: 100%; padding: 12px; background: var(--blue); color: #fff; border: none;
+      border-radius: 8px; font-size: 0.95rem; font-weight: 600; font-family: inherit; cursor: pointer;
+    }
+    .btn:hover { background: var(--blue-dark); }
+    .btn:disabled { background: #94a3b8; }
+    .error-msg {
+      background: #fef2f2; color: #dc2626; padding: 8px 12px; border-radius: 6px;
+      font-size: 0.8rem; margin-bottom: 12px; display: none; border: 1px solid #fecaca;
+    }
+    .error-msg.show { display: block; }
+    .links { text-align: center; margin-top: 16px; font-size: 0.82rem; color: #64748b; }
+    .links a { color: var(--blue); text-decoration: none; font-weight: 500; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="logo">
+      <h1>Oasis · Admin</h1>
+      <p>Password fallback — prefer Google Sign-In where possible.</p>
+    </div>
+    <div class="card">
+      <h2>Admin login</h2>
+      <p class="subtitle">For accounts without a Google Workspace identity.</p>
+      <div id="error" class="error-msg"></div>
+      <form id="loginForm">
+        <div class="form-group">
+          <label for="email">Email</label>
+          <input type="email" id="email" placeholder="admin@uwc.edu" required autocomplete="email">
+        </div>
+        <div class="form-group">
+          <label for="password">Password</label>
+          <input type="password" id="password" required autocomplete="current-password">
+        </div>
+        <button type="submit" class="btn" id="loginBtn">Sign In</button>
+      </form>
+      <div class="links"><a href="/login">← Back to Google Sign-In</a></div>
+    </div>
+  </div>
+
+  <script>
+    const errEl = document.getElementById('error');
+    document.getElementById('loginForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      errEl.className = 'error-msg';
+      const btn = document.getElementById('loginBtn');
+      btn.disabled = true; btn.textContent = 'Signing in…';
+      try {
+        const res = await fetch('/api/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({
+            email: document.getElementById('email').value,
+            password: document.getElementById('password').value
+          })
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          errEl.textContent = data.error || 'Login failed.';
+          errEl.className = 'error-msg show';
+          btn.disabled = false; btn.textContent = 'Sign In';
+          return;
+        }
+        localStorage.setItem('oasis_token', data.token);
+        localStorage.setItem('oasis_user', JSON.stringify(data.user));
+        window.location.href = '/app';
+      } catch {
+        errEl.textContent = 'Connection error. Please try again.';
+        errEl.className = 'error-msg show';
+        btn.disabled = false; btn.textContent = 'Sign In';
+      }
+    });
+
+    if (localStorage.getItem('oasis_token')) {
+      fetch('/api/auth/me', {
+        headers: { 'Authorization': 'Bearer ' + localStorage.getItem('oasis_token') },
+        credentials: 'include'
+      }).then(r => { if (r.ok) window.location.href = '/app'; });
+    }
+  </script>
+</body>
+</html>

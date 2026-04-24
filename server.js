@@ -117,12 +117,13 @@ app.use(helmet({
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],
-      scriptSrc: ["'self'", "'unsafe-inline'", "https://cdn.jsdelivr.net"],
+      scriptSrc: ["'self'", "'unsafe-inline'", "https://cdn.jsdelivr.net", "https://accounts.google.com"],
       scriptSrcAttr: ["'unsafe-inline'"],
-      styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+      styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com", "https://accounts.google.com"],
       fontSrc: ["'self'", "https://fonts.gstatic.com"],
-      imgSrc: ["'self'", "data:"],
-      connectSrc: ["'self'"]
+      imgSrc: ["'self'", "data:", "https://*.googleusercontent.com"],
+      connectSrc: ["'self'", "https://accounts.google.com"],
+      frameSrc: ["https://accounts.google.com"]
     }
   },
   crossOriginEmbedderPolicy: false
@@ -168,8 +169,7 @@ const authLimiter = rateLimit({
 
 app.use('/api/', apiLimiter);
 app.use('/api/auth/login', authLimiter);
-app.use('/api/auth/register', authLimiter);
-app.use('/api/auth/register-teacher', authLimiter);
+app.use('/api/auth/google', authLimiter);
 
 // Maintenance mode — set MAINTENANCE_MODE=true in env to activate
 if (process.env.MAINTENANCE_MODE === 'true') {
@@ -195,6 +195,17 @@ app.use('/api/notifications', notificationsRoutes);
 app.use('/api/departments', departmentsRoutes);
 app.use('/api/council', councilRoutes);
 
+// Public runtime config for the frontend (Google Client ID, allowed domains).
+// Safe to expose: the Client ID is public by design for browser OAuth flows.
+app.get('/api/public-config', (_req, res) => {
+  res.json({
+    google_client_id: process.env.GOOGLE_CLIENT_ID || '',
+    teacher_domain: 'uwcdilijan.am',
+    student_domain: 'student.uwcdilijan.am',
+    strict_domain: process.env.STRICT_EMAIL_DOMAIN === 'true'
+  });
+});
+
 // Specific page routes (BEFORE static middleware)
 app.get('/app', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'app.html'));
@@ -210,6 +221,10 @@ app.get('/join', (req, res) => {
 
 app.get('/login', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
+app.get('/manual-login', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'manual-login.html'));
 });
 
 // Root - Landing page

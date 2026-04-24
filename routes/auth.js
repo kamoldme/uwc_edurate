@@ -1,5 +1,7 @@
 const express = require('express');
 const bcrypt = require('bcryptjs');
+const crypto = require('crypto');
+const { OAuth2Client } = require('google-auth-library');
 const db = require('../database');
 const { generateToken, authenticate } = require('../middleware/auth');
 const { sanitizeInput } = require('../utils/moderation');
@@ -7,177 +9,174 @@ const { logAuditEvent } = require('../utils/audit');
 
 const router = express.Router();
 
-// Self-registration: enabled by default. There is no email-ownership check
-// yet (the school network blocks outbound SMTP and we don't have a Google
-// OAuth client provisioned), so anyone with a valid-looking email can sign
-// up. To turn it off, set ALLOW_SELF_REGISTRATION=false in env.
-const SELF_REGISTRATION_ENABLED = process.env.ALLOW_SELF_REGISTRATION !== 'false';
-const SELF_REG_DISABLED_MSG = 'Self-registration is currently disabled. Please contact your school administrator to get an account.';
+const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || '';
+const googleClient = GOOGLE_CLIENT_ID ? new OAuth2Client(GOOGLE_CLIENT_ID) : null;
 
-// POST /api/auth/register - student self-registration (no email verification)
-router.post('/register', async (req, res) => {
-  if (!SELF_REGISTRATION_ENABLED) {
-    return res.status(403).json({ error: SELF_REG_DISABLED_MSG });
+// Domain policy: teachers use @uwcdilijan.am; students use @student.uwcdilijan.am.
+// During the pilot we don't have access to Google Workspace yet, so domain
+// enforcement is OFF by default — the UI shows a red warning instead. Once
+// Workspace is provisioned, set STRICT_EMAIL_DOMAIN=true to hard-block
+// non-school accounts server-side.
+const TEACHER_DOMAIN = 'uwcdilijan.am';
+const STUDENT_DOMAIN = 'student.uwcdilijan.am';
+const STRICT_DOMAIN = process.env.STRICT_EMAIL_DOMAIN === 'true';
+
+function emailDomain(email) {
+  const at = email.lastIndexOf('@');
+  return at === -1 ? '' : email.slice(at + 1).toLowerCase();
+}
+
+function setAuthCookie(res, token) {
+  res.cookie('token', token, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax',
+    maxAge: 24 * 60 * 60 * 1000
+  });
+}
+
+// POST /api/auth/google — unified Google Sign-In for login + registration.
+// Body: { credential, intent: 'login'|'student'|'teacher' }
+// - 'login': the Google account must already map to an existing user.
+// - 'student': creates a student account in the default org (id=1).
+// - 'teacher': creates a teacher account in the default org (id=1).
+// No invite codes, no grade, no department — admin sets those from the admin UI.
+router.post('/google', async (req, res) => {
+  if (!googleClient) {
+    return res.status(503).json({ error: 'Google Sign-In is not configured on this server. Set GOOGLE_CLIENT_ID.' });
   }
   try {
-    const { full_name, email, password, grade_or_position } = req.body;
-
-    if (!full_name || !email || !password) {
-      return res.status(400).json({ error: 'Name, email, and password are required' });
+    const { credential, intent } = req.body || {};
+    if (!credential || !intent) {
+      return res.status(400).json({ error: 'Missing credential or intent' });
+    }
+    if (!['login', 'student', 'teacher'].includes(intent)) {
+      return res.status(400).json({ error: 'Invalid intent' });
     }
 
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      return res.status(400).json({ error: 'Invalid email format' });
+    // Verify the ID token with Google. This checks signature, audience, and expiry.
+    let payload;
+    try {
+      const ticket = await googleClient.verifyIdToken({ idToken: credential, audience: GOOGLE_CLIENT_ID });
+      payload = ticket.getPayload();
+    } catch (e) {
+      return res.status(401).json({ error: 'Could not verify Google token' });
+    }
+    if (!payload || !payload.email) {
+      return res.status(401).json({ error: 'Google token missing email' });
+    }
+    if (!payload.email_verified) {
+      return res.status(401).json({ error: 'Google email is not verified' });
     }
 
-    if (password.length < 8) {
-      return res.status(400).json({ error: 'Password must be at least 8 characters' });
-    }
-    if (!/[A-Z]/.test(password) || !/[a-z]/.test(password) || !/[0-9]/.test(password)) {
-      return res.status(400).json({ error: 'Password must contain uppercase, lowercase, and a number' });
-    }
+    const email = payload.email.toLowerCase();
+    const domain = emailDomain(email);
+    const fullName = (payload.name || email.split('@')[0]).slice(0, 120);
 
-    const existing = db.prepare('SELECT id FROM users WHERE email = ?').get(email.toLowerCase());
-    if (existing) {
-      return res.status(409).json({ error: 'Email already registered' });
-    }
-
-    const hashedPassword = await bcrypt.hash(password, 12);
-    const sanitizedName = sanitizeInput(full_name);
-
-    const result = db.prepare(`
-      INSERT INTO users (full_name, email, password, role, grade_or_position, school_id, org_id, verified_status)
-      VALUES (?, ?, ?, 'student', ?, 1, 1, 1)
-    `).run(sanitizedName, email.toLowerCase(), hashedPassword, grade_or_position || null);
-
-    const user = db.prepare('SELECT id, full_name, email, role, grade_or_position, school_id, org_id, verified_status, avatar_url, language, is_student_council FROM users WHERE id = ?')
-      .get(result.lastInsertRowid);
-
-    const token = generateToken(user);
-
-    res.cookie('token', token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      maxAge: 24 * 60 * 60 * 1000
-    });
-
-    logAuditEvent({
-      userId: user.id,
-      userRole: 'student',
-      userName: sanitizedName,
-      actionType: 'user_register',
-      actionDescription: `Registered new account: ${email.toLowerCase()}`,
-      targetType: 'user',
-      targetId: user.id,
-      ipAddress: req.ip
-    });
-
-    res.status(201).json({ message: 'Registration successful', user, token });
-  } catch (err) {
-    console.error('Registration error:', err);
-    res.status(500).json({ error: 'Registration failed' });
-  }
-});
-
-// POST /api/auth/register-teacher - teacher self-registration via org invite code (no email verification)
-router.post('/register-teacher', async (req, res) => {
-  if (!SELF_REGISTRATION_ENABLED) {
-    return res.status(403).json({ error: SELF_REG_DISABLED_MSG });
-  }
-  try {
-    const { full_name, email, password, invite_code, department_id, department } = req.body;
-
-    if (!full_name || !email || !password || !invite_code) {
-      return res.status(400).json({ error: 'Name, email, password, and invite code are required' });
+    // Domain policy — only enforced when STRICT_EMAIL_DOMAIN=true (post-pilot).
+    // During the pilot we allow any Google account; the UI shows a red warning
+    // that only school accounts should be used.
+    if (STRICT_DOMAIN && domain !== TEACHER_DOMAIN && domain !== STUDENT_DOMAIN) {
+      return res.status(403).json({ error: `Only ${TEACHER_DOMAIN} and ${STUDENT_DOMAIN} accounts are allowed.` });
     }
 
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      return res.status(400).json({ error: 'Invalid email format' });
-    }
+    const existing = db.prepare('SELECT * FROM users WHERE email = ?').get(email);
 
-    if (password.length < 8) {
-      return res.status(400).json({ error: 'Password must be at least 8 characters' });
-    }
-    if (!/[A-Z]/.test(password) || !/[a-z]/.test(password) || !/[0-9]/.test(password)) {
-      return res.status(400).json({ error: 'Password must contain uppercase, lowercase, and a number' });
-    }
-
-    const existing = db.prepare('SELECT id FROM users WHERE email = ?').get(email.toLowerCase());
-    if (existing) {
-      return res.status(409).json({ error: 'Email already registered' });
-    }
-
-    const org = db.prepare('SELECT * FROM organizations WHERE invite_code = ?').get(invite_code.trim().toUpperCase());
-    if (!org) {
-      return res.status(400).json({ error: 'Invalid invite code' });
-    }
-
-    const hashedPassword = await bcrypt.hash(password, 12);
-    const sanitizedName = sanitizeInput(full_name.trim());
-
-    // Resolve department name from department_id if provided, or use free-text fallback
-    const orgDepartments = db.prepare('SELECT id, name FROM departments WHERE org_id = ?').all(org.id);
-    let departmentName = null;
-    if (orgDepartments.length > 0) {
-      if (!department_id) {
-        return res.status(400).json({ error: 'Please select a department' });
+    // Login path: the account must already exist. We don't auto-provision on /login
+    // so admins stay in control of role assignments.
+    if (intent === 'login') {
+      if (!existing) {
+        return res.status(404).json({ error: 'No account found for this email. Please register first.' });
       }
-      const dept = orgDepartments.find(d => d.id === parseInt(department_id));
-      if (!dept) {
-        return res.status(400).json({ error: 'Invalid department selection' });
+      if (existing.suspended) {
+        return res.status(403).json({ error: 'Account suspended. Contact administrator.' });
       }
-      departmentName = dept.name;
-    } else if (department) {
-      departmentName = sanitizeInput(department.trim()) || null;
+      const token = generateToken(existing);
+      setAuthCookie(res, token);
+      logAuditEvent({
+        userId: existing.id, userRole: existing.role, userName: existing.full_name,
+        actionType: 'user_login',
+        actionDescription: 'Logged in via Google',
+        targetType: 'user', targetId: existing.id,
+        ipAddress: req.ip
+      });
+      const { password: _p, ...safeUser } = existing;
+      return res.json({ message: 'Login successful', user: safeUser, token });
     }
 
-    const result = db.prepare(`
-      INSERT INTO users (full_name, email, password, role, school_id, org_id, verified_status)
-      VALUES (?, ?, ?, 'teacher', 1, ?, 1)
-    `).run(sanitizedName, email.toLowerCase(), hashedPassword, org.id);
+    // If a Google user tries to register but already has an account, just sign them in.
+    if (existing) {
+      if (existing.suspended) {
+        return res.status(403).json({ error: 'Account suspended. Contact administrator.' });
+      }
+      const token = generateToken(existing);
+      setAuthCookie(res, token);
+      const { password: _p, ...safeUser } = existing;
+      return res.json({ message: 'Signed in with existing account', user: safeUser, token });
+    }
 
+    // Registration — in strict mode the email domain must match the chosen role.
+    // In pilot mode (default) we trust the `intent` picked on the frontend
+    // (student via /register, teacher via /join).
+    if (STRICT_DOMAIN) {
+      if (intent === 'student' && domain !== STUDENT_DOMAIN) {
+        return res.status(403).json({ error: `Student accounts must use @${STUDENT_DOMAIN}.` });
+      }
+      if (intent === 'teacher' && domain !== TEACHER_DOMAIN) {
+        return res.status(403).json({ error: `Teacher accounts must use @${TEACHER_DOMAIN}.` });
+      }
+    }
+
+    // Google-provisioned users have no password. The `password` column is NOT NULL,
+    // so we store an unguessable random bcrypt hash — nobody can log in with it.
+    const randomSecret = crypto.randomBytes(48).toString('hex');
+    const placeholderHash = await bcrypt.hash(randomSecret, 12);
+    const sanitizedName = sanitizeInput(fullName);
+    const avatarUrl = payload.picture || null;
+
+    if (intent === 'student') {
+      const result = db.prepare(`
+        INSERT INTO users (full_name, email, password, role, school_id, org_id, verified_status, avatar_url)
+        VALUES (?, ?, ?, 'student', 1, 1, 1, ?)
+      `).run(sanitizedName, email, placeholderHash, avatarUrl);
+
+      const user = db.prepare('SELECT id, full_name, email, role, grade_or_position, school_id, org_id, verified_status, avatar_url, language, is_student_council FROM users WHERE id = ?').get(result.lastInsertRowid);
+      const token = generateToken(user);
+      setAuthCookie(res, token);
+      logAuditEvent({
+        userId: user.id, userRole: 'student', userName: sanitizedName,
+        actionType: 'user_register',
+        actionDescription: `Registered via Google: ${email}`,
+        targetType: 'user', targetId: user.id,
+        ipAddress: req.ip
+      });
+      return res.status(201).json({ message: 'Registration successful', user, token });
+    }
+
+    // intent === 'teacher' — join the default org. Admin assigns department later.
+    const result = db.prepare(`
+      INSERT INTO users (full_name, email, password, role, school_id, org_id, verified_status, avatar_url)
+      VALUES (?, ?, ?, 'teacher', 1, 1, 1, ?)
+    `).run(sanitizedName, email, placeholderHash, avatarUrl);
     const userId = result.lastInsertRowid;
 
-    db.prepare(`INSERT INTO teachers (user_id, full_name, school_id, org_id, department) VALUES (?, ?, 1, ?, ?)`)
-      .run(userId, sanitizedName, org.id, departmentName);
+    db.prepare(`INSERT INTO teachers (user_id, full_name, school_id, org_id, avatar_url) VALUES (?, ?, 1, 1, ?)`)
+      .run(userId, sanitizedName, avatarUrl);
 
     const user = db.prepare('SELECT id, full_name, email, role, org_id, verified_status, avatar_url, language, is_student_council FROM users WHERE id = ?').get(userId);
     const token = generateToken(user);
-
-    res.cookie('token', token, { httpOnly: true, secure: process.env.NODE_ENV === 'production', sameSite: 'lax', maxAge: 24 * 60 * 60 * 1000 });
-
+    setAuthCookie(res, token);
     logAuditEvent({
       userId: user.id, userRole: 'teacher', userName: sanitizedName,
       actionType: 'teacher_self_register',
-      actionDescription: `Teacher self-registered via invite code for org: ${org.name}`,
-      targetType: 'organization', targetId: org.id,
-      orgId: org.id, ipAddress: req.ip
+      actionDescription: `Teacher registered via Google: ${email}`,
+      targetType: 'user', targetId: userId,
+      orgId: 1, ipAddress: req.ip
     });
-
-    res.status(201).json({ message: 'Registration successful', user, token });
+    return res.status(201).json({ message: 'Registration successful', user, token });
   } catch (err) {
-    console.error('Teacher registration error:', err);
-    res.status(500).json({ error: 'Registration failed' });
-  }
-});
-
-// GET /api/auth/invite-info - get org info from invite code (for join page UI)
-router.get('/invite-info', (req, res) => {
-  try {
-    const { invite_code } = req.query;
-    if (!invite_code) {
-      return res.status(400).json({ error: 'Invite code required' });
-    }
-    const org = db.prepare('SELECT id, name FROM organizations WHERE invite_code = ?').get(invite_code.trim().toUpperCase());
-    if (!org) {
-      return res.status(400).json({ error: 'Invalid invite code' });
-    }
-    const departments = db.prepare('SELECT id, name FROM departments WHERE org_id = ? ORDER BY name').all(org.id);
-    res.json({ org_id: org.id, org_name: org.name, departments });
-  } catch (err) {
-    console.error('Invite info error:', err.message);
-    res.status(500).json({ error: 'Failed to fetch invite info' });
+    console.error('Google auth error:', err);
+    res.status(500).json({ error: 'Google sign-in failed' });
   }
 });
 

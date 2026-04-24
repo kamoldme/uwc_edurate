@@ -3,29 +3,22 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Join as Teacher - Oasis</title>
+  <title>Teacher Registration - Oasis</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%23059669'/><text x='16' y='22' font-size='18' font-weight='bold' fill='white' text-anchor='middle' font-family='sans-serif'>O</text></svg>">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet">
   <style>
-    :root {
-      --blue: #0069AA; --blue-dark: #004f82;
-      --navy: #002d52; --navy-deep: #001830;
-      --red: #BE1E2D;
-    }
+    :root { --blue: #0069AA; --navy-deep: #001830; --red: #BE1E2D; }
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     body {
       font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
       background: var(--navy-deep);
       min-height: 100vh;
-      display: flex;
-      align-items: center;
-      justify-content: center;
+      display: flex; align-items: center; justify-content: center;
       padding: 20px;
     }
     .container { width: 100%; max-width: 420px; }
     .logo { text-align: center; margin-bottom: 32px; }
     .logo h1 { color: #fff; font-size: 2.5rem; font-weight: 700; letter-spacing: -1px; }
-    .logo h1 span { color: var(--blue); }
     .logo p { color: rgba(255,255,255,0.55); font-size: 0.9rem; margin-top: 8px; }
     .card {
       background: #fff; border-radius: 16px; padding: 40px;
@@ -37,72 +30,31 @@
       background: linear-gradient(90deg, var(--red) 0%, var(--blue) 100%);
     }
     .card h2 { font-family: 'Playfair Display', Georgia, serif; color: var(--navy-deep); font-size: 1.6rem; margin-bottom: 8px; }
-    .card p.subtitle { color: #64748b; font-size: 0.875rem; margin-bottom: 28px; }
-    .org-badge {
-      background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px;
-      padding: 10px 14px; margin-bottom: 20px; display: none;
-      color: var(--blue-dark); font-size: 0.875rem; font-weight: 500;
+    .card p.subtitle { color: #64748b; font-size: 0.875rem; margin-bottom: 24px; }
+    .pilot-warn {
+      background: #fef2f2; border: 1px solid #fecaca; color: #991b1b;
+      border-radius: 8px; padding: 12px 14px; font-size: 0.82rem; margin-bottom: 20px; line-height: 1.45;
     }
-    .org-badge.show { display: block; }
-    .form-group { margin-bottom: 18px; }
-    .form-group label { display: block; color: #334155; font-size: 0.875rem; font-weight: 500; margin-bottom: 6px; }
-    .form-group input, .form-group select {
-      width: 100%; padding: 12px 16px; border: 2px solid #e2e8f0; border-radius: 10px;
-      font-size: 0.95rem; font-family: inherit; transition: border-color 0.2s; outline: none; background: #fff;
-    }
-    .form-group input:focus, .form-group select:focus { border-color: var(--blue); box-shadow: 0 0 0 3px rgba(0,105,170,0.12); }
-    .invite-input {
-      text-transform: uppercase; font-family: monospace !important;
-      font-size: 1.1rem !important; letter-spacing: 3px; text-align: center;
-    }
-    .hint { font-size: 0.75rem; color: #94a3b8; margin-top: 4px; }
-    .btn {
-      width: 100%; padding: 14px; background: var(--blue); color: #fff; border: none;
-      border-radius: 10px; font-size: 1rem; font-weight: 600; font-family: inherit;
-      cursor: pointer; transition: background 0.2s;
-    }
-    .btn:hover { background: var(--blue-dark); }
-    .btn:active { transform: scale(0.98); }
-    .btn:disabled { background: #94a3b8; cursor: not-allowed; }
+    .pilot-warn strong { color: #7f1d1d; }
+    .pilot-warn code { background: #fee2e2; padding: 1px 6px; border-radius: 4px; font-size: 0.9em; }
+    .google-wrap { display: flex; justify-content: center; margin: 8px 0 4px; min-height: 44px; }
+    .status-msg { text-align: center; color: #64748b; font-size: 0.85rem; padding: 12px 0; display:none; }
+    .status-msg.show { display: block; }
+    .status-msg.err { color: #991b1b; }
     .error-msg {
       background: #fef2f2; color: #dc2626; padding: 10px 14px; border-radius: 8px;
       font-size: 0.85rem; margin-bottom: 16px; display: none; border: 1px solid #fecaca;
     }
     .error-msg.show { display: block; }
-    .success-msg {
-      background: #eff6ff; color: #1d4ed8; padding: 10px 14px; border-radius: 8px;
-      font-size: 0.85rem; margin-bottom: 16px; display: none; border: 1px solid #bfdbfe;
-    }
-    .success-msg.show { display: block; }
     .links { text-align: center; margin-top: 20px; font-size: 0.875rem; color: #64748b; }
     .links a { color: var(--blue); text-decoration: none; font-weight: 500; }
-    .links a:hover { text-decoration: underline; }
 
-    @media (max-width: 768px) {
-      body { padding: 16px; }
-      .card { padding: 28px 24px; }
-      .btn { min-height: 48px; }
-      .form-group input, .form-group select { min-height: 48px; font-size: 16px !important; }
-    }
     @media (max-width: 480px) {
       body { padding: 12px; }
       .container { max-width: 100%; }
       .card { padding: 24px 18px; border-radius: 14px; }
       .card h2 { font-size: 1.2rem; }
       .logo h1 { font-size: 2rem; }
-      .links { font-size: 0.8rem; }
-      .form-group { margin-bottom: 14px; }
-    }
-    @media (max-width: 375px) {
-      .card { padding: 20px 16px; }
-      .logo h1 { font-size: 1.75rem; }
-      .form-group input, .form-group select { padding: 10px 14px; }
-    }
-    @supports (padding: env(safe-area-inset-bottom)) {
-      body {
-        padding-bottom: calc(20px + env(safe-area-inset-bottom));
-        padding-top: calc(20px + env(safe-area-inset-top));
-      }
     }
   </style>
 </head>
@@ -116,155 +68,87 @@
       <p>Teacher Registration</p>
     </div>
     <div class="card">
-      <div id="error" class="error-msg"></div>
-      <div id="success" class="success-msg"></div>
-
       <h2>Join as a Teacher</h2>
-      <p class="subtitle">Enter your details and the invite code from your administrator</p>
+      <p class="subtitle">Sign up with your school Google account.</p>
 
-      <div id="orgBadge" class="org-badge"></div>
+      <div class="pilot-warn">
+        <strong>⚠ Pilot notice:</strong> please use your school account
+        <code id="domainLabel">@uwcdilijan.am</code> only.
+        Accounts created with personal emails will be removed without warning.
+      </div>
 
-      <form id="joinForm">
-        <div class="form-group">
-          <label for="invite_code">Invite Code</label>
-          <input type="text" id="invite_code" class="invite-input" placeholder="XXXXXXXX" maxlength="8" required autocomplete="off" spellcheck="false">
-          <p class="hint">8-character code provided by your administrator</p>
-        </div>
-        <div class="form-group">
-          <label for="full_name">Full Name</label>
-          <input type="text" id="full_name" placeholder="Your full name" required autocomplete="name">
-        </div>
-        <div class="form-group">
-          <label for="email">Email</label>
-          <input type="email" id="email" placeholder="you@example.com" required autocomplete="email">
-        </div>
-        <div class="form-group">
-          <label for="password">Password</label>
-          <input type="password" id="password" placeholder="Min. 8 characters" required minlength="8" autocomplete="new-password">
-          <p class="hint">Must include uppercase, lowercase, and a number</p>
-        </div>
-        <div class="form-group" id="deptGroup" style="display:none">
-          <label for="dept_select">Department <span style="color:#dc2626">*</span></label>
-          <select id="dept_select">
-            <option value="">— Choose a department —</option>
-          </select>
-        </div>
-        <button type="submit" class="btn" id="joinBtn">Create Account</button>
-      </form>
+      <div id="error" class="error-msg"></div>
+      <div class="google-wrap" id="googleBtnWrap"></div>
+      <div id="status" class="status-msg">Loading Google Sign-In…</div>
 
       <div class="links">
-        Already have an account? <a href="/login">Sign in</a> | <a href="/">Back to Home</a>
+        Already have an account? <a href="/login">Sign in</a> | <a href="/">Home</a>
       </div>
     </div>
   </div>
 
   <script>
-    let orgDepartments = [];
+    const errEl = document.getElementById('error');
+    const statusEl = document.getElementById('status');
+    function setStatus(m, err) { statusEl.textContent = m; statusEl.className = 'status-msg show' + (err ? ' err' : ''); }
+    function hideStatus() { statusEl.className = 'status-msg'; }
+    function showError(m) { errEl.textContent = m; errEl.className = 'error-msg show'; }
 
-    function clearMessages() {
-      document.getElementById('error').className = 'error-msg';
-      document.getElementById('success').className = 'success-msg';
-    }
-    function showError(msg) {
-      const el = document.getElementById('error');
-      el.textContent = msg; el.className = 'error-msg show';
-    }
-    function showSuccess(msg) {
-      const el = document.getElementById('success');
-      el.textContent = msg; el.className = 'success-msg show';
-    }
-
-    // Auto-fetch org info when invite code is complete
-    let inviteLookupTimer = null;
-    document.getElementById('invite_code').addEventListener('input', function() {
-      this.value = this.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8);
-      clearTimeout(inviteLookupTimer);
-      const code = this.value;
-      if (code.length === 8) {
-        inviteLookupTimer = setTimeout(() => fetchOrgInfo(code), 300);
-      } else {
-        clearOrgInfo();
-      }
-    });
-
-    async function fetchOrgInfo(code) {
+    async function handleCred(response) {
       try {
-        const res = await fetch('/api/auth/invite-info?invite_code=' + encodeURIComponent(code));
-        if (!res.ok) { clearOrgInfo(); return; }
-        const data = await res.json();
-        orgDepartments = data.departments || [];
-        document.getElementById('orgBadge').textContent = 'Organization: ' + data.org_name;
-        document.getElementById('orgBadge').className = 'org-badge show';
-        const deptGroup = document.getElementById('deptGroup');
-        const sel = document.getElementById('dept_select');
-        if (orgDepartments.length > 0) {
-          sel.innerHTML = '<option value="">— Choose a department —</option>' +
-            orgDepartments.map(d => `<option value="${d.id}">${d.name}</option>`).join('');
-          deptGroup.style.display = '';
-        } else {
-          deptGroup.style.display = 'none';
-        }
-      } catch { clearOrgInfo(); }
-    }
-
-    function clearOrgInfo() {
-      orgDepartments = [];
-      document.getElementById('orgBadge').className = 'org-badge';
-      document.getElementById('deptGroup').style.display = 'none';
-    }
-
-    document.getElementById('joinForm').addEventListener('submit', async (e) => {
-      e.preventDefault();
-      clearMessages();
-
-      const invite_code = document.getElementById('invite_code').value.trim();
-      if (invite_code.length !== 8) {
-        showError('Invite code must be 8 characters');
-        return;
-      }
-
-      const deptSel = document.getElementById('dept_select');
-      if (orgDepartments.length > 0 && !deptSel.value) {
-        showError('Please select your department');
-        return;
-      }
-
-      const btn = document.getElementById('joinBtn');
-      btn.disabled = true;
-      btn.textContent = 'Creating account...';
-
-      const payload = {
-        full_name: document.getElementById('full_name').value.trim(),
-        email: document.getElementById('email').value.trim(),
-        password: document.getElementById('password').value,
-        invite_code
-      };
-      if (orgDepartments.length > 0 && deptSel.value) {
-        payload.department_id = parseInt(deptSel.value);
-      }
-
-      try {
-        const res = await fetch('/api/auth/register-teacher', {
+        const res = await fetch('/api/auth/google', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           credentials: 'include',
-          body: JSON.stringify(payload)
+          body: JSON.stringify({ credential: response.credential, intent: 'teacher' })
         });
         const data = await res.json();
-        if (!res.ok) {
-          showError(data.error);
-          btn.disabled = false;
-          btn.textContent = 'Create Account';
-          return;
-        }
-        showSuccess('Account created! Redirecting to your dashboard...');
-        setTimeout(() => { window.location.href = '/app'; }, 1000);
-      } catch {
-        showError('Connection error. Please try again.');
-        btn.disabled = false;
-        btn.textContent = 'Create Account';
+        if (!res.ok) { showError(data.error || 'Registration failed.'); return; }
+        localStorage.setItem('oasis_token', data.token);
+        localStorage.setItem('oasis_user', JSON.stringify(data.user));
+        window.location.href = '/app';
+      } catch { showError('Connection error. Please try again.'); }
+    }
+
+    function loadGsi() {
+      return new Promise((resolve, reject) => {
+        if (window.google && window.google.accounts && window.google.accounts.id) return resolve();
+        const s = document.createElement('script');
+        s.src = 'https://accounts.google.com/gsi/client';
+        s.async = true;
+        s.onload = () => resolve();
+        s.onerror = () => reject(new Error('script-failed'));
+        document.head.appendChild(s);
+      });
+    }
+
+    async function init() {
+      setStatus('Loading Google Sign-In…');
+      let cfg;
+      try { cfg = await fetch('/api/public-config').then(r => r.json()); }
+      catch { setStatus('Could not reach the server. Reload the page.', true); return; }
+      document.getElementById('domainLabel').textContent = '@' + cfg.teacher_domain;
+      if (!cfg.google_client_id) {
+        setStatus('Google Sign-In is not configured: GOOGLE_CLIENT_ID is missing on the server.', true);
+        return;
       }
-    });
+      try { await loadGsi(); }
+      catch { setStatus('Could not load Google Sign-In. Check your network or disable ad-blockers.', true); return; }
+      if (!(window.google && window.google.accounts && window.google.accounts.id)) {
+        setStatus('Google Sign-In library failed to initialize.', true);
+        return;
+      }
+      window.google.accounts.id.initialize({
+        client_id: cfg.google_client_id,
+        callback: handleCred,
+        ux_mode: 'popup'
+      });
+      window.google.accounts.id.renderButton(
+        document.getElementById('googleBtnWrap'),
+        { theme: 'outline', size: 'large', text: 'signup_with', shape: 'pill', width: 300 }
+      );
+      hideStatus();
+    }
 
     if (localStorage.getItem('oasis_token')) {
       fetch('/api/auth/me', {
@@ -272,6 +156,7 @@
         credentials: 'include'
       }).then(r => { if (r.ok) window.location.href = '/app'; });
     }
+    init();
   </script>
 </body>
 </html>
