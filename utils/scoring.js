@@ -39,7 +39,7 @@ function getTeacherScores(teacherId, options = {}) {
 
   const result = db.prepare(`
     SELECT
-      SUM(review_count) as review_count,
+      COALESCE(SUM(review_count), 0) as review_count,
       ${outerAvgCols},
       ROUND((${sumExpr}) / ${CRITERIA_COUNT}, 2) as avg_overall,
       ROUND((${sumExpr}) / ${CRITERIA_COUNT}, 2) as final_score
