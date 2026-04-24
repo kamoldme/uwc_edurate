@@ -271,6 +271,77 @@ body {
   flex-shrink: 0;
 }
 
+/* ============ ORG BADGE (top-bar) ============
+   Desktop: icon + full name + (admin-only) pencil.
+   Mobile: icon-only by default; tapping expands to show the full name
+   for 4 seconds. Pencil only reachable after expansion, via its own
+   stopPropagation click that fires renameOrg. */
+.org-badge {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: var(--gray-100);
+  border: 1px solid var(--gray-200);
+  border-radius: 8px;
+  font-family: inherit;
+  transition: background 0.15s, padding 0.2s, gap 0.2s;
+  cursor: default;
+}
+.org-badge.is-admin { cursor: pointer; }
+.org-badge.is-admin:hover { background: var(--gray-200); }
+.org-badge-icon { color: var(--primary); flex-shrink: 0; width: 14px; height: 14px; }
+.org-badge-name {
+  font-size: 0.82rem;
+  font-weight: 500;
+  color: var(--gray-700);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 200px;
+}
+.org-badge-edit {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  color: var(--gray-400);
+  flex-shrink: 0;
+}
+.org-badge-edit:hover { color: var(--gray-600); }
+.org-badge-edit svg { width: 11px; height: 11px; }
+
+@media (max-width: 768px) {
+  .org-badge {
+    padding: 9px;
+    gap: 0;
+    cursor: pointer;
+  }
+  .org-badge-icon { width: 18px; height: 18px; }
+  .org-badge-name,
+  .org-badge-edit { display: none; }
+  .org-badge.expanded {
+    padding: 8px 12px;
+    gap: 6px;
+  }
+  .org-badge.expanded .org-badge-name {
+    display: inline-block;
+    max-width: 160px;
+    font-size: 0.85rem;
+  }
+  .org-badge.expanded .org-badge-edit {
+    display: inline-flex;
+    width: 24px;
+    height: 24px;
+  }
+  .org-badge.expanded .org-badge-edit svg { width: 13px; height: 13px; }
+}
+
 .content-area {
   padding: 36px 48px;
 }

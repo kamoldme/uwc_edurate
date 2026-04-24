@@ -98,16 +98,13 @@ function setupUI() {
   const topBarActions = document.getElementById('topBarActions');
   if (u.org_name) {
     const isAdmin = u.role === 'admin';
-    const orgBadge = isAdmin
-      ? `<button onclick="renameOrg()" title="Click to rename organization" style="display:flex;align-items:center;gap:6px;padding:6px 12px;background:var(--gray-100);border-radius:8px;border:1px solid var(--gray-200);cursor:pointer;font-family:inherit;transition:background 0.15s" onmouseover="this.style.background='var(--gray-200)'" onmouseout="this.style.background='var(--gray-100)'">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--primary);flex-shrink:0"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
-          <span id="topBarOrgName" style="font-size:0.82rem;font-weight:500;color:var(--gray-700);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:200px">${u.org_name}</span>
-          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="color:var(--gray-400);flex-shrink:0"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-        </button>`
-      : `<div style="display:flex;align-items:center;gap:6px;padding:6px 12px;background:var(--gray-100);border-radius:8px;border:1px solid var(--gray-200)">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--primary);flex-shrink:0"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
-          <span style="font-size:0.82rem;font-weight:500;color:var(--gray-700);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:200px">${u.org_name}</span>
-        </div>`;
+    const houseSvg = `<svg class="org-badge-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>`;
+    const editSvg = `<button type="button" class="org-badge-edit" onclick="event.stopPropagation(); renameOrg()" aria-label="Rename organization"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>`;
+    const orgBadge = `<div class="org-badge${isAdmin ? ' is-admin' : ''}"${isAdmin ? ' data-admin="1"' : ''} onclick="handleOrgBadgeClick(this, event)" title="${isAdmin ? 'Click to rename organization' : u.org_name}">
+      ${houseSvg}
+      <span class="org-badge-name" id="topBarOrgName">${u.org_name}</span>
+      ${isAdmin ? editSvg : ''}
+    </div>`;
     topBarActions.innerHTML = `<div style="display:flex;align-items:center;gap:8px;">${bellHTML}${orgBadge}</div>`;
   } else {
     topBarActions.innerHTML = `<div style="display:flex;align-items:center;gap:8px;">${bellHTML}</div>`;
@@ -3530,6 +3527,30 @@ async function renderAdminHome() {
       });
     }
   }
+}
+
+// Handle clicks on the top-bar org badge.
+// Mobile (≤768): first tap expands the icon to show the full org name
+// (auto-collapses after 4s); the edit pencil inside handles rename on its
+// own tap via stopPropagation. Desktop: admins rename on click anywhere.
+function handleOrgBadgeClick(el, event) {
+  const isMobile = window.innerWidth <= 768;
+  if (isMobile) {
+    // On mobile we drive everything through expand/collapse; the pencil
+    // has its own onclick with stopPropagation for rename.
+    event.preventDefault();
+    if (!el.classList.contains('expanded')) {
+      el.classList.add('expanded');
+      clearTimeout(el._collapseTimer);
+      el._collapseTimer = setTimeout(() => el.classList.remove('expanded'), 4000);
+    } else {
+      clearTimeout(el._collapseTimer);
+      el.classList.remove('expanded');
+    }
+    return;
+  }
+  // Desktop: if admin, a click anywhere on the badge opens rename
+  if (el.dataset.admin === '1') renameOrg();
 }
 
 // Rename the single organization (admin only)
