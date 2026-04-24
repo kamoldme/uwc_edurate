@@ -155,10 +155,13 @@ app.use('/api/council/posts', councilUploadParser);
 app.use(express.json({ limit: '10kb' }));
 app.use(express.urlencoded({ extended: false }));
 
-// Rate limiting
+// Rate limiting. Per-IP counters are tight by default, but the whole pilot
+// cohort typically sits behind the school's NAT gateway — 35 students on one
+// IP will saturate a 200-req window in seconds. Values are intentionally
+// generous for the pilot; can be tightened later if we add per-user limits.
 const apiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 200,
+  max: 2000,
   message: { error: 'Too many requests. Please try again later.' },
   standardHeaders: true,
   legacyHeaders: false,
@@ -167,7 +170,7 @@ const apiLimiter = rateLimit({
 
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 20,
+  max: 200,
   message: { error: 'Too many login attempts. Please try again later.' },
   validate: { xForwardedForHeader: false }
 });

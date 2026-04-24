@@ -1003,6 +1003,86 @@ try {
   console.error('Migration error (extend notification types for petitions):', err.message);
 }
 
+// Migration: make legacy 4-criteria columns nullable on reviews.
+// The original schema had clarity/engagement/fairness/supportiveness as NOT NULL.
+// After the 13-criteria switch the INSERT no longer fills them, which blew up
+// every review submission with a NOT NULL constraint error. SQLite can't ALTER
+// a column's nullability, so we rebuild the table when we detect the old shape.
+try {
+  const cols = db.prepare("PRAGMA table_info(reviews)").all();
+  const legacyCols = ['clarity_rating', 'engagement_rating', 'fairness_rating', 'supportiveness_rating'];
+  const needsMigration = cols.some(c => legacyCols.includes(c.name) && c.notnull === 1);
+
+  if (needsMigration) {
+    console.log('🔄 Migration: making legacy review criteria columns nullable...');
+    db.pragma('foreign_keys = OFF');
+    db.transaction(() => {
+      db.exec(`
+        CREATE TABLE reviews_new (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          teacher_id INTEGER NOT NULL,
+          classroom_id INTEGER NOT NULL,
+          student_id INTEGER NOT NULL,
+          school_id INTEGER DEFAULT 1,
+          org_id INTEGER,
+          term_id INTEGER NOT NULL,
+          feedback_period_id INTEGER NOT NULL,
+          overall_rating INTEGER NOT NULL CHECK(overall_rating BETWEEN 1 AND 5),
+          clarity_rating INTEGER CHECK(clarity_rating IS NULL OR clarity_rating BETWEEN 1 AND 5),
+          engagement_rating INTEGER CHECK(engagement_rating IS NULL OR engagement_rating BETWEEN 1 AND 5),
+          fairness_rating INTEGER CHECK(fairness_rating IS NULL OR fairness_rating BETWEEN 1 AND 5),
+          supportiveness_rating INTEGER CHECK(supportiveness_rating IS NULL OR supportiveness_rating BETWEEN 1 AND 5),
+          preparation_rating INTEGER,
+          workload_rating INTEGER,
+          atmosphere_rating INTEGER,
+          lesson_focus_rating INTEGER,
+          interaction_rating INTEGER,
+          agency_rating INTEGER,
+          rigour_rating INTEGER,
+          practical_app_rating INTEGER,
+          real_life_app_rating INTEGER,
+          preparedness_rating INTEGER,
+          feedback_qual_rating INTEGER,
+          subject_knowledge_rating INTEGER,
+          approachability_rating INTEGER,
+          varied_methods_rating INTEGER,
+          engaging_content_rating INTEGER,
+          feedback_text TEXT,
+          tags TEXT DEFAULT '[]',
+          flagged_status TEXT DEFAULT 'pending' CHECK(flagged_status IN ('pending', 'flagged', 'approved', 'rejected')),
+          approved_status INTEGER DEFAULT 0,
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY (teacher_id) REFERENCES teachers(id) ON DELETE CASCADE,
+          FOREIGN KEY (classroom_id) REFERENCES classrooms(id) ON DELETE CASCADE,
+          FOREIGN KEY (student_id) REFERENCES users(id) ON DELETE CASCADE,
+          FOREIGN KEY (term_id) REFERENCES terms(id) ON DELETE CASCADE,
+          FOREIGN KEY (feedback_period_id) REFERENCES feedback_periods(id) ON DELETE CASCADE,
+          UNIQUE(teacher_id, student_id, feedback_period_id)
+        );
+      `);
+
+      // Copy intersecting columns. Any column present in the old reviews table
+      // that also exists in reviews_new carries over; anything exclusive to the
+      // new shape stays NULL for historical rows.
+      const existingColNames = cols.map(c => c.name);
+      const newColNames = db.prepare("PRAGMA table_info(reviews_new)").all().map(c => c.name);
+      const shared = existingColNames.filter(n => newColNames.includes(n));
+      const colList = shared.join(', ');
+      db.exec(`INSERT INTO reviews_new (${colList}) SELECT ${colList} FROM reviews;`);
+      db.exec(`DROP TABLE reviews;`);
+      db.exec(`ALTER TABLE reviews_new RENAME TO reviews;`);
+      db.exec(`CREATE INDEX IF NOT EXISTS idx_reviews_teacher ON reviews(teacher_id);`);
+      db.exec(`CREATE INDEX IF NOT EXISTS idx_reviews_student ON reviews(student_id);`);
+      db.exec(`CREATE INDEX IF NOT EXISTS idx_reviews_period ON reviews(feedback_period_id);`);
+      db.exec(`CREATE INDEX IF NOT EXISTS idx_reviews_classroom ON reviews(classroom_id);`);
+    })();
+    db.pragma('foreign_keys = ON');
+    console.log('✅ Migration: review criteria columns are now nullable');
+  }
+} catch (err) {
+  console.error('Migration error (reviews nullable criteria):', err.message);
+}
+
 // Seed the default admin only. Teacher / head / student accounts are created
 // through the admin UI on each deploy as needed — no need to seed them every
 // boot. The admin seed remains so a fresh DB is recoverable without DB access.
