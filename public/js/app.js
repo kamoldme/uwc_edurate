@@ -1258,10 +1258,10 @@ async function renderStudentMyReviews() {
                     ${starsHTML(avg !== null ? avg : 0, 'large')}
                   </div>
                 </div>
-                <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px">
+                <div class="review-meta">
                   ${r.approved_status === 1 ? `<span class="badge" style="background:#16a34a;color:#fff">${t('review.approved_badge')}</span>` : badgeHTML(r.flagged_status)}
-                  <span style="font-size:0.78rem;color:var(--gray-400)">${r.created_at ? new Date(r.created_at).toLocaleString() : ''}</span>
-                  ${r.approved_status !== 1 ? `<button class="btn btn-sm btn-outline" onclick="editMyReview(${r.id})">${t('common.edit')}</button>` : `<span style="font-size:0.75rem;color:var(--gray-400)">${t('review.cannot_edit')}</span>`}
+                  <time class="review-meta-date">${r.created_at ? new Date(r.created_at).toLocaleString() : ''}</time>
+                  ${r.approved_status !== 1 ? `<button class="btn btn-sm btn-outline review-meta-action" onclick="editMyReview(${r.id})">${t('common.edit')}</button>` : `<span class="review-meta-locked">${t('review.cannot_edit')}</span>`}
                 </div>
               </div>
               <details class="criteria-collapse">

@@ -46,12 +46,15 @@ router.post('/google', async (req, res) => {
     return res.status(503).json({ error: 'Google Sign-In is not configured on this server. Set GOOGLE_CLIENT_ID.' });
   }
   try {
-    const { credential, intent } = req.body || {};
+    const { credential, intent, grade_or_position } = req.body || {};
     if (!credential || !intent) {
       return res.status(400).json({ error: 'Missing credential or intent' });
     }
     if (!['login', 'student', 'teacher'].includes(intent)) {
       return res.status(400).json({ error: 'Invalid intent' });
+    }
+    if (intent === 'student' && grade_or_position && !['DP1', 'DP2'].includes(grade_or_position)) {
+      return res.status(400).json({ error: 'Invalid grade. Must be DP1 or DP2.' });
     }
 
     // Verify the ID token with Google. This checks signature, audience, and expiry.
@@ -136,9 +139,9 @@ router.post('/google', async (req, res) => {
 
     if (intent === 'student') {
       const result = db.prepare(`
-        INSERT INTO users (full_name, email, password, role, school_id, org_id, verified_status, avatar_url)
-        VALUES (?, ?, ?, 'student', 1, 1, 1, ?)
-      `).run(sanitizedName, email, placeholderHash, avatarUrl);
+        INSERT INTO users (full_name, email, password, role, grade_or_position, school_id, org_id, verified_status, avatar_url)
+        VALUES (?, ?, ?, 'student', ?, 1, 1, 1, ?)
+      `).run(sanitizedName, email, placeholderHash, grade_or_position || null, avatarUrl);
 
       const user = db.prepare('SELECT id, full_name, email, role, grade_or_position, school_id, org_id, verified_status, avatar_url, language, is_student_council FROM users WHERE id = ?').get(result.lastInsertRowid);
       const token = generateToken(user);

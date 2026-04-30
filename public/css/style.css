@@ -1496,6 +1496,42 @@ tbody tr:last-child td { border-bottom: none; }
   margin-top: 16px;
 }
 
+/* Right-side stack on My Reviews card: badge, timestamp, edit/locked.
+   Keeps everything right-aligned on one column and ensures consistent
+   vertical rhythm + a baseline width so the badge, time and button
+   right-edges line up cleanly instead of looking ragged. */
+.review-meta {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+  text-align: right;
+  flex-shrink: 0;
+  min-width: 130px;
+}
+.review-meta > * {
+  margin-left: auto;
+}
+.review-meta .badge {
+  align-self: flex-end;
+}
+.review-meta-date {
+  font-size: 0.78rem;
+  color: var(--gray-400);
+  white-space: nowrap;
+  line-height: 1.4;
+}
+.review-meta-action {
+  align-self: flex-end;
+  min-width: 88px;
+  justify-content: center;
+}
+.review-meta-locked {
+  font-size: 0.75rem;
+  color: var(--gray-400);
+  font-style: italic;
+}
+
 /* ============ MOBILE PANEL FIXES (student, teacher, school head) ============ */
 @media (max-width: 768px) {
   /* Review card headers - stack vertically */
