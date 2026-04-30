@@ -1244,15 +1244,18 @@ async function renderStudentMyReviews() {
       <div class="card-body">
         ${reviews.length === 0
           ? `<div class="empty-state"><h3>${t('student.no_reviews')}</h3><p>${t('student.submit_during_active')}</p></div>`
-          : reviews.map(r => `
+          : reviews.map(r => {
+            const avg = criteriaAverage(r);
+            const colorVal = avg !== null ? avg : (r.overall_rating || 0);
+            return `
             <div class="review-card">
               <div class="review-header">
                 <div>
                   <strong>${r.teacher_name}</strong>
                   <span style="color:var(--gray-500);font-size:0.85rem"> &middot; ${r.classroom_subject} &middot; ${r.term_name} &middot; ${r.period_name}</span>
                   <div style="margin-top:8px;display:flex;align-items:center;gap:10px">
-                    <span style="font-size:1.3rem;font-weight:700;color:${scoreColor(r.overall_rating)}">${r.overall_rating}/5</span>
-                    ${starsHTML(r.overall_rating, 'large')}
+                    <span style="font-size:1.3rem;font-weight:700;color:${scoreColor(colorVal)}">${fmtRatingFloat(avg)}</span>
+                    ${starsHTML(avg !== null ? avg : 0, 'large')}
                   </div>
                 </div>
                 <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px">
@@ -1275,7 +1278,8 @@ async function renderStudentMyReviews() {
                 </div>
               ` : ''}
             </div>
-          `).join('')}
+          `;
+          }).join('')}
       </div>
     </div>
   `;
