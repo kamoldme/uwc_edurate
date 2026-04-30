@@ -5041,10 +5041,6 @@ function editTeacher(teacher) {
         <label>${t('admin.years_of_experience')}</label>
         <input type="number" class="form-control" id="editTeacherExp" value="${teacher.experience_years || 0}" min="0">
       </div>
-      <div class="form-group">
-        <label>${t('admin.bio')}</label>
-        <textarea class="form-control" id="editTeacherBio" rows="3">${teacher.bio || ''}</textarea>
-      </div>
     </div>
     <div class="modal-footer">
       <button class="btn btn-outline" onclick="closeModal()">${t('common.cancel')}</button>
@@ -5058,8 +5054,7 @@ async function saveTeacherEdit(teacherId) {
     full_name: document.getElementById('editTeacherName').value,
     subject: document.getElementById('editTeacherSubject').value,
     department: document.getElementById('editTeacherDept').value,
-    experience_years: parseInt(document.getElementById('editTeacherExp').value) || 0,
-    bio: document.getElementById('editTeacherBio').value
+    experience_years: parseInt(document.getElementById('editTeacherExp').value) || 0
   };
   if (!body.full_name) return toast(t('admin.name_required'), 'error');
   try {
@@ -5976,10 +5971,6 @@ async function renderAccount() {
                 <label>${t('account.department')}</label>
                 <input type="text" class="form-control" id="profileDepartment" value="${data.teacher.department || ''}" placeholder="${t('account.department_placeholder')}">
               </div>
-              <div class="form-group">
-                <label>${t('account.bio')}</label>
-                <textarea class="form-control" id="profileBio" rows="4" placeholder="${t('account.bio_placeholder')}">${data.teacher.bio || ''}</textarea>
-              </div>
             ` : ''}
             <div class="form-group">
               <label>${t('account.role')}</label>
@@ -6055,10 +6046,8 @@ async function updateProfile(e) {
     if (currentUser.role === 'teacher') {
       const subjectEl = document.getElementById('profileSubject');
       const deptEl = document.getElementById('profileDepartment');
-      const bioEl = document.getElementById('profileBio');
       if (subjectEl) body.subject = subjectEl.value.trim();
       if (deptEl) body.department = deptEl.value.trim();
-      if (bioEl) body.bio = bioEl.value.trim();
     }
 
     const data = await API.put('/auth/update-profile', body);
