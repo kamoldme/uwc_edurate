@@ -508,7 +508,9 @@ function ratingGridHTML(r) {
       const v = r[c.db_col]; const val = v || 0;
       return `<div class="rating-grid-item">
         <span class="rating-grid-label">${t(c.label_key)}${criteriaInfoIcon(c.info_key)}</span>
-        <span class="rating-grid-value" style="color:${scoreColor(val)}">${v ? v + '/5' : '-'}</span>
+        <span class="rating-grid-value" style="color:${scoreColor(val)};display:inline-flex;align-items:center;gap:8px">
+          ${v ? `<span>${v}/5</span>${starsHTML(v, 'small')}` : '<span style="color:var(--gray-400)">-</span>'}
+        </span>
       </div>`;
     }).join('')}
   </div>`;
@@ -2166,8 +2168,16 @@ function renderTeacherReviewCard(r) {
       </div>
       <span style="font-size:0.78rem;color:var(--gray-400)">${r.created_at ? new Date(r.created_at).toLocaleString() : ''}</span>
     </div>
-    <div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--gray-100)">${ratingGridHTML(r)}</div>
-    ${r.feedback_text ? `<div class="review-text">${r.feedback_text}</div>` : ''}
+    <details class="criteria-collapse">
+      <summary>
+        <span>${t('student.criteria_breakdown')}</span>
+        <svg class="caret" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+      </summary>
+      ${ratingGridHTML(r)}
+    </details>
+    ${r.feedback_text
+      ? `<div class="review-text">${r.feedback_text}</div>`
+      : `<div class="review-text review-text-empty">${t('review.no_written_feedback')}</div>`}
     ${tags.length > 0 ? `<div class="review-tags">${tags.map(tag => `<span class="tag">${translateTag(tag)}</span>`).join('')}</div>` : ''}
   </div>`;
 }
@@ -2281,19 +2291,19 @@ async function renderTeacherAnalytics() {
 
     <div class="grid grid-2" style="margin-bottom:24px">
       <div class="card">
-        <div class="card-header"><h3>${t('analytics.score_trend')}</h3></div>
-        <div class="card-body">
-          ${periods.length > 0
-            ? '<div class="chart-container"><canvas id="trendChart"></canvas></div>'
-            : `<div class="empty-state" style="padding:32px 0"><p style="color:var(--gray-400)">${t('analytics.no_periods')}</p></div>`}
-        </div>
-      </div>
-      <div class="card">
         <div class="card-header"><h3>${t('analytics.category_breakdown')}</h3></div>
         <div class="card-body">
           ${data.overall_scores.review_count > 0
             ? '<div class="chart-container"><canvas id="radarChart"></canvas></div>'
             : `<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:32px 16px;text-align:center;color:var(--gray-400)"><p style="font-weight:500;margin-bottom:4px">${t('teacher.no_data_yet')}</p><p style="font-size:0.82rem">${t('teacher.no_data_hint')}</p></div>`}
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-header"><h3>${t('analytics.score_trend')}</h3></div>
+        <div class="card-body">
+          ${periods.length > 0
+            ? '<div class="chart-container"><canvas id="trendChart"></canvas></div>'
+            : `<div class="empty-state" style="padding:32px 0"><p style="color:var(--gray-400)">${t('analytics.no_periods')}</p></div>`}
         </div>
       </div>
     </div>

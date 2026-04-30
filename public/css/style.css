@@ -1496,6 +1496,16 @@ tbody tr:last-child td { border-bottom: none; }
   margin-top: 16px;
 }
 
+/* When a review has no written feedback, render a muted italic placeholder
+   rather than collapsing the slot — empty space implied 'no review at all',
+   which was confusing teachers reading their own feedback. */
+.review-text.review-text-empty {
+  background: transparent;
+  border-left: 3px solid var(--gray-200);
+  color: var(--gray-400);
+  font-style: italic;
+}
+
 /* Right-side stack on My Reviews card: badge, timestamp, edit/locked.
    Keeps everything right-aligned on one column and ensures consistent
    vertical rhythm + a baseline width so the badge, time and button
