@@ -1390,17 +1390,15 @@ tbody tr:last-child td { border-bottom: none; }
   }
 }
 
-/* ============ RESPONSIVE RATING GRID ============ */
-.rating-grid-responsive {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-  gap: 10px;
-}
-
+/* ============ RATING GRID (My Reviews, Feedback, Moderation) ============
+   One row per criterion: long labels wrap inside their pill instead of
+   bleeding outside the box. Auto-fill multi-column was creating ~150px
+   tiles and chopping label text like 'Real Life Application Practice'. */
+.rating-grid-responsive,
 .feedback-rating-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  gap: 12px;
+  grid-template-columns: 1fr;
+  gap: 10px;
   margin-top: 12px;
 }
 
@@ -1411,35 +1409,54 @@ tbody tr:last-child td { border-bottom: none; }
   font-size: 0.8rem;
   color: var(--gray-600);
   min-width: 0;
+  gap: 8px;
 }
 
 .rating-item span {
   min-width: 0;
-  overflow: hidden;
 }
 
-/* Rating grid items (My Reviews, Feedback, Moderation) */
 .rating-grid-item {
-  padding: 8px 12px;
+  padding: 10px 14px;
   background: var(--gray-50);
   border-radius: 8px;
-  display: grid;
-  grid-template-columns: 1fr auto;
-  gap: 12px;
+  display: flex;
   align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: 0;
+  flex-wrap: wrap;
 }
 
 .rating-grid-label {
-  font-size: 0.82rem;
+  font-size: 0.85rem;
   color: var(--gray-600);
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  gap: 3px;
+  gap: 6px;
+  flex: 1 1 auto;
+  min-width: 0;
+  word-break: break-word;
+  overflow-wrap: anywhere;
 }
+/* The info icon ships with margin-left:4px inline; suppress it here so we
+   rely on the parent flex gap and avoid stacking margin + gap. */
+.rating-grid-label .criteria-info-btn { margin-left: 0 !important; }
 
 .rating-grid-value {
   font-weight: 700;
   white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* Overall row in moderation: subtle blue tint to distinguish from criteria */
+.rating-grid-item.rating-grid-overall {
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+}
+.rating-grid-item.rating-grid-overall .rating-grid-label {
+  font-weight: 600;
+  color: #1e3a8a;
 }
 
 /* ============ MOBILE PANEL FIXES (student, teacher, school head) ============ */

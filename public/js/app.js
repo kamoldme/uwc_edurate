@@ -489,8 +489,40 @@ function ratingText(val) {
   return (val !== null && val !== undefined) ? `${val}/5` : '-';
 }
 
+// Compute the true average of the 13 per-criterion ratings on a review.
+// We don't trust server `overall_rating` — that column is rounded to an
+// integer at insert time; for display we want the original float (e.g. 4.62).
+function criteriaAverage(r) {
+  const vals = CRITERIA_COLS.map(col => r[col]).filter(v => v !== null && v !== undefined && v > 0);
+  if (vals.length === 0) return null;
+  return vals.reduce((s, v) => s + v, 0) / vals.length;
+}
+
+function fmtRatingFloat(v) {
+  return (v === null || v === undefined) ? '-' : `${v.toFixed(2)}/5.00`;
+}
+
 function ratingGridHTML(r) {
   return `<div class="rating-grid-responsive">
+    ${CRITERIA_CONFIG.map(c => {
+      const v = r[c.db_col]; const val = v || 0;
+      return `<div class="rating-grid-item">
+        <span class="rating-grid-label">${t(c.label_key)}${criteriaInfoIcon(c.info_key)}</span>
+        <span class="rating-grid-value" style="color:${scoreColor(val)}">${v ? v + '/5' : '-'}</span>
+      </div>`;
+    }).join('')}
+  </div>`;
+}
+
+// Moderation/flagged rating grid: single column, overall = float average,
+// per-criterion rows reuse the same .rating-grid-item layout.
+function moderationRatingGridHTML(r) {
+  const avg = criteriaAverage(r);
+  return `<div class="feedback-rating-grid">
+    <div class="rating-grid-item rating-grid-overall">
+      <span class="rating-grid-label">${t('review.overall')}</span>
+      <span class="rating-grid-value" style="color:${scoreColor(avg || 0)}">${fmtRatingFloat(avg)}</span>
+    </div>
     ${CRITERIA_CONFIG.map(c => {
       const v = r[c.db_col]; const val = v || 0;
       return `<div class="rating-grid-item">
@@ -2113,13 +2145,15 @@ async function renderTeacherFeedback() {
 
 function renderTeacherReviewCard(r) {
   const tags = JSON.parse(r.tags || '[]');
+  const avg = criteriaAverage(r);
+  const colorVal = avg !== null ? avg : (r.overall_rating || 0);
   return `<div class="review-card">
     <div class="review-header">
       <div>
         <span style="color:var(--gray-500);font-size:0.85rem">${r.classroom_subject} (${r.grade_level}) &middot; ${r.period_name}</span>
         <div style="margin-top:8px;display:flex;align-items:center;gap:10px">
-          <span style="font-size:1.3rem;font-weight:700;color:${scoreColor(r.overall_rating)}">${r.overall_rating}/5</span>
-          ${starsHTML(r.overall_rating, 'large')}
+          <span style="font-size:1.3rem;font-weight:700;color:${scoreColor(colorVal)}">${fmtRatingFloat(avg)}</span>
+          ${starsHTML(avg !== null ? avg : 0, 'large')}
         </div>
       </div>
       <span style="font-size:0.78rem;color:var(--gray-400)">${r.created_at ? new Date(r.created_at).toLocaleString() : ''}</span>
@@ -4818,19 +4852,7 @@ async function renderAdminModerate() {
                 <span style="font-size:0.78rem;color:var(--gray-400)">${r.created_at ? new Date(r.created_at).toLocaleString() : ''}</span>
               </div>
             </div>
-            <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px;margin-bottom:16px">
-              <div style="padding:10px 14px;background:var(--gray-50);border-radius:8px;display:flex;justify-content:space-between;align-items:center">
-                <span style="font-size:0.85rem;color:var(--gray-600)">${t('review.overall')}</span>
-                <span style="font-weight:700;color:${scoreColor(r.overall_rating)}">${r.overall_rating}/5</span>
-              </div>
-              ${CRITERIA_CONFIG.map(c => {
-                const v = r[c.db_col]; const val = v || 0;
-                return `<div style="padding:10px 14px;background:var(--gray-50);border-radius:8px;display:flex;justify-content:space-between;align-items:center">
-                  <span style="font-size:0.85rem;color:var(--gray-600);display:flex;align-items:center;gap:3px">${t(c.label_key)}${criteriaInfoIcon(c.info_key)}</span>
-                  <span style="font-weight:700;color:${scoreColor(val)}">${v ? v + '/5' : '-'}</span>
-                </div>`;
-              }).join('')}
-            </div>
+            ${moderationRatingGridHTML(r)}
             ${r.feedback_text ? `<div class="review-text" style="margin-bottom:12px">${r.feedback_text}</div>` : `<p style="color:var(--gray-400);font-size:0.85rem;font-style:italic;margin-bottom:12px">${t('review.no_written_feedback')}</p>`}
             ${JSON.parse(r.tags || '[]').length > 0 ? `
               <div class="review-tags" style="margin-bottom:16px">
@@ -4866,19 +4888,7 @@ async function renderAdminModerate() {
                 <span style="font-size:0.78rem;color:var(--gray-400)">${r.created_at ? new Date(r.created_at).toLocaleString() : ''}</span>
               </div>
             </div>
-            <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px;margin-bottom:16px">
-              <div style="padding:10px 14px;background:var(--gray-50);border-radius:8px;display:flex;justify-content:space-between;align-items:center">
-                <span style="font-size:0.85rem;color:var(--gray-600)">${t('review.overall')}</span>
-                <span style="font-weight:700;color:${scoreColor(r.overall_rating)}">${r.overall_rating}/5</span>
-              </div>
-              ${CRITERIA_CONFIG.map(c => {
-                const v = r[c.db_col]; const val = v || 0;
-                return `<div style="padding:10px 14px;background:var(--gray-50);border-radius:8px;display:flex;justify-content:space-between;align-items:center">
-                  <span style="font-size:0.85rem;color:var(--gray-600);display:flex;align-items:center;gap:3px">${t(c.label_key)}${criteriaInfoIcon(c.info_key)}</span>
-                  <span style="font-weight:700;color:${scoreColor(val)}">${v ? v + '/5' : '-'}</span>
-                </div>`;
-              }).join('')}
-            </div>
+            ${moderationRatingGridHTML(r)}
             ${r.feedback_text ? `<div class="review-text" style="border-left:3px solid var(--danger);margin-bottom:12px">${r.feedback_text}</div>` : `<p style="color:var(--gray-400);font-size:0.85rem;font-style:italic;margin-bottom:12px">${t('review.no_written_feedback')}</p>`}
             <div style="display:flex;gap:8px;margin-top:16px">
               <button class="btn btn-success" onclick="moderateReview(${r.id}, 'approve')">${t('admin.approve_anyway')}</button>
@@ -4915,19 +4925,7 @@ async function renderAdminFlagged() {
                 <span style="font-size:0.78rem;color:var(--gray-400)">${r.created_at ? new Date(r.created_at).toLocaleString() : ''}</span>
               </div>
             </div>
-            <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px;margin-bottom:16px">
-              <div style="padding:10px 14px;background:var(--gray-50);border-radius:8px;display:flex;justify-content:space-between;align-items:center">
-                <span style="font-size:0.85rem;color:var(--gray-600)">${t('review.overall')}</span>
-                <span style="font-weight:700;color:${scoreColor(r.overall_rating)}">${r.overall_rating}/5</span>
-              </div>
-              ${CRITERIA_CONFIG.map(c => {
-                const v = r[c.db_col]; const val = v || 0;
-                return `<div style="padding:10px 14px;background:var(--gray-50);border-radius:8px;display:flex;justify-content:space-between;align-items:center">
-                  <span style="font-size:0.85rem;color:var(--gray-600);display:flex;align-items:center;gap:3px">${t(c.label_key)}${criteriaInfoIcon(c.info_key)}</span>
-                  <span style="font-weight:700;color:${scoreColor(val)}">${v ? v + '/5' : '-'}</span>
-                </div>`;
-              }).join('')}
-            </div>
+            ${moderationRatingGridHTML(r)}
             ${r.feedback_text ? `<div class="review-text" style="border-left:3px solid var(--danger);margin-bottom:12px">${r.feedback_text}</div>` : `<p style="color:var(--gray-400);font-size:0.85rem;font-style:italic;margin-bottom:12px">${t('review.no_written_feedback')}</p>`}
             <div style="display:flex;gap:8px;margin-top:16px">
               <button class="btn btn-success" onclick="moderateReview(${r.id}, 'approve')">${t('admin.approve_anyway')}</button>
@@ -5057,40 +5055,10 @@ async function saveTeacherEdit(teacherId) {
 
 // ============ ADMIN: TEACHER FEEDBACK VIEWER ============
 async function renderAdminTeachers() {
-  const [teachers, inviteData, orgDepts] = await Promise.all([
-    cachedGet('/admin/teachers', CACHE_TTL.medium),
-    currentUser.role === 'admin' ? API.get('/admin/invite-code').catch(e => ({ error: e.message })) : Promise.resolve(null),
-    currentUser.role === 'admin' ? API.get('/departments').catch(() => []) : Promise.resolve([])
-  ]);
+  const teachers = await cachedGet('/admin/teachers', CACHE_TTL.medium);
   const el = document.getElementById('contentArea');
 
-  const inviteCodeHTML = inviteData ? `
-    <div class="card" style="margin-bottom:20px;padding:18px 24px">
-      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px">
-        <div>
-          <div style="font-weight:600;color:var(--gray-800);margin-bottom:3px">${t('admin.invite_code_title')}</div>
-          <div style="font-size:0.82rem;color:var(--gray-500)">${t('admin.invite_code_hint')}</div>
-        </div>
-        ${orgDepts.length === 0 ? `
-          <div style="background:var(--warning-light);border-left:4px solid var(--warning);padding:10px 16px;border-radius:8px;font-size:0.85rem">
-            <strong>Setup required:</strong> Add at least one department before sharing the invite code with teachers.
-            <button class="btn btn-sm btn-primary" style="margin-left:8px;margin-top:4px" onclick="navigateTo('admin-departments')">Manage Departments →</button>
-          </div>
-        ` : `
-          <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-            <code id="inviteCodeDisplay" style="font-size:1.2rem;font-weight:700;letter-spacing:4px;background:var(--gray-100);padding:7px 14px;border-radius:8px;color:var(--gray-800)">${inviteData.invite_code || (inviteData.error ? 'Error' : '—')}</code>
-            ${inviteData.invite_code ? `
-              <button class="btn btn-sm btn-outline" onclick="copyInviteCode()">${t('org.copy')}</button>
-              <button class="btn btn-sm btn-outline" style="color:#ef4444" onclick="confirmRegenerateInviteCode()">${t('org.regenerate')}</button>
-            ` : ''}
-          </div>
-        `}
-      </div>
-    </div>
-  ` : '';
-
   el.innerHTML = `
-    ${inviteCodeHTML}
     <div class="card">
       <div class="card-header"><h3>${t('admin.all_teachers', {count: teachers.length})}</h3></div>
       <div class="card-body">
@@ -6326,33 +6294,12 @@ function editOrganization(orgIndex) {
           </div>
         </div>
       </form>
-      <div style="margin-top:20px;padding-top:16px;border-top:1px solid var(--gray-200)">
-        <div style="font-weight:600;font-size:0.9rem;margin-bottom:8px;color:var(--gray-700)">${t('admin.invite_code_title')}</div>
-        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-          <code id="superInviteCode" style="font-size:1.1rem;font-weight:700;letter-spacing:3px;background:var(--gray-100);padding:6px 14px;border-radius:8px;color:var(--gray-800)">Loading...</code>
-          <button class="btn btn-sm btn-outline" onclick="copySuperInviteCode()">${t('org.copy')}</button>
-          <button class="btn btn-sm btn-outline" style="color:#ef4444" onclick="regenerateSuperInviteCode(${org.id})">${t('org.regenerate')}</button>
-        </div>
-        <div style="font-size:0.75rem;color:var(--gray-400);margin-top:6px">${t('org.invite_hint')}</div>
-      </div>
     </div>
     <div class="modal-footer">
       <button class="btn btn-outline" onclick="closeModal()">${t('common.cancel')}</button>
       <button class="btn btn-primary" onclick="saveOrganizationEdit(${org.id})">${t('admin.save_changes')}</button>
     </div>
   `);
-
-  // Fetch invite code fresh with explicit org_id
-  fetch(`/api/admin/invite-code?org_id=${org.id}`, {
-    headers: { 'Authorization': 'Bearer ' + (API.token || ''), 'Content-Type': 'application/json' },
-    credentials: 'include'
-  }).then(r => r.json()).then(data => {
-    const el = document.getElementById('superInviteCode');
-    if (el) el.textContent = data.invite_code || '—';
-  }).catch(() => {
-    const el = document.getElementById('superInviteCode');
-    if (el) el.textContent = t('common.error');
-  });
 }
 
 function copySuperInviteCode() {
