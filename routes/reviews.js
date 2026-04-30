@@ -178,17 +178,46 @@ router.post('/', authenticate, authorize('student'), (req, res) => {
     // Use the classroom's org_id for the review
     const reviewOrgId = classroom.org_id;
 
-    // Wrap duplicate-check + INSERT in a transaction to prevent race conditions
-    const insertReview = db.transaction(() => {
-      // Re-check for duplicate inside transaction (TOCTOU protection)
-      const dup = db.prepare(
+    // Wrap duplicate-check + INSERT/UPDATE in a transaction to prevent races.
+    // The reviews table has a UNIQUE(teacher_id, student_id, feedback_period_id)
+    // constraint that doesn't know about flagged_status, so a second INSERT for
+    // the same triple will fail even if the prior one was rejected. When that
+    // happens we recycle the existing rejected row in place — same id, fresh
+    // values, status reset to 'pending'/'flagged'.
+    const submitReview = db.transaction(() => {
+      const activeDup = db.prepare(
         "SELECT id FROM reviews WHERE teacher_id = ? AND student_id = ? AND feedback_period_id = ? AND flagged_status != 'rejected'"
       ).get(teacher_id, req.user.id, activePeriod.id);
-      if (dup) return null;
+      if (activeDup) return { duplicate: true };
+
+      const rejected = db.prepare(
+        "SELECT id FROM reviews WHERE teacher_id = ? AND student_id = ? AND feedback_period_id = ? AND flagged_status = 'rejected'"
+      ).get(teacher_id, req.user.id, activePeriod.id);
+
+      if (rejected) {
+        const setCols = CRITERIA_COLS.map(c => `${c} = ?`).join(', ');
+        db.prepare(`
+          UPDATE reviews SET
+            classroom_id = ?,
+            school_id = ?, org_id = ?, term_id = ?,
+            overall_rating = ?, ${setCols},
+            feedback_text = ?, tags = ?,
+            flagged_status = ?, approved_status = 0,
+            created_at = CURRENT_TIMESTAMP
+          WHERE id = ?
+        `).run(
+          classroom_id,
+          reviewOrgId || 1, reviewOrgId, activePeriod.term_id,
+          overall_rating, ...ratingValues,
+          sanitized, JSON.stringify(validatedTags), flaggedStatus,
+          rejected.id
+        );
+        return { id: rejected.id, replaced: true };
+      }
 
       const colList = CRITERIA_COLS.join(', ');
       const placeholders = CRITERIA_COLS.map(() => '?').join(', ');
-      return db.prepare(`
+      const insertResult = db.prepare(`
         INSERT INTO reviews (
           teacher_id, classroom_id, student_id, school_id, org_id, term_id, feedback_period_id,
           overall_rating, ${colList},
@@ -199,30 +228,33 @@ router.post('/', authenticate, authorize('student'), (req, res) => {
         overall_rating, ...ratingValues,
         sanitized, JSON.stringify(validatedTags), flaggedStatus
       );
+      return { id: insertResult.lastInsertRowid };
     });
 
-    const result = insertReview();
-    if (!result) {
+    const result = submitReview();
+    if (result.duplicate) {
       return res.status(409).json({ error: 'You already submitted a review for this teacher in this period' });
     }
 
-    const review = db.prepare('SELECT * FROM reviews WHERE id = ?').get(result.lastInsertRowid);
+    const review = db.prepare('SELECT * FROM reviews WHERE id = ?').get(result.id);
 
-    // Log audit event
     const teacher = db.prepare('SELECT full_name FROM teachers WHERE id = ?').get(teacher_id);
     logAuditEvent({
       userId: req.user.id,
       userRole: req.user.role,
       userName: req.user.full_name,
-      actionType: 'review_submit',
-      actionDescription: `Submitted review for ${teacher?.full_name || 'teacher'} (Rating: ${overall_rating}/5)`,
+      actionType: result.replaced ? 'review_resubmit' : 'review_submit',
+      actionDescription: result.replaced
+        ? `Re-submitted previously-rejected review for ${teacher?.full_name || 'teacher'} (Rating: ${overall_rating}/5)`
+        : `Submitted review for ${teacher?.full_name || 'teacher'} (Rating: ${overall_rating}/5)`,
       targetType: 'review',
-      targetId: result.lastInsertRowid,
+      targetId: result.id,
       metadata: {
         teacher_id,
         classroom_id,
         overall_rating,
-        flagged: moderation.flagged
+        flagged: moderation.flagged,
+        replaced_rejected: !!result.replaced
       },
       ipAddress: req.ip
     });
