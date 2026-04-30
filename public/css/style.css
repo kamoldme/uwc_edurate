@@ -1459,6 +1459,43 @@ tbody tr:last-child td { border-bottom: none; }
   color: #1e3a8a;
 }
 
+/* Collapsible criteria block on student My Reviews cards.
+   Collapsed by default; clicking the summary toggles open and rotates
+   the caret. Native <details> handles state with no JS. */
+.criteria-collapse {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--gray-100);
+}
+.criteria-collapse > summary {
+  list-style: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  background: var(--gray-50);
+  border-radius: 8px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--gray-700);
+  user-select: none;
+  transition: background 0.15s;
+}
+.criteria-collapse > summary::-webkit-details-marker { display: none; }
+.criteria-collapse > summary:hover { background: var(--gray-100); }
+.criteria-collapse > summary .caret {
+  color: var(--gray-500);
+  transition: transform 0.2s;
+}
+.criteria-collapse[open] > summary .caret { transform: rotate(180deg); }
+.criteria-collapse[open] > summary { margin-bottom: 12px; }
+
+/* Spacing between the rating grid (or its collapse wrapper) and the tags row */
+.review-tags {
+  margin-top: 16px;
+}
+
 /* ============ MOBILE PANEL FIXES (student, teacher, school head) ============ */
 @media (max-width: 768px) {
   /* Review card headers - stack vertically */

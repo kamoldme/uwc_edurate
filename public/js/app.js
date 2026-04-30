@@ -1261,9 +1261,13 @@ async function renderStudentMyReviews() {
                   ${r.approved_status !== 1 ? `<button class="btn btn-sm btn-outline" onclick="editMyReview(${r.id})">${t('common.edit')}</button>` : `<span style="font-size:0.75rem;color:var(--gray-400)">${t('review.cannot_edit')}</span>`}
                 </div>
               </div>
-              <div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--gray-100)">
+              <details class="criteria-collapse">
+                <summary>
+                  <span>${t('student.criteria_breakdown')}</span>
+                  <svg class="caret" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+                </summary>
                 ${ratingGridHTML(r)}
-              </div>
+              </details>
               ${r.feedback_text ? `<div class="review-text">${r.feedback_text}</div>` : ''}
               ${JSON.parse(r.tags || '[]').length > 0 ? `
                 <div class="review-tags">
