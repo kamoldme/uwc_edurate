@@ -3071,26 +3071,43 @@ async function renderHeadAnalytics() {
   const data = await cachedGet('/dashboard/school-head');
   const el = document.getElementById('contentArea');
 
+  // Heatmap transposed: criteria as rows, teachers as columns. Reads naturally
+  // for the pilot (a few teachers × 13 criteria) and stays scannable when more
+  // teachers are added — horizontal scroll handles wider cohorts.
+  const cell = (val) => {
+    const bg = !val ? 'var(--gray-100)' : val >= 4 ? 'var(--success-bg)' : val >= 3 ? 'var(--warning-bg)' : 'var(--danger-bg)';
+    const color = !val ? 'var(--gray-400)' : val >= 4 ? '#047857' : val >= 3 ? '#92400e' : '#dc2626';
+    return `<td class="heatmap-cell-td" style="background:${bg};color:${color}">${fmtScore(val)}</td>`;
+  };
+
   el.innerHTML = `
     <div class="card">
       <div class="card-header"><h3>${t('head.performance_heatmap')}</h3></div>
-      <div class="card-body">
-        <table>
-          <thead>
-            <tr><th>${t('common.teacher')}</th>${CRITERIA_CONFIG.map(c => `<th><span style="display:flex;align-items:center;gap:3px">${t(c.label_key)}${criteriaInfoIcon(c.info_key)}</span></th>`).join('')}<th>${t('head.final')}</th></tr>
-          </thead>
-          <tbody>
-            ${data.teachers.map(tchr => {
-              const s = tchr.scores;
-              const cell = (val) => {
-                const bg = !val ? 'var(--gray-100)' : val >= 4 ? 'var(--success-bg)' : val >= 3 ? 'var(--warning-bg)' : 'var(--danger-bg)';
-                const color = !val ? 'var(--gray-400)' : val >= 4 ? '#047857' : val >= 3 ? '#92400e' : '#dc2626';
-                return `<td style="background:${bg};color:${color};font-weight:600;text-align:center">${fmtScore(val)}</td>`;
-              };
-              return `<tr><td><strong>${tchr.full_name}</strong></td>${CRITERIA_CONFIG.map(c => cell(s[`avg_${c.slug}`])).join('')}${cell(s.avg_overall)}</tr>`;
-            }).join('')}
-          </tbody>
-        </table>
+      <div class="card-body" style="padding:0">
+        <div class="heatmap-scroll">
+          <table class="heatmap-table">
+            <thead>
+              <tr>
+                <th class="heatmap-row-label">${t('admin.criteria') || 'Criteria'}</th>
+                ${data.teachers.map(tchr => `<th class="heatmap-teacher-col"><div class="heatmap-teacher-name">${tchr.full_name}</div>${tchr.subject ? `<div class="heatmap-teacher-sub">${tchr.subject}</div>` : ''}</th>`).join('')}
+              </tr>
+            </thead>
+            <tbody>
+              ${CRITERIA_CONFIG.map(c => `
+                <tr>
+                  <td class="heatmap-row-label">
+                    <span style="display:inline-flex;align-items:center;gap:6px">${t(c.label_key)}${criteriaInfoIcon(c.info_key)}</span>
+                  </td>
+                  ${data.teachers.map(tchr => cell(tchr.scores[`avg_${c.slug}`])).join('')}
+                </tr>
+              `).join('')}
+              <tr class="heatmap-overall-row">
+                <td class="heatmap-row-label"><strong>${t('head.final')}</strong></td>
+                ${data.teachers.map(tchr => cell(tchr.scores.avg_overall)).join('')}
+              </tr>
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   `;

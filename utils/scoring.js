@@ -33,9 +33,9 @@ function getTeacherScores(teacherId, options = {}) {
     where += ' AND r.term_id = ?';
     params.push(termId);
   }
-  if (visibilityRole === 'head') {
-    where += ' AND EXISTS (SELECT 1 FROM feedback_periods fp WHERE fp.id = r.feedback_period_id AND fp.teacher_private = 0)';
-  }
+  // visibilityRole previously gated head views behind teacher_private; the gate
+  // was disabled pre-pilot so heads can course-correct during active periods.
+  void visibilityRole;
 
   const result = db.prepare(`
     SELECT
@@ -66,9 +66,7 @@ function getRatingDistribution(teacherId, options = {}) {
   if (classroomId) { where += ' AND r.classroom_id = ?'; params.push(classroomId); }
   if (feedbackPeriodId) { where += ' AND r.feedback_period_id = ?'; params.push(feedbackPeriodId); }
   if (termId) { where += ' AND r.term_id = ?'; params.push(termId); }
-  if (visibilityRole === 'head') {
-    where += ' AND EXISTS (SELECT 1 FROM feedback_periods fp WHERE fp.id = r.feedback_period_id AND fp.teacher_private = 0)';
-  }
+  void visibilityRole; // teacher_private gate disabled pre-pilot
 
   const distribution = db.prepare(`
     SELECT overall_rating as rating, COUNT(*) as count
@@ -84,10 +82,8 @@ function getRatingDistribution(teacherId, options = {}) {
 }
 
 function getTeacherTrend(teacherId, termId, visibilityRole) {
-  let visFilter = '';
-  if (visibilityRole === 'head') {
-    visFilter = ' AND fp.teacher_private = 0';
-  }
+  void visibilityRole; // teacher_private gate disabled pre-pilot
+  const visFilter = '';
 
   const monthRows = db.prepare(`
     SELECT strftime('%Y-%m', fp.start_date) as month,

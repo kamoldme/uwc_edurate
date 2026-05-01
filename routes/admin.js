@@ -1495,10 +1495,8 @@ router.get('/teacher/:id/feedback', authenticate, authorize('admin', 'head'), au
     const { term_id, period_id, classroom_id } = req.query;
 
     const adminCritCols = CRITERIA_COLS.map(c => `r.${c}`).join(', ');
-    // Heads cannot see reviews from teacher-private periods
-    const adminVisFilter = req.user.role === 'head'
-      ? 'AND EXISTS (SELECT 1 FROM feedback_periods fp2 WHERE fp2.id = r.feedback_period_id AND fp2.teacher_private = 0)'
-      : '';
+    // Heads now see all approved reviews; teacher_private gate removed pre-pilot.
+    const adminVisFilter = '';
     let query = `
       SELECT r.id, r.overall_rating, ${adminCritCols},
         r.feedback_text, r.tags, r.created_at, r.flagged_status, r.approved_status,

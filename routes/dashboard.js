@@ -228,10 +228,10 @@ router.get('/school-head', authenticate, authorize('head', 'admin'), authorizeOr
     const outerAvgCols = CRITERIA_CONFIG.map(c => `ROUND(AVG(avg_${c.slug}), 2) as avg_${c.slug}`).join(', ');
     const sumExpr = CRITERIA_CONFIG.map(c => `AVG(avg_${c.slug})`).join(' + ');
 
-    // Visibility filter: heads cannot see reviews from teacher-private periods
-    const visFilter = req.user.role === 'head'
-      ? 'AND EXISTS (SELECT 1 FROM feedback_periods fp WHERE fp.id = r.feedback_period_id AND fp.teacher_private = 0)'
-      : '';
+    // Heads now see all approved reviews. The teacher_private gate was over-
+    // engineering — pilot heads need to course-correct during active periods,
+    // not wait for them to close. Column stays so the toggle can come back.
+    const visFilter = '';
 
     // 1 query: all teacher aggregate scores (classroom-weighted)
     const scoresData = db.prepare(`
@@ -260,7 +260,7 @@ router.get('/school-head', authenticate, authorize('head', 'admin'), authorizeOr
 
     // 1 query: monthly scores for trend — classroom-weighted, grouped by calendar month
     const classroomScoreExpr = CRITERIA_CONFIG.map(c => `AVG(r.${c.db_col})`).join(' + ');
-    const monthVisFilter = req.user.role === 'head' ? 'AND fp.teacher_private = 0' : '';
+    const monthVisFilter = '';
     let monthData = [];
     if (activeTerm) {
       monthData = db.prepare(`
@@ -427,9 +427,7 @@ router.get('/school-head/teacher/:id', authenticate, authorize('head', 'admin'),
     });
 
     const detailCritCols = CRITERIA_COLS.map(c => `r.${c}`).join(', ');
-    const detailVisFilter = req.user.role === 'head'
-      ? 'AND EXISTS (SELECT 1 FROM feedback_periods fp2 WHERE fp2.id = r.feedback_period_id AND fp2.teacher_private = 0)'
-      : '';
+    const detailVisFilter = '';
     const reviews = db.prepare(`
       SELECT r.overall_rating, ${detailCritCols},
         r.feedback_text, r.tags,
@@ -475,9 +473,7 @@ router.get('/departments/:name', authenticate, authorize('head', 'admin'), autho
     const deptInnerAvg = CRITERIA_CONFIG.map(c => `AVG(r.${c.db_col}) as avg_${c.slug}`).join(', ');
     const deptOuterAvg = CRITERIA_CONFIG.map(c => `ROUND(AVG(avg_${c.slug}), 2) as avg_${c.slug}`).join(', ');
     const deptSumExpr = CRITERIA_CONFIG.map(c => `AVG(avg_${c.slug})`).join(' + ');
-    const deptVisFilter = req.user.role === 'head'
-      ? 'AND EXISTS (SELECT 1 FROM feedback_periods fp WHERE fp.id = r.feedback_period_id AND fp.teacher_private = 0)'
-      : '';
+    const deptVisFilter = '';
 
     const scoresData = db.prepare(`
       SELECT teacher_id,
@@ -511,7 +507,7 @@ router.get('/departments/:name', authenticate, authorize('head', 'admin'), autho
 
     // Trend: dept avg score by calendar month — classroom-weighted, all terms
     const deptClassroomScore = CRITERIA_CONFIG.map(c => `AVG(r.${c.db_col})`).join(' + ');
-    const deptTrendVis = req.user.role === 'head' ? 'AND fp.teacher_private = 0' : '';
+    const deptTrendVis = '';
     const trend = db.prepare(`
       SELECT month, MIN(month_start) as month_start, term_name, term_id,
         SUM(review_count) as review_count,

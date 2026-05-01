@@ -15,8 +15,8 @@ router.get('/:id/profile', authenticate, authorize('admin', 'head'), (req, res) 
       return res.status(404).json({ error: 'Teacher not found' });
     }
 
-    // Heads cannot see reviews from teacher-private periods
-    const visFilter = req.user.role === 'head' ? 'AND fp.teacher_private = 0' : '';
+    // Heads now see all approved reviews; teacher_private gate removed pre-pilot.
+    const visFilter = '';
     const critCols = CRITERIA_COLS.map(c => `r.${c}`).join(', ');
 
     // Get approved reviews only
