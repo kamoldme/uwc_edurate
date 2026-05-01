@@ -2971,41 +2971,49 @@ async function renderHeadTeachers() {
   const el = document.getElementById('contentArea');
 
   el.innerHTML = `
-    <div class="grid grid-2">
+    <div class="grid grid-2 head-teacher-cards">
       ${data.teachers.map(teacher => `
-        <div class="card" style="margin-bottom:0">
-          <div class="card-header">
-            <h3>${teacher.full_name}</h3>
-            <span style="color:var(--gray-500);font-size:0.85rem">${teacher.department || ''}</span>
+        <div class="card head-teacher-card" style="margin-bottom:0">
+          <div class="card-header" style="padding:12px 16px">
+            <h3 style="font-size:1rem;margin:0">${teacher.full_name}</h3>
+            <span style="color:var(--gray-500);font-size:0.78rem">${teacher.department || ''}</span>
           </div>
-          <div class="card-body">
-            <div style="display:flex;justify-content:space-between;margin-bottom:16px">
+          <div class="card-body" style="padding:12px 16px">
+            <div style="display:flex;justify-content:space-between;margin-bottom:12px">
               <div>
-                <div style="font-size:0.8rem;color:var(--gray-500)">${t('common.subject')}</div>
-                <div style="font-weight:500">${teacher.subject}</div>
+                <div style="font-size:0.7rem;color:var(--gray-500)">${t('common.subject')}</div>
+                <div style="font-weight:500;font-size:0.85rem">${teacher.subject || '-'}</div>
               </div>
               <div style="text-align:center">
-                <div style="font-size:0.8rem;color:var(--gray-500)">${t('head.overall_rating')}</div>
-                <div style="font-size:1.5rem;font-weight:700;color:${scoreColor(teacher.scores.avg_overall || 0)}">${fmtScore(teacher.scores.avg_overall)}</div>
+                <div style="font-size:0.7rem;color:var(--gray-500)">${t('head.overall_rating')}</div>
+                <div style="font-size:1.15rem;font-weight:700;color:${scoreColor(teacher.scores.avg_overall || 0)}">${fmtScore(teacher.scores.avg_overall)}</div>
               </div>
               <div style="text-align:right">
-                <div style="font-size:0.8rem;color:var(--gray-500)">${t('head.reviews')}</div>
-                <div style="font-weight:500">${teacher.scores.review_count}</div>
+                <div style="font-size:0.7rem;color:var(--gray-500)">${t('head.reviews')}</div>
+                <div style="font-weight:500;font-size:0.85rem">${teacher.scores.review_count}</div>
               </div>
             </div>
-            ${CRITERIA_CONFIG.map(c => {
-              const val = teacher.scores[`avg_${c.slug}`] || 0;
-              return `<div style="margin-bottom:8px">
-                <div style="display:flex;justify-content:space-between;align-items:center;font-size:0.8rem;margin-bottom:3px">
-                  <span style="display:flex;align-items:center;gap:3px">${t(c.label_key)}${criteriaInfoIcon(c.info_key)}</span><span style="font-weight:600">${val}/5</span>
-                </div>
-                <div class="progress-bar"><div class="progress-fill blue" style="width:${(val/5)*100}%"></div></div>
-              </div>`;
-            }).join('')}
-            ${teacher.trend ? `<div style="margin-top:12px;font-size:0.85rem">Trend: ${trendArrow(teacher.trend.trend)} <span class="trend-${teacher.trend.trend === 'improving' ? 'up' : teacher.trend.trend === 'declining' ? 'down' : 'stable'}">${teacher.trend.trend}</span></div>` : ''}
-            <div style="margin-top:16px;display:flex;gap:8px">
-              <button class="btn btn-primary" style="flex:1;font-size:0.85rem" onclick="viewTeacherFeedback(${teacher.id})">${t('admin.view_feedback')}</button>
-              <button class="btn btn-outline" style="font-size:0.85rem" onclick="exportTeacherPDF(${teacher.id})" title="${t('admin.export_pdf')}">PDF</button>
+            <details class="criteria-collapse" style="margin-top:8px;padding-top:8px">
+              <summary>
+                <span>${t('student.criteria_breakdown')}</span>
+                <svg class="caret" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+              </summary>
+              <div style="margin-top:8px">
+                ${CRITERIA_CONFIG.map(c => {
+                  const val = teacher.scores[`avg_${c.slug}`] || 0;
+                  return `<div style="margin-bottom:6px">
+                    <div style="display:flex;justify-content:space-between;align-items:center;font-size:0.72rem;margin-bottom:2px">
+                      <span style="display:inline-flex;align-items:center;gap:4px">${t(c.label_key)}${criteriaInfoIcon(c.info_key)}</span><span style="font-weight:600">${val}/5</span>
+                    </div>
+                    <div class="progress-bar" style="height:5px"><div class="progress-fill blue" style="width:${(val/5)*100}%"></div></div>
+                  </div>`;
+                }).join('')}
+              </div>
+            </details>
+            ${teacher.trend ? `<div style="margin-top:8px;font-size:0.75rem">Trend: ${trendArrow(teacher.trend.trend)} <span class="trend-${teacher.trend.trend === 'improving' ? 'up' : teacher.trend.trend === 'declining' ? 'down' : 'stable'}">${teacher.trend.trend}</span></div>` : ''}
+            <div style="margin-top:10px;display:flex;gap:6px">
+              <button class="btn btn-sm btn-primary" style="flex:1;font-size:0.78rem;padding:6px 10px" onclick="viewTeacherFeedback(${teacher.id})">${t('admin.view_feedback')}</button>
+              <button class="btn btn-sm btn-outline" style="font-size:0.78rem;padding:6px 10px" onclick="exportTeacherPDF(${teacher.id})" title="${t('admin.export_pdf')}">PDF</button>
             </div>
           </div>
         </div>
@@ -3088,7 +3096,7 @@ async function renderHeadAnalytics() {
           <table class="heatmap-table">
             <thead>
               <tr>
-                <th class="heatmap-row-label">${t('admin.criteria') || 'Criteria'}</th>
+                <th class="heatmap-row-label">${t('admin.criteria')}</th>
                 ${data.teachers.map(tchr => `<th class="heatmap-teacher-col"><div class="heatmap-teacher-name">${tchr.full_name}</div>${tchr.subject ? `<div class="heatmap-teacher-sub">${tchr.subject}</div>` : ''}</th>`).join('')}
               </tr>
             </thead>

@@ -188,6 +188,7 @@
   "student.my_reviews_count": "My Reviews ({count})",
   "student.submit_during_active": "Submit feedback during an active feedback period",
   "student.criteria_breakdown": "Criteria breakdown",
+  "admin.criteria": "Criteria",
   "teacher.overall_rating": "Overall Rating",
   "teacher.classrooms": "Classrooms",
   "teacher.active_period": "Active Period",
