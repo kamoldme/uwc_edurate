@@ -5157,24 +5157,33 @@ async function viewTeacherFeedback(teacherId) {
       </div>
 
       <div style="max-height:400px;overflow-y:auto">
-        ${data.reviews.length === 0 ? `<div class="empty-state"><p>${t('admin.no_approved_reviews')}</p></div>` : data.reviews.map(r => `
-          <div style="padding:12px;border:1px solid var(--gray-200);border-radius:var(--radius-md);margin-bottom:12px">
-            <div style="display:flex;justify-content:space-between;margin-bottom:8px">
-              <div style="font-size:0.85rem;color:var(--gray-500)">${new Date(r.created_at).toLocaleDateString()}</div>
+        ${data.reviews.length === 0 ? `<div class="empty-state"><p>${t('admin.no_approved_reviews')}</p></div>` : data.reviews.map(r => {
+          const avg = criteriaAverage(r);
+          const colorVal = avg !== null ? avg : (r.overall_rating || 0);
+          return `
+          <div class="review-card" style="padding:14px;border:1px solid var(--gray-200);border-radius:var(--radius-md);margin-bottom:12px">
+            <div class="review-header">
+              <div>
+                <div style="font-size:0.85rem;color:var(--gray-500)">${new Date(r.created_at).toLocaleDateString()}</div>
+                <div style="font-size:0.85rem;color:var(--gray-500);margin-top:4px">${r.classroom_subject} (${r.grade_level}) &middot; ${r.term_name} &middot; ${r.period_name}</div>
+              </div>
               <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
-                <div style="font-weight:600;color:${scoreColor(r.overall_rating)}">${t('review.overall')}: ${r.overall_rating}/5</div>
-                ${starsHTML(r.overall_rating, 'small')}
+                <div style="font-weight:700;font-size:1.05rem;color:${scoreColor(colorVal)}">${fmtRatingFloat(avg)}</div>
+                ${starsHTML(avg !== null ? avg : 0, 'small')}
               </div>
             </div>
-            <div style="font-size:0.85rem;color:var(--gray-500);margin-bottom:8px">
-              ${r.classroom_subject} (${r.grade_level}) &middot; ${r.term_name} &middot; ${r.period_name}
-            </div>
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;padding:8px;background:var(--gray-50);border-radius:var(--radius-sm)">
-              ${CRITERIA_CONFIG.map(c => `<div style="font-size:0.85rem;display:flex;align-items:center;gap:3px"><strong>${t(c.label_key)}</strong>${criteriaInfoIcon(c.info_key)}: ${ratingText(r[c.db_col])} ${starsHTML(r[c.db_col], 'small')}</div>`).join('')}
-            </div>
-            ${r.feedback_text ? `<div style="padding:8px;background:var(--gray-50);border-radius:var(--radius-sm);font-size:0.9rem;margin-top:8px">${r.feedback_text}</div>` : ''}
-          </div>
-        `).join('')}
+            <details class="criteria-collapse">
+              <summary>
+                <span>${t('student.criteria_breakdown')}</span>
+                <svg class="caret" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+              </summary>
+              ${ratingGridHTML(r)}
+            </details>
+            ${r.feedback_text
+              ? `<div class="review-text">${r.feedback_text}</div>`
+              : `<div class="review-text review-text-empty">${t('review.no_written_feedback')}</div>`}
+          </div>`;
+        }).join('')}
       </div>
     </div>
   `);
