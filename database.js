@@ -765,6 +765,79 @@ try {
   console.error('Migration error (departments):', err.message);
 }
 
+// Migration: classrooms get their own department (Approach A, Phase 1).
+// Phase 1 is ADDITIVE ONLY — schema changes + backfill, zero behavior change.
+// teacher.department stays put as the UI default for new classrooms; analytics
+// queries continue to use it until Phase 2 lands. Fully idempotent: safe to
+// re-run on every boot. If anything fails partway, the next boot picks up.
+try {
+  const classroomCols = db.prepare("PRAGMA table_info(classrooms)").all();
+  const hasDeptCol = classroomCols.some(c => c.name === 'department_id');
+
+  if (!hasDeptCol) {
+    console.log('🔄 Migration: adding classrooms.department_id...');
+    db.exec(`ALTER TABLE classrooms ADD COLUMN department_id INTEGER REFERENCES departments(id) ON DELETE RESTRICT`);
+    db.exec(`CREATE INDEX IF NOT EXISTS idx_classrooms_department ON classrooms(department_id)`);
+    console.log('✅ Migration: added classrooms.department_id');
+  }
+
+  // Run the backfill in a transaction so it's all-or-nothing per boot.
+  // INSERT OR IGNORE on UNIQUE(org_id, name) gives us idempotency for free.
+  db.transaction(() => {
+    // Step 1: materialize departments from existing free-text teacher.department
+    const matResult = db.prepare(`
+      INSERT OR IGNORE INTO departments (name, org_id)
+      SELECT DISTINCT TRIM(department) as name, org_id
+      FROM teachers
+      WHERE department IS NOT NULL AND TRIM(department) != '' AND org_id IS NOT NULL
+    `).run();
+    if (matResult.changes > 0) {
+      console.log(`✅ Migration: materialized ${matResult.changes} department(s) from teacher.department`);
+    }
+
+    // Step 2: backfill classrooms.department_id from each teacher's department.
+    // Only touches classrooms with NULL department_id whose teacher has a
+    // department string — NEVER overwrites an explicitly-set value.
+    const backfillResult = db.prepare(`
+      UPDATE classrooms
+      SET department_id = (
+        SELECT d.id
+        FROM departments d
+        JOIN teachers te ON te.org_id = d.org_id AND TRIM(te.department) = d.name
+        WHERE te.id = classrooms.teacher_id
+        LIMIT 1
+      )
+      WHERE department_id IS NULL
+        AND EXISTS (
+          SELECT 1 FROM teachers te2
+          WHERE te2.id = classrooms.teacher_id
+            AND te2.department IS NOT NULL
+            AND TRIM(te2.department) != ''
+        )
+    `).run();
+    if (backfillResult.changes > 0) {
+      console.log(`✅ Migration: backfilled department_id on ${backfillResult.changes} classroom(s)`);
+    }
+  })();
+
+  // Step 3: verification — read-only counts for the deploy log.
+  const totalClassrooms = db.prepare('SELECT COUNT(*) as n FROM classrooms').get().n;
+  const classroomsWithDept = db.prepare('SELECT COUNT(*) as n FROM classrooms WHERE department_id IS NOT NULL').get().n;
+  const orphanCount = db.prepare(`
+    SELECT COUNT(*) as n
+    FROM classrooms c
+    JOIN teachers te ON te.id = c.teacher_id
+    WHERE c.department_id IS NULL
+      AND te.department IS NOT NULL AND TRIM(te.department) != ''
+  `).get().n;
+  console.log(`📊 Classrooms: ${classroomsWithDept}/${totalClassrooms} have department_id (the rest were created without a teacher department, OK)`);
+  if (orphanCount > 0) {
+    console.warn(`⚠️ ${orphanCount} classroom(s) couldn't be backfilled — teacher had a department string that didn't match any departments row. Investigate.`);
+  }
+} catch (err) {
+  console.error('Migration error (classroom department_id):', err.message);
+}
+
 // Migration: feedback_period_classrooms — classroom-scoped feedback periods
 try {
   db.exec(`
