@@ -6393,31 +6393,9 @@ function expCardHTML(e, config) {
 
 let _expDraft = { category: null, values: [] };
 
-// Short codes for the orbital ring. Full names live on the title attribute
-// (hover tooltip) and in the right-panel chips when selected.
-const EXP_CATEGORY_SHORT = {
-  'CAS': 'CAS',
-  'Explore Armenia / Project Week': 'PROJECT WEEK',
-  'Exeat Weekends': 'EXEAT',
-  'Regional Evenings': 'REGIONAL',
-  'Academic Subjects': 'ACADEMICS',
-  'Residential Life / Toon Time': 'TOON TIME',
-  'LOTs': 'LOTs',
-  'Monday Briefings': 'BRIEFINGS',
-  'Leadership & Student Voice': 'LEADERSHIP',
-  'Other': 'OTHER',
-};
-const EXP_VALUE_SHORT = {
-  'Intercultural understanding': 'INTERCULTURAL',
-  'Celebration of difference': 'DIVERSITY',
-  'Personal responsibility and integrity': 'INTEGRITY',
-  'Mutual responsibility and respect': 'MUTUAL RESPECT',
-  'Compassion and service': 'COMPASSION',
-  'Respect for the environment': 'ENVIRONMENT',
-  'A sense of idealism': 'IDEALISM',
-  'Personal challenge': 'CHALLENGE',
-  'Action and personal example': 'ACTION',
-};
+// Full UWC value + category names live in the orbit. Long phrases overflow
+// the circle visually (CSS allows the label to extend slightly beyond the
+// orb so things like "Personal responsibility and integrity" stay legible).
 
 function expOrbitPosition(index, total, radiusPct) {
   // Place item index on a circle, top of circle = index 0.
@@ -6427,12 +6405,24 @@ function expOrbitPosition(index, total, radiusPct) {
   return { x, y };
 }
 
+function expGetAllCategories(config, experiences, draft) {
+  const seen = new Set();
+  const out = [];
+  const push = (c) => { if (c && !seen.has(c)) { seen.add(c); out.push(c); } };
+  (config.categories || []).forEach(push);
+  (experiences || []).forEach(e => push(e.category));
+  ((draft && draft.customCategories) || []).forEach(push);
+  return out;
+}
+
 function renderExpOrbitPicker(config) {
-  const cats = config.categories;
+  const cats = expGetAllCategories(config, _expCache.experiences, _expDraft);
   const vals = config.values;
 
+  // Total slots on the outer ring = categories + the "+" add-new button.
+  const outerSlots = cats.length + 1;
   const outerNodes = cats.map((c, i) => {
-    const { x, y } = expOrbitPosition(i, cats.length, 44);
+    const { x, y } = expOrbitPosition(i, outerSlots, 44);
     const isSelected = _expDraft.category === c;
     return `<button type="button"
       class="exp-orbit-node exp-orbit-node--outer ${isSelected ? 'is-selected' : ''}"
@@ -6440,9 +6430,20 @@ function renderExpOrbitPicker(config) {
       data-category="${escapeAttr(c)}"
       onclick="expSelectCategory('${escapeAttr(c).replace(/'/g, "\\'")}')"
       title="${escapeAttr(c)}">
-      <span class="exp-orbit-node-label">${EXP_CATEGORY_SHORT[c] || c.toUpperCase()}</span>
+      <span class="exp-orbit-node-label">${escapeHtml(c)}</span>
     </button>`;
   }).join('');
+
+  // "+" sits in the last slot. Different visual (dashed) so it reads as an
+  // action, not a category.
+  const addPos = expOrbitPosition(cats.length, outerSlots, 44);
+  const addNode = `<button type="button"
+    class="exp-orbit-node exp-orbit-node--outer exp-orbit-node--add"
+    style="left:${addPos.x}%;top:${addPos.y}%"
+    onclick="expOpenAddCategory()"
+    title="Add a custom experience">
+    <span class="exp-orbit-node-add-icon">+</span>
+  </button>`;
 
   const innerNodes = vals.map((v, i) => {
     const { x, y } = expOrbitPosition(i, vals.length, 26);
@@ -6453,7 +6454,7 @@ function renderExpOrbitPicker(config) {
       data-value="${escapeAttr(v)}"
       onclick="expToggleValue('${escapeAttr(v).replace(/'/g, "\\'")}')"
       title="${escapeAttr(v)}">
-      <span class="exp-orbit-node-label">${EXP_VALUE_SHORT[v] || v.toUpperCase()}</span>
+      <span class="exp-orbit-node-label">${escapeHtml(v)}</span>
     </button>`;
   }).join('');
 
@@ -6471,6 +6472,7 @@ function renderExpOrbitPicker(config) {
           <div class="exp-orbit-center-count"><span id="expValueCount">${_expDraft.values.length}</span>/3 VALUES</div>
         </div>
         ${outerNodes}
+        ${addNode}
         ${innerNodes}
       </div>
       <aside class="exp-orbit-panel">
@@ -6498,6 +6500,45 @@ function renderExpOrbitPicker(config) {
 window.expSelectCategory = function (cat) {
   _expDraft.category = _expDraft.category === cat ? null : cat;
   expRepaintOrbit();
+};
+
+window.expOpenAddCategory = function () {
+  openModal(`
+    <form onsubmit="expSubmitNewCategory(event)">
+      <div class="modal-header">
+        <h3>Add a custom experience</h3>
+        <button type="button" class="modal-close" onclick="closeModal()">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label for="expNewCategoryName">What is this experience?</label>
+          <input id="expNewCategoryName" type="text" class="form-control" placeholder="e.g. Sports Day, Sushi Night" maxlength="60" required>
+          <p style="font-size:0.78rem;color:var(--gray-500);margin-top:6px">It will appear as a new circle on the outer ring and be selected automatically.</p>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline" onclick="closeModal()">Cancel</button>
+        <button type="submit" class="btn btn-primary">Add &amp; select</button>
+      </div>
+    </form>
+  `);
+  setTimeout(() => document.getElementById('expNewCategoryName')?.focus(), 50);
+};
+
+window.expSubmitNewCategory = function (e) {
+  e.preventDefault();
+  const raw = document.getElementById('expNewCategoryName').value;
+  const name = (raw || '').trim().replace(/\s+/g, ' ');
+  if (!name) return;
+  if (name.length > 60) {
+    toast('Custom experience name must be 60 characters or fewer.', 'error');
+    return;
+  }
+  _expDraft.customCategories = _expDraft.customCategories || [];
+  if (!_expDraft.customCategories.includes(name)) _expDraft.customCategories.push(name);
+  _expDraft.category = name;
+  closeModal();
+  paintStudentExperiences();
 };
 
 window.expToggleValue = function (v) {

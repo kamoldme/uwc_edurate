@@ -43,6 +43,7 @@ const VALUES = [
 const MIN_REFLECTION = 50;
 const MAX_REFLECTION = 4000;
 const MAX_TITLE = 120;
+const MAX_CATEGORY = 60;
 
 function validatePayload(body) {
   const errors = [];
@@ -54,7 +55,8 @@ function validatePayload(body) {
 
   if (!title) errors.push('Title is required.');
   if (title.length > MAX_TITLE) errors.push(`Title must be at most ${MAX_TITLE} characters.`);
-  if (!CATEGORIES.includes(category)) errors.push('Choose a valid category.');
+  if (!category) errors.push('Choose a category.');
+  if (category.length > MAX_CATEGORY) errors.push(`Category must be at most ${MAX_CATEGORY} characters.`);
   if (!date || isNaN(Date.parse(date))) errors.push('Pick a valid date.');
   if (date) {
     const d = new Date(date);

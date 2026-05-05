@@ -2341,36 +2341,68 @@ tbody tr:last-child td { border-bottom: none; }
   align-items: center;
   justify-content: center;
   text-align: center;
-  padding: 6px;
+  padding: 4px;
   font-family: inherit;
   transition: transform 0.12s ease, box-shadow 0.12s ease, border-color 0.12s ease, background 0.12s ease, color 0.12s ease;
   box-shadow: 0 2px 6px rgba(15, 23, 42, 0.05);
   color: #4f46e5;
+  /* Labels are allowed to extend slightly past the orb when the text is too
+     long. The orb stays a perfect circle visually; the text becomes a
+     centered ribbon that breathes outside the circle when needed. */
+  overflow: visible;
 }
 .exp-orbit-node:hover {
   transform: translate(-50%, -50%) scale(1.06);
   border-color: #6366f1;
   box-shadow: 0 6px 18px rgba(79, 70, 229, 0.18);
+  z-index: 2;
 }
 .exp-orbit-node-label {
-  font-size: 0.7rem;
+  font-size: 0.6rem;
   font-weight: 700;
-  letter-spacing: 0.03em;
-  line-height: 1.15;
-  word-break: break-word;
+  letter-spacing: 0.02em;
+  line-height: 1.18;
+  word-break: normal;
+  overflow-wrap: anywhere;
   hyphens: auto;
+  /* Wider than the orb so longer phrases extend beyond the visual circle. */
+  width: 132%;
+  margin: 0 -16%;
+  text-align: center;
+  color: inherit;
 }
 .exp-orbit-node--outer { width: 17%; aspect-ratio: 1 / 1; }
 .exp-orbit-node--inner { width: 15%; aspect-ratio: 1 / 1; color: #475569; }
-.exp-orbit-node--inner .exp-orbit-node-label { color: #475569; }
+.exp-orbit-node--inner .exp-orbit-node-label { color: inherit; }
 .exp-orbit-node.is-selected {
   background: #4f46e5;
   border-color: #4f46e5;
   color: #fff;
   box-shadow: 0 8px 20px rgba(79, 70, 229, 0.32);
   transform: translate(-50%, -50%) scale(1.08);
+  z-index: 3;
 }
 .exp-orbit-node.is-selected .exp-orbit-node-label { color: #fff; }
+
+/* "+" add-category node — visually distinct so users read it as an action,
+   not another category. Dashed border, gray when idle, primary on hover. */
+.exp-orbit-node--add {
+  border-style: dashed;
+  border-color: #cbd5e1;
+  color: #94a3b8;
+  background: #f8fafc;
+}
+.exp-orbit-node--add:hover {
+  border-style: solid;
+  border-color: #4f46e5;
+  color: #4f46e5;
+  background: #eef2ff;
+}
+.exp-orbit-node-add-icon {
+  font-size: 1.6rem;
+  font-weight: 300;
+  line-height: 1;
+}
 
 .exp-orbit-panel {
   background: #fff;
@@ -2438,10 +2470,11 @@ tbody tr:last-child td { border-bottom: none; }
   .exp-orbit-stage { max-width: 480px; }
 }
 @media (max-width: 540px) {
-  .exp-orbit-node-label { font-size: 0.62rem; }
+  .exp-orbit-node-label { font-size: 0.55rem; width: 140%; margin: 0 -20%; }
   .exp-orbit-node--outer { width: 19%; }
   .exp-orbit-node--inner { width: 17%; }
   .exp-orbit-center { width: 26%; }
+  .exp-orbit-node-add-icon { font-size: 1.3rem; }
 }
 
 .exp-summary { margin-bottom: 24px; }
