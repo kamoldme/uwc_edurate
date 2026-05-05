@@ -105,6 +105,7 @@ const announcementsRoutes = require('./routes/announcements');
 const notificationsRoutes = require('./routes/notifications');
 const departmentsRoutes = require('./routes/departments');
 const councilRoutes = require('./routes/council');
+const experiencesRoutes = require('./routes/experiences');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -202,6 +203,7 @@ app.use('/api/announcements', announcementsRoutes);
 app.use('/api/notifications', notificationsRoutes);
 app.use('/api/departments', departmentsRoutes);
 app.use('/api/council', councilRoutes);
+app.use('/api/experiences', experiencesRoutes);
 
 // Public runtime config for the frontend (Google Client ID, allowed domains).
 // Safe to expose: the Client ID is public by design for browser OAuth flows.

@@ -1031,6 +1031,41 @@ try {
   console.error('Migration error (petition_votes):', err.message);
 }
 
+// Migration: experiences — student-authored reflections on UWC experiences.
+// Visible to the head of school and admins by name (Model B, students consent
+// at first visit). Owned by the student, edit/delete is owner-only. Deleted
+// experiences are hard-deleted (no soft-delete column) so a student can
+// genuinely retract a reflection.
+try {
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS experiences (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      student_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      org_id INTEGER,
+      school_id INTEGER DEFAULT 1,
+      title TEXT NOT NULL,
+      category TEXT NOT NULL,
+      experience_date DATE NOT NULL,
+      values_json TEXT NOT NULL DEFAULT '[]',
+      reflection TEXT NOT NULL,
+      consented_at DATETIME,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE INDEX IF NOT EXISTS idx_experiences_student ON experiences(student_id);
+    CREATE INDEX IF NOT EXISTS idx_experiences_org ON experiences(org_id);
+    CREATE INDEX IF NOT EXISTS idx_experiences_date ON experiences(experience_date DESC);
+
+    CREATE TABLE IF NOT EXISTS experience_consents (
+      user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+      consented_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      version TEXT NOT NULL DEFAULT 'v1'
+    );
+  `);
+} catch (err) {
+  console.error('Migration error (experiences):', err.message);
+}
+
 // Migration: extend in_app_notifications.type CHECK to include petition events.
 // SQLite can't ALTER a CHECK constraint — must rebuild the table. Detection
 // works by try-inserting a row with the new type and seeing if SQLite throws.

@@ -49,7 +49,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     startNotifPolling();
     setTimeout(checkCommsBadge, 500);
     const hashView = window.location.hash.slice(1);
-    const validViews = ['student-home','student-classrooms','student-review','student-my-reviews','student-comms','student-forms','student-announcements','teacher-home','teacher-classrooms','teacher-feedback','teacher-analytics','teacher-comms','teacher-forms','teacher-announcements','head-home','head-teachers','head-classrooms','head-analytics','head-comms','head-forms','head-announcements','admin-home','admin-users','admin-terms','admin-classrooms','admin-teachers','admin-submissions','admin-moderate','admin-flagged','admin-support','admin-audit','admin-comms','admin-forms','admin-announcements','admin-departments','account','help'];
+    const validViews = ['student-home','student-classrooms','student-review','student-my-reviews','student-experiences','student-comms','student-forms','student-announcements','teacher-home','teacher-classrooms','teacher-feedback','teacher-analytics','teacher-comms','teacher-forms','teacher-announcements','head-home','head-teachers','head-classrooms','head-analytics','head-experiences','head-comms','head-forms','head-announcements','admin-home','admin-users','admin-terms','admin-classrooms','admin-teachers','admin-submissions','admin-moderate','admin-flagged','admin-support','admin-audit','admin-comms','admin-forms','admin-announcements','admin-departments','account','help'];
     navigateTo(hashView && validViews.includes(hashView) ? hashView : getDefaultView());
   } catch {
     logout();
@@ -241,6 +241,7 @@ function buildNavigation() {
       { id: 'student-classrooms', label: t('nav.my_classrooms'), icon: 'classroom' },
       { id: 'student-review', label: t('nav.write_review'), icon: 'review' },
       { id: 'student-my-reviews', label: t('nav.my_reviews'), icon: 'chart' },
+      { id: 'student-experiences', label: 'Experience Map', icon: 'review' },
       { id: 'student-comms', label: 'Communication', icon: 'chatBubble' },
       { id: 'help', label: 'Help', icon: 'help' }
     ];
@@ -259,6 +260,7 @@ function buildNavigation() {
       { id: 'head-teachers', label: t('nav.teachers'), icon: 'users' },
       { id: 'head-classrooms', label: t('nav.classrooms'), icon: 'classroom' },
       { id: 'head-analytics', label: t('nav.analytics'), icon: 'chart' },
+      { id: 'head-experiences', label: 'Experience Map', icon: 'review' },
       { id: 'admin-departments', label: 'Departments', icon: 'department' },
       { id: 'head-comms', label: 'Communication', icon: 'chatBubble' },
       { id: 'help', label: 'Help', icon: 'help' }
@@ -321,6 +323,8 @@ function navigateTo(view) {
     'student-classrooms': t('title.my_classrooms'),
     'student-review': t('title.write_review'),
     'student-my-reviews': t('title.my_reviews'),
+    'student-experiences': 'Experience Map',
+    'head-experiences': 'Experience Map',
     'teacher-home': t('title.teacher_dashboard'),
     'teacher-classrooms': t('title.my_classrooms'),
     'teacher-feedback': t('title.student_feedback'),
@@ -362,6 +366,8 @@ function navigateTo(view) {
     'student-classrooms': renderStudentClassrooms,
     'student-review': renderStudentReview,
     'student-my-reviews': renderStudentMyReviews,
+    'student-experiences': renderStudentExperiences,
+    'head-experiences': renderHeadExperiences,
     'student-comms': renderStudentComms,
     'student-forms': renderStudentForms,
     'student-announcements': renderStudentAnnouncements,
@@ -545,6 +551,20 @@ function trendArrow(trend) {
   if (trend === 'declining') return '<span class="trend-arrow trend-down">&#9660;</span>';
   return '<span class="trend-arrow trend-stable">&#9654;</span>';
 }
+
+function rankBadge(index) {
+  if (index === 0) return '🥇';
+  if (index === 1) return '🥈';
+  if (index === 2) return '🥉';
+  return String(index + 1);
+}
+
+window.setHeatmapColWidth = function (px) {
+  const scroll = document.querySelector('.heatmap-scroll');
+  if (scroll) scroll.style.setProperty('--heatmap-col-w', px + 'px');
+  const label = document.getElementById('heatmapColWidthLabel');
+  if (label) label.textContent = px + 'px';
+};
 
 function escAttr(str) {
   return String(str || '').replace(/'/g, '&#39;').replace(/"/g, '&quot;');
@@ -2855,13 +2875,20 @@ async function renderHeadHome() {
 
     <div class="grid grid-2" style="margin-bottom:28px">
       <div class="card">
-        <div class="card-header"><h3>${t('head.teacher_rankings')}</h3></div>
-        <div class="card-body">
+        <div class="card-header" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
+          <h3>${t('head.teacher_rankings')}</h3>
+          <span style="font-size:0.78rem;color:var(--gray-500)">Top 5 of ${data.teachers.length}</span>
+        </div>
+        <div class="card-body" style="display:flex;flex-direction:column">
           <table>
-            <thead><tr><th>${t('common.teacher')}</th><th>${t('common.department')}</th><th>${t('chart.score')}</th><th>${t('common.reviews')}</th><th>${t('common.trend')}</th></tr></thead>
+            <thead><tr><th style="width:48px">#</th><th>${t('common.teacher')}</th><th>${t('common.department')}</th><th>${t('chart.score')}</th><th>${t('common.reviews')}</th><th>${t('common.trend')}</th></tr></thead>
             <tbody>
-              ${data.teachers.sort((a, b) => (b.scores.avg_overall || 0) - (a.scores.avg_overall || 0)).map(tchr => `
+              ${data.teachers
+                .sort((a, b) => (b.scores.avg_overall || 0) - (a.scores.avg_overall || 0))
+                .slice(0, 5)
+                .map((tchr, i) => `
                 <tr>
+                  <td style="font-weight:600;text-align:center">${rankBadge(i)}</td>
                   <td><strong>${tchr.full_name}</strong></td>
                   <td>${tchr.department || '-'}</td>
                   <td style="font-weight:600;color:${scoreColor(tchr.scores.avg_overall || 0)}">${fmtScore(tchr.scores.avg_overall)}</td>
@@ -2871,6 +2898,7 @@ async function renderHeadHome() {
               `).join('')}
             </tbody>
           </table>
+          ${data.teachers.length > 5 ? `<div style="margin-top:12px;text-align:center"><button class="btn btn-sm btn-outline" onclick="navigateTo('head-teachers')">Show more →</button></div>` : ''}
         </div>
       </div>
       <div class="card">
@@ -2970,70 +2998,99 @@ async function renderHeadTeachers() {
   const data = await cachedGet('/dashboard/school-head');
   const el = document.getElementById('contentArea');
 
+  const sorted = [...data.teachers].sort(
+    (a, b) => (b.scores.avg_overall || 0) - (a.scores.avg_overall || 0)
+  );
+
+  const rowsHTML = sorted.map((tchr, i) => `
+    <tr data-search="${escAttr([tchr.full_name, tchr.subject, tchr.department].filter(Boolean).join(' ').toLowerCase())}">
+      <td style="text-align:center;font-weight:600;color:var(--gray-500)">${i + 1}</td>
+      <td><strong>${tchr.full_name}</strong></td>
+      <td>${tchr.subject || '-'}</td>
+      <td>${tchr.department || '-'}</td>
+      <td style="font-weight:600;color:${scoreColor(tchr.scores.avg_overall || 0)}">${fmtScore(tchr.scores.avg_overall)}</td>
+      <td>${tchr.scores.review_count}</td>
+      <td>${tchr.trend ? trendArrow(tchr.trend.trend) : '-'}</td>
+      <td style="text-align:right;white-space:nowrap">
+        <button class="btn btn-sm btn-primary" style="font-size:0.78rem;padding:5px 12px" onclick="viewTeacherFeedback(${tchr.id})">View</button>
+        <button class="btn btn-sm btn-outline" style="font-size:0.78rem;padding:5px 10px" onclick="exportTeacherPDF(${tchr.id})" title="${t('admin.export_pdf')}">PDF</button>
+      </td>
+    </tr>
+  `).join('');
+
   el.innerHTML = `
-    <div class="grid grid-2 head-teacher-cards">
-      ${data.teachers.map(teacher => `
-        <div class="card head-teacher-card" style="margin-bottom:0">
-          <div class="card-header" style="padding:12px 16px">
-            <h3 style="font-size:1rem;margin:0">${teacher.full_name}</h3>
-            <span style="color:var(--gray-500);font-size:0.78rem">${teacher.department || ''}</span>
-          </div>
-          <div class="card-body" style="padding:12px 16px">
-            <div style="display:flex;justify-content:space-between;margin-bottom:12px">
-              <div>
-                <div style="font-size:0.7rem;color:var(--gray-500)">${t('common.subject')}</div>
-                <div style="font-weight:500;font-size:0.85rem">${teacher.subject || '-'}</div>
-              </div>
-              <div style="text-align:center">
-                <div style="font-size:0.7rem;color:var(--gray-500)">${t('head.overall_rating')}</div>
-                <div style="font-size:1.15rem;font-weight:700;color:${scoreColor(teacher.scores.avg_overall || 0)}">${fmtScore(teacher.scores.avg_overall)}</div>
-              </div>
-              <div style="text-align:right">
-                <div style="font-size:0.7rem;color:var(--gray-500)">${t('head.reviews')}</div>
-                <div style="font-weight:500;font-size:0.85rem">${teacher.scores.review_count}</div>
-              </div>
-            </div>
-            <details class="criteria-collapse" style="margin-top:8px;padding-top:8px">
-              <summary>
-                <span>${t('student.criteria_breakdown')}</span>
-                <svg class="caret" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
-              </summary>
-              <div style="margin-top:8px">
-                ${CRITERIA_CONFIG.map(c => {
-                  const val = teacher.scores[`avg_${c.slug}`] || 0;
-                  return `<div style="margin-bottom:6px">
-                    <div style="display:flex;justify-content:space-between;align-items:center;font-size:0.72rem;margin-bottom:2px">
-                      <span style="display:inline-flex;align-items:center;gap:4px">${t(c.label_key)}${criteriaInfoIcon(c.info_key)}</span><span style="font-weight:600">${val}/5</span>
-                    </div>
-                    <div class="progress-bar" style="height:5px"><div class="progress-fill blue" style="width:${(val/5)*100}%"></div></div>
-                  </div>`;
-                }).join('')}
-              </div>
-            </details>
-            ${teacher.trend ? `<div style="margin-top:8px;font-size:0.75rem">Trend: ${trendArrow(teacher.trend.trend)} <span class="trend-${teacher.trend.trend === 'improving' ? 'up' : teacher.trend.trend === 'declining' ? 'down' : 'stable'}">${teacher.trend.trend}</span></div>` : ''}
-            <div style="margin-top:10px;display:flex;gap:6px">
-              <button class="btn btn-sm btn-primary" style="flex:1;font-size:0.78rem;padding:6px 10px" onclick="viewTeacherFeedback(${teacher.id})">${t('admin.view_feedback')}</button>
-              <button class="btn btn-sm btn-outline" style="font-size:0.78rem;padding:6px 10px" onclick="exportTeacherPDF(${teacher.id})" title="${t('admin.export_pdf')}">PDF</button>
-            </div>
-          </div>
-        </div>
-      `).join('')}
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:16px;flex-wrap:wrap">
+      <div style="position:relative;flex:1;min-width:240px;max-width:420px">
+        <input id="headTeachersSearch" type="search" class="form-control" placeholder="Search by name, subject, or department" oninput="filterHeadTeachers(this.value)" autocomplete="off" style="padding-left:36px">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--gray-400);pointer-events:none"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+      </div>
+      <span id="headTeachersCount" style="font-size:0.78rem;color:var(--gray-500)">${data.teachers.length} teacher${data.teachers.length !== 1 ? 's' : ''}</span>
+    </div>
+    <div class="card">
+      <div class="table-container">
+        <table>
+          <thead>
+            <tr>
+              <th style="width:48px">#</th>
+              <th>${t('common.teacher')}</th>
+              <th>${t('common.subject')}</th>
+              <th>${t('common.department')}</th>
+              <th>${t('chart.score')}</th>
+              <th>${t('common.reviews')}</th>
+              <th>${t('common.trend')}</th>
+              <th style="text-align:right">${t('common.actions')}</th>
+            </tr>
+          </thead>
+          <tbody id="headTeachersBody">
+            ${rowsHTML}
+            <tr id="headTeachersEmpty" style="display:none"><td colspan="8" style="text-align:center;padding:32px;color:var(--gray-500);font-size:0.9rem">No teachers match that search.</td></tr>
+          </tbody>
+        </table>
+      </div>
     </div>
   `;
 }
+
+window.filterHeadTeachers = function (raw) {
+  const q = (raw || '').trim().toLowerCase();
+  const rows = document.querySelectorAll('#headTeachersBody tr[data-search]');
+  let visible = 0;
+  rows.forEach(row => {
+    const hay = row.dataset.search || '';
+    const match = !q || hay.includes(q);
+    row.style.display = match ? '' : 'none';
+    if (match) visible++;
+  });
+  const empty = document.getElementById('headTeachersEmpty');
+  if (empty) empty.style.display = visible === 0 ? '' : 'none';
+  const counter = document.getElementById('headTeachersCount');
+  if (counter) {
+    const total = rows.length;
+    counter.textContent = q
+      ? `${visible} of ${total} teacher${total !== 1 ? 's' : ''}`
+      : `${total} teacher${total !== 1 ? 's' : ''}`;
+  }
+};
 
 async function renderHeadClassrooms() {
   const data = await cachedGet('/dashboard/school-head');
   const el = document.getElementById('contentArea');
 
   el.innerHTML = `
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:16px;flex-wrap:wrap">
+      <div style="position:relative;flex:1;min-width:240px;max-width:420px">
+        <input id="headClassroomsSearch" type="search" class="form-control" placeholder="Search by subject, teacher, or grade" oninput="filterHeadClassrooms(this.value)" autocomplete="off" style="padding-left:36px">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--gray-400);pointer-events:none"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+      </div>
+      <span id="headClassroomsCount" style="font-size:0.78rem;color:var(--gray-500)">${data.classrooms.length} classroom${data.classrooms.length !== 1 ? 's' : ''}</span>
+    </div>
     <div class="card">
       <div class="table-container">
         <table>
           <thead><tr><th>${t('common.subject')}</th><th>${t('common.teacher')}</th><th>${t('common.grade')}</th><th>${t('common.students')}</th><th>${t('common.actions')}</th></tr></thead>
-          <tbody>
+          <tbody id="headClassroomsBody">
             ${data.classrooms.map(c => `
-              <tr>
+              <tr data-search="${escAttr([c.subject, c.teacher_name, c.grade_level].filter(Boolean).join(' ').toLowerCase())}">
                 <td><strong>${c.subject}</strong></td>
                 <td>${c.teacher_name}</td>
                 <td>${c.grade_level}</td>
@@ -3041,12 +3098,34 @@ async function renderHeadClassrooms() {
                 <td><button class="btn btn-sm btn-outline" onclick="viewHeadClassroomMembers(${c.id},'${c.subject.replace(/'/g, "\\'")}')">${t('teacher.members')}</button></td>
               </tr>
             `).join('')}
+            <tr id="headClassroomsEmpty" style="display:none"><td colspan="5" style="text-align:center;padding:32px;color:var(--gray-500);font-size:0.9rem">No classrooms match that search.</td></tr>
           </tbody>
         </table>
       </div>
     </div>
   `;
 }
+
+window.filterHeadClassrooms = function (raw) {
+  const q = (raw || '').trim().toLowerCase();
+  const rows = document.querySelectorAll('#headClassroomsBody tr[data-search]');
+  let visible = 0;
+  rows.forEach(row => {
+    const hay = row.dataset.search || '';
+    const match = !q || hay.includes(q);
+    row.style.display = match ? '' : 'none';
+    if (match) visible++;
+  });
+  const empty = document.getElementById('headClassroomsEmpty');
+  if (empty) empty.style.display = visible === 0 ? '' : 'none';
+  const counter = document.getElementById('headClassroomsCount');
+  if (counter) {
+    const total = rows.length;
+    counter.textContent = q
+      ? `${visible} of ${total} classroom${total !== 1 ? 's' : ''}`
+      : `${total} classroom${total !== 1 ? 's' : ''}`;
+  }
+};
 
 async function viewHeadClassroomMembers(classroomId, subject) {
   try {
@@ -3075,29 +3154,160 @@ async function viewHeadClassroomMembers(classroomId, subject) {
   } catch (err) { toast(err.message, 'error'); }
 }
 
+// ─── Head analytics — supplementary charts ───────────────────────────────────
+// Heatmap is great for "every teacher × every criterion" but loses signal once
+// the cohort exceeds ~20. Two complementary lenses go above it:
+//   (1) Department radar   — where each department is strong/weak across criteria
+//   (2) Score distribution — per-teacher polarisation (every teacher, no top-N)
+function renderHeadAnalyticsExtras(data) {
+  // Distribution chart needs vertical room proportional to the cohort so every
+  // teacher gets a readable row (≥30 teachers = ~22 px per bar).
+  const distHeight = Math.max(320, (data.teachers || []).length * 22 + 80);
+  return `
+    <div class="card" style="margin-bottom:24px">
+      <div class="card-header"><h3>Department comparison</h3></div>
+      <div class="card-body" style="height:520px">
+        <canvas id="headDeptRadar"></canvas>
+      </div>
+    </div>
+    <div class="card" style="margin-bottom:24px">
+      <div class="card-header" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
+        <h3>Score distribution per teacher</h3>
+        <span style="font-size:0.75rem;color:var(--gray-500)">All teachers · stacked 1★ → 5★</span>
+      </div>
+      <div class="card-body" style="height:${distHeight}px">
+        <canvas id="headScoreDist"></canvas>
+      </div>
+    </div>
+  `;
+}
+
+function drawHeadAnalyticsExtras(data) {
+  const teachers = data.teachers || [];
+
+  // (1) Department radar — average per criterion, grouped by department
+  const deptRadarCtx = document.getElementById('headDeptRadar');
+  if (deptRadarCtx && teachers.length) {
+    const byDept = {};
+    teachers.forEach(t => {
+      const d = t.department || 'Unassigned';
+      if (!byDept[d]) byDept[d] = [];
+      byDept[d].push(t);
+    });
+    const palette = ['#059669', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6', '#0ea5e9', '#ec4899', '#84cc16'];
+    const labels = CRITERIA_CONFIG.map(c => t(c.label_key));
+    const datasets = Object.keys(byDept).map((d, i) => {
+      const list = byDept[d];
+      return {
+        label: d,
+        data: CRITERIA_CONFIG.map(c => {
+          const vals = list.map(x => x.scores[`avg_${c.slug}`]).filter(v => v != null);
+          return vals.length ? +(vals.reduce((a, b) => a + b, 0) / vals.length).toFixed(2) : 0;
+        }),
+        backgroundColor: palette[i % palette.length] + '22',
+        borderColor: palette[i % palette.length],
+        borderWidth: 2,
+        pointBackgroundColor: palette[i % palette.length]
+      };
+    });
+    chartInstances.headDeptRadar = new Chart(deptRadarCtx, {
+      type: 'radar',
+      data: { labels, datasets },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        layout: { padding: { right: 16 } },
+        plugins: { legend: { position: 'right', align: 'center', labels: { padding: 14, usePointStyle: true, boxWidth: 10, font: { size: 12 } } } },
+        scales: { r: { suggestedMin: 0, suggestedMax: 5, ticks: { stepSize: 1, font: { size: 11 } }, pointLabels: { font: { size: 11 } } } }
+      }
+    });
+  }
+
+  // (2) Stacked star-distribution per teacher — surfaces polarised feedback
+  // that gets averaged-away in the heatmap.
+  const distCtx = document.getElementById('headScoreDist');
+  if (distCtx && teachers.length) {
+    const sorted = [...teachers].sort(
+      (a, b) => (b.scores.avg_overall || 0) - (a.scores.avg_overall || 0)
+    );
+    const starColors = ['#dc2626', '#f97316', '#f59e0b', '#10b981', '#059669'];
+    const datasets = [1, 2, 3, 4, 5].map((star, i) => ({
+      label: star + '★',
+      data: sorted.map(tc => {
+        const dist = tc.distribution || {};
+        const total = (dist[1] || 0) + (dist[2] || 0) + (dist[3] || 0) + (dist[4] || 0) + (dist[5] || 0);
+        return total ? Math.round((dist[star] || 0) / total * 100) : 0;
+      }),
+      backgroundColor: starColors[i]
+    }));
+    chartInstances.headScoreDist = new Chart(distCtx, {
+      type: 'bar',
+      data: { labels: sorted.map(tc => tc.full_name), datasets },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        indexAxis: 'y',
+        plugins: {
+          legend: { position: 'bottom', labels: { padding: 10, usePointStyle: true, font: { size: 11 } } },
+          tooltip: { callbacks: { label: ctx => `${ctx.dataset.label}: ${ctx.raw}%` } }
+        },
+        scales: {
+          x: { stacked: true, max: 100, ticks: { callback: v => v + '%', font: { size: 10 } } },
+          y: { stacked: true, ticks: { font: { size: 10 } } }
+        }
+      }
+    });
+  }
+
+}
+
 async function renderHeadAnalytics() {
   const data = await cachedGet('/dashboard/school-head');
   const el = document.getElementById('contentArea');
 
   // Heatmap transposed: criteria as rows, teachers as columns. Reads naturally
-  // for the pilot (a few teachers × 13 criteria) and stays scannable when more
-  // teachers are added — horizontal scroll handles wider cohorts.
+  // for the pilot (a few teachers × 13 criteria) and stays scannable when many
+  // teachers are added — sticky header + sticky first column + bounded scroll
+  // box keep the matrix usable up to ~30+ teachers.
   const cell = (val) => {
     const bg = !val ? 'var(--gray-100)' : val >= 4 ? 'var(--success-bg)' : val >= 3 ? 'var(--warning-bg)' : 'var(--danger-bg)';
     const color = !val ? 'var(--gray-400)' : val >= 4 ? '#047857' : val >= 3 ? '#92400e' : '#dc2626';
     return `<td class="heatmap-cell-td" style="background:${bg};color:${color}">${fmtScore(val)}</td>`;
   };
 
+  // Sort teachers by overall score descending so the strongest performers sit
+  // closest to the sticky criteria column (where they're seen without scroll).
+  const sortedTeachers = [...data.teachers].sort(
+    (a, b) => (b.scores.avg_overall || 0) - (a.scores.avg_overall || 0)
+  );
+
   el.innerHTML = `
+    ${renderHeadAnalyticsExtras(data)}
     <div class="card">
-      <div class="card-header"><h3>${t('head.performance_heatmap')}</h3></div>
+      <div class="card-header" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
+        <h3>${t('head.performance_heatmap')}</h3>
+        <span style="font-size:0.78rem;color:var(--gray-500)">${sortedTeachers.length} teacher${sortedTeachers.length !== 1 ? 's' : ''}</span>
+      </div>
       <div class="card-body" style="padding:0">
-        <div class="heatmap-scroll">
+        <div class="heatmap-toolbar">
+          <span class="heatmap-width-control">
+            Column width
+            <input type="range" min="100" max="260" value="160" oninput="setHeatmapColWidth(this.value)" aria-label="Heatmap column width">
+            <span id="heatmapColWidthLabel">160px</span>
+          </span>
+          <span class="heatmap-legend">
+            <span class="heatmap-legend-swatch"><i style="background:var(--success-bg)"></i> ≥ 4</span>
+            <span class="heatmap-legend-swatch"><i style="background:var(--warning-bg)"></i> 3–3.9</span>
+            <span class="heatmap-legend-swatch"><i style="background:var(--danger-bg)"></i> &lt; 3</span>
+            <span class="heatmap-legend-swatch"><i style="background:var(--gray-100)"></i> No data</span>
+          </span>
+        </div>
+        <div class="heatmap-scroll" style="--heatmap-col-w:160px">
           <table class="heatmap-table">
             <thead>
               <tr>
                 <th class="heatmap-row-label">${t('admin.criteria')}</th>
-                ${data.teachers.map(tchr => `<th class="heatmap-teacher-col"><div class="heatmap-teacher-name">${tchr.full_name}</div>${tchr.subject ? `<div class="heatmap-teacher-sub">${tchr.subject}</div>` : ''}</th>`).join('')}
+                ${sortedTeachers.map(tchr => `<th class="heatmap-teacher-col" title="${escAttr(tchr.full_name)}${tchr.subject ? ' — ' + escAttr(tchr.subject) : ''}"><div class="heatmap-teacher-name">${tchr.full_name}</div>${tchr.subject ? `<div class="heatmap-teacher-sub">${tchr.subject}</div>` : ''}</th>`).join('')}
               </tr>
             </thead>
             <tbody>
@@ -3106,12 +3316,12 @@ async function renderHeadAnalytics() {
                   <td class="heatmap-row-label">
                     <span style="display:inline-flex;align-items:center;gap:6px">${t(c.label_key)}${criteriaInfoIcon(c.info_key)}</span>
                   </td>
-                  ${data.teachers.map(tchr => cell(tchr.scores[`avg_${c.slug}`])).join('')}
+                  ${sortedTeachers.map(tchr => cell(tchr.scores[`avg_${c.slug}`])).join('')}
                 </tr>
               `).join('')}
               <tr class="heatmap-overall-row">
                 <td class="heatmap-row-label"><strong>${t('head.final')}</strong></td>
-                ${data.teachers.map(tchr => cell(tchr.scores.avg_overall)).join('')}
+                ${sortedTeachers.map(tchr => cell(tchr.scores.avg_overall)).join('')}
               </tr>
             </tbody>
           </table>
@@ -3119,6 +3329,8 @@ async function renderHeadAnalytics() {
       </div>
     </div>
   `;
+
+  drawHeadAnalyticsExtras(data);
 }
 
 // ============ TEACHER ANNOUNCEMENTS (separate view) ============
@@ -3839,6 +4051,7 @@ function _buildUserRows(users) {
           <div class="action-dropdown-menu" id="dropdown-menu-${u.id}">
             <button class="action-dropdown-item" onclick="closeActionMenus();editUserById(${u.id})">${t('common.edit')}</button>
             <button class="action-dropdown-item" onclick="closeActionMenus();resetPassword(${u.id}, '${safeName}')">${t('admin.reset_password')}</button>
+            ${u.role === 'student' ? `<button class="action-dropdown-item" onclick="closeActionMenus();viewStudentExperiences(${u.id})">View experiences</button>` : ''}
             ${u.role === 'student' ? `<button class="action-dropdown-item" onclick="closeActionMenus();toggleCouncilMember(${u.id}, ${u.is_student_council ? 0 : 1})">${u.is_student_council ? 'Revoke council access' : 'Grant council access'}</button>` : ''}
             ${!isSelf ? `<button class="action-dropdown-item" onclick="closeActionMenus();toggleSuspend(${u.id})">${u.suspended ? t('admin.unsuspend') : t('admin.suspend')}</button>` : ''}
             ${canDelete ? `<button class="action-dropdown-item danger" onclick="closeActionMenus();deleteUser(${u.id}, '${safeName}')">${t('admin.delete_account')}</button>` : ''}
@@ -5949,6 +6162,600 @@ async function renderAdminAudit(page = 1) {
         ${paginationHTML}
       </div>
     </div>
+  `;
+}
+
+// ============ EXPERIENCE MAP ============
+//
+// Student-authored reflections tied to UWC values. Privacy: Model B — every
+// reflection is visible to the head of school (by name) and to admins (via
+// Users → user → View experiences). Students consent on first visit; the
+// consent is stored server-side. A persistent privacy notice on the page
+// keeps the visibility model honest, not hidden behind a one-time gate.
+
+const EXP_VALUE_PALETTE = [
+  '#059669', '#0ea5e9', '#8b5cf6', '#ec4899', '#f59e0b',
+  '#10b981', '#3b82f6', '#ef4444', '#a16207'
+];
+
+let _expCache = null;       // {experiences, config, consent}
+let _expFilters = { category: '', value: '', q: '' };
+
+async function loadExperienceConfig() {
+  if (_expCache?.config) return _expCache.config;
+  const config = await API.get('/experiences/config');
+  _expCache = _expCache || {};
+  _expCache.config = config;
+  return config;
+}
+
+function expValueColor(value, config) {
+  const i = config.values.indexOf(value);
+  return EXP_VALUE_PALETTE[(i >= 0 ? i : 0) % EXP_VALUE_PALETTE.length];
+}
+
+function expValueChip(value, config, opts = {}) {
+  const color = expValueColor(value, config);
+  const removable = opts.removable;
+  return `<span class="exp-value-chip" style="--chip-color:${color}">
+    ${value}${removable ? `<button type="button" class="exp-value-chip-x" onclick="expRemoveValueFromForm(this)" aria-label="Remove">×</button>` : ''}
+  </span>`;
+}
+
+async function renderStudentExperiences() {
+  const el = document.getElementById('contentArea');
+  el.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
+
+  const [config, consent, experiences] = await Promise.all([
+    loadExperienceConfig(),
+    API.get('/experiences/consent'),
+    API.get('/experiences/mine'),
+  ]);
+  _expCache = { config, consent, experiences };
+
+  // Consent gate (Model B): block until acknowledged.
+  if (!consent.consented) {
+    renderExperienceConsentGate();
+    return;
+  }
+
+  paintStudentExperiences();
+}
+
+function paintStudentExperiences() {
+  const { config, experiences } = _expCache;
+  const el = document.getElementById('contentArea');
+
+  // Apply filters
+  const q = (_expFilters.q || '').trim().toLowerCase();
+  const filtered = experiences.filter(e => {
+    if (_expFilters.category && e.category !== _expFilters.category) return false;
+    if (_expFilters.value && !(e.values || []).includes(_expFilters.value)) return false;
+    if (q) {
+      const hay = (e.title + ' ' + e.reflection + ' ' + e.category + ' ' + (e.values || []).join(' ')).toLowerCase();
+      if (!hay.includes(q)) return false;
+    }
+    return true;
+  });
+
+  // Aggregates
+  const valueCounts = Object.fromEntries(config.values.map(v => [v, 0]));
+  experiences.forEach(e => (e.values || []).forEach(v => { if (valueCounts[v] !== undefined) valueCounts[v]++; }));
+  const maxValueCount = Math.max(1, ...Object.values(valueCounts));
+  const topValue = Object.entries(valueCounts).sort((a, b) => b[1] - a[1]).find(([, c]) => c > 0);
+  const valuesExplored = Object.values(valueCounts).filter(c => c > 0).length;
+  const latest = experiences[0]; // already sorted desc by API
+
+  el.innerHTML = `
+    <div class="exp-privacy-notice" role="note">
+      <span class="exp-privacy-icon">${ICONS.shield || '🛈'}</span>
+      <span><strong>Visibility:</strong> Your school administration (head of school and admins) can read every reflection you save here. Write what you would be comfortable sharing.</span>
+    </div>
+
+    <div class="exp-header">
+      <div>
+        <h2 style="margin:0">Experience Map</h2>
+        <p class="exp-subtitle">Connect your school experiences to UWC values and reflect on your journey.</p>
+      </div>
+      <button class="btn btn-primary" onclick="openExperienceForm()">+ Add Experience</button>
+    </div>
+
+    <div class="grid grid-4 exp-summary">
+      <div class="exp-stat-card">
+        <div class="exp-stat-label">Total reflections</div>
+        <div class="exp-stat-value">${experiences.length}</div>
+      </div>
+      <div class="exp-stat-card">
+        <div class="exp-stat-label">Most connected value</div>
+        <div class="exp-stat-value-sm">${topValue ? `<span class="exp-value-chip" style="--chip-color:${expValueColor(topValue[0], config)}">${topValue[0]}</span> <span class="exp-stat-meta">${topValue[1]}×</span>` : '<span class="exp-stat-empty">—</span>'}</div>
+      </div>
+      <div class="exp-stat-card">
+        <div class="exp-stat-label">Values explored</div>
+        <div class="exp-stat-value">${valuesExplored} <span class="exp-stat-meta">/ ${config.values.length}</span></div>
+      </div>
+      <div class="exp-stat-card">
+        <div class="exp-stat-label">Latest reflection</div>
+        <div class="exp-stat-value-sm">${latest ? `<div class="exp-stat-line">${escapeHtml(latest.title)}</div><div class="exp-stat-meta">${formatExpDate(latest.date)}</div>` : '<span class="exp-stat-empty">No reflections yet</span>'}</div>
+      </div>
+    </div>
+
+    <div class="card exp-value-map">
+      <div class="card-header"><h3>Your value map</h3><span class="exp-value-map-hint">Bigger = more reflections</span></div>
+      <div class="card-body">
+        <div class="exp-value-grid">
+          ${config.values.map(v => {
+            const c = valueCounts[v];
+            const pct = Math.round((c / maxValueCount) * 100);
+            const dim = c === 0 ? 'exp-value-tile--empty' : '';
+            return `<button class="exp-value-tile ${dim}" style="--chip-color:${expValueColor(v, config)}" onclick="expSetFilterValue('${escapeHtml(v).replace(/'/g, '&#39;')}')" title="Filter by ${escapeHtml(v)}">
+              <div class="exp-value-tile-name">${v}</div>
+              <div class="exp-value-tile-count">${c}</div>
+              <div class="exp-value-tile-bar"><div class="exp-value-tile-fill" style="width:${pct}%"></div></div>
+            </button>`;
+          }).join('')}
+        </div>
+      </div>
+    </div>
+
+    <div class="card exp-filters-card">
+      <div class="card-body exp-filters-body">
+        <div class="exp-filter-row">
+          <div class="exp-filter-search">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+            <input id="expSearch" type="search" placeholder="Search title or reflection" value="${escapeAttr(_expFilters.q || '')}" oninput="expSetFilterQ(this.value)" autocomplete="off">
+          </div>
+          <select id="expCategoryFilter" onchange="expSetFilterCategory(this.value)" class="form-control exp-filter-select">
+            <option value="">All categories</option>
+            ${config.categories.map(c => `<option value="${escapeAttr(c)}" ${_expFilters.category === c ? 'selected' : ''}>${c}</option>`).join('')}
+          </select>
+          <select id="expValueFilter" onchange="expSetFilterValue(this.value)" class="form-control exp-filter-select">
+            <option value="">All values</option>
+            ${config.values.map(v => `<option value="${escapeAttr(v)}" ${_expFilters.value === v ? 'selected' : ''}>${v}</option>`).join('')}
+          </select>
+          ${(_expFilters.category || _expFilters.value || _expFilters.q) ? `<button class="btn btn-sm btn-outline" onclick="expClearFilters()">Clear filters</button>` : ''}
+        </div>
+        <div class="exp-filter-summary">${filtered.length} of ${experiences.length} reflection${experiences.length !== 1 ? 's' : ''}</div>
+      </div>
+    </div>
+
+    <div id="expCardList" class="exp-card-list">
+      ${experiences.length === 0
+        ? `<div class="exp-empty-state">
+            <div class="exp-empty-icon">📍</div>
+            <h3>Start mapping your journey</h3>
+            <p>Add your first experience and connect it to the UWC values that shaped it.</p>
+            <button class="btn btn-primary" onclick="openExperienceForm()">+ Add your first experience</button>
+          </div>`
+        : filtered.length === 0
+          ? `<div class="exp-empty-state exp-empty-state--filtered">
+              <p>No reflections match these filters.</p>
+              <button class="btn btn-sm btn-outline" onclick="expClearFilters()">Clear filters</button>
+            </div>`
+          : filtered.map(e => expCardHTML(e, config)).join('')
+      }
+    </div>
+  `;
+}
+
+function expCardHTML(e, config) {
+  const preview = (e.reflection || '').slice(0, 240);
+  const truncated = (e.reflection || '').length > 240;
+  return `<article class="exp-card" data-id="${e.id}">
+    <div class="exp-card-head">
+      <div>
+        <h3 class="exp-card-title">${escapeHtml(e.title)}</h3>
+        <div class="exp-card-meta">
+          <span class="exp-card-category">${escapeHtml(e.category)}</span>
+          <span class="exp-card-dot">·</span>
+          <span class="exp-card-date">${formatExpDate(e.date)}</span>
+        </div>
+      </div>
+      <div class="exp-card-actions">
+        <button class="exp-card-icon-btn" title="Edit" onclick="openExperienceForm(${e.id})" aria-label="Edit">${ICONS.edit || '✎'}</button>
+        <button class="exp-card-icon-btn exp-card-icon-btn--danger" title="Delete" onclick="confirmDeleteExperience(${e.id})" aria-label="Delete">${ICONS.trash || '🗑'}</button>
+      </div>
+    </div>
+    <div class="exp-card-values">
+      ${(e.values || []).map(v => expValueChip(v, config)).join('')}
+    </div>
+    <div class="exp-card-reflection">${escapeHtml(preview)}${truncated ? '…' : ''}</div>
+  </article>`;
+}
+
+function renderExperienceConsentGate() {
+  const el = document.getElementById('contentArea');
+  el.innerHTML = `
+    <div class="exp-consent-card">
+      <div class="exp-consent-icon">📍</div>
+      <h2>Welcome to your Experience Map</h2>
+      <p class="exp-consent-lede">Before you start, here is how this works.</p>
+      <ul class="exp-consent-list">
+        <li><strong>This is yours.</strong> You write reflections about your experiences and connect them to UWC values.</li>
+        <li><strong>It is not anonymous.</strong> Your school's head of school and admins can read every reflection you save here, alongside your name.</li>
+        <li><strong>You can edit or delete</strong> any reflection at any time.</li>
+        <li><strong>Write what you would be comfortable sharing.</strong> If something is private, keep it in a private journal instead.</li>
+      </ul>
+      <div class="exp-consent-actions">
+        <button class="btn btn-primary" onclick="acceptExperienceConsent()">I understand — start my map</button>
+        <button class="btn btn-outline" onclick="navigateTo('student-home')">Maybe later</button>
+      </div>
+    </div>
+  `;
+}
+
+async function acceptExperienceConsent() {
+  try {
+    await API.post('/experiences/consent', {});
+    _expCache = null; // refresh
+    renderStudentExperiences();
+  } catch (err) {
+    toast(err.message || 'Could not record consent', 'error');
+  }
+}
+
+window.expSetFilterCategory = function (v) {
+  _expFilters.category = v || '';
+  paintStudentExperiences();
+};
+window.expSetFilterValue = function (v) {
+  _expFilters.value = v || '';
+  paintStudentExperiences();
+};
+let _expSearchTimer = null;
+window.expSetFilterQ = function (v) {
+  _expFilters.q = v || '';
+  if (_expSearchTimer) clearTimeout(_expSearchTimer);
+  // Debounce repaints; keep input focused
+  _expSearchTimer = setTimeout(() => {
+    const list = document.getElementById('expCardList');
+    if (!list) return paintStudentExperiences();
+    paintStudentExperiences();
+    const search = document.getElementById('expSearch');
+    if (search) {
+      search.focus();
+      const len = search.value.length;
+      try { search.setSelectionRange(len, len); } catch (_) {}
+    }
+  }, 80);
+};
+window.expClearFilters = function () {
+  _expFilters = { category: '', value: '', q: '' };
+  paintStudentExperiences();
+};
+
+window.openExperienceForm = function (id) {
+  const config = _expCache?.config;
+  if (!config) return;
+  const editing = id ? _expCache.experiences.find(e => e.id === id) : null;
+  const today = new Date().toISOString().slice(0, 10);
+  const initialValues = editing ? [...(editing.values || [])] : [];
+
+  openModal(`
+    <form id="experienceForm" onsubmit="submitExperienceForm(event, ${id || 'null'})">
+      <div class="modal-header">
+        <h3>${editing ? 'Edit experience' : 'Add experience'}</h3>
+        <button type="button" class="modal-close" onclick="closeModal()">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label for="expTitle">Title</label>
+          <input id="expTitle" name="title" class="form-control" type="text" maxlength="${config.limits.max_title}" required value="${editing ? escapeAttr(editing.title) : ''}" placeholder="What happened?">
+        </div>
+
+        <div class="exp-form-row">
+          <div class="form-group">
+            <label for="expCategory">Category</label>
+            <select id="expCategory" name="category" class="form-control" required>
+              <option value="">Choose a category</option>
+              ${config.categories.map(c => `<option value="${escapeAttr(c)}" ${editing && editing.category === c ? 'selected' : ''}>${c}</option>`).join('')}
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="expDate">Date</label>
+            <input id="expDate" name="experience_date" class="form-control" type="date" required max="${today}" value="${editing ? editing.date : today}">
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>UWC values <span class="exp-form-hint">Pick 1 to 3</span></label>
+          <div id="expValuesPicker" class="exp-values-picker">
+            ${initialValues.map(v => expValueChip(v, config, { removable: true })).join('')}
+            <select id="expValueSelect" class="form-control exp-values-select" onchange="expAddValueToForm(this)">
+              <option value="">Add a value…</option>
+              ${config.values.map(v => `<option value="${escapeAttr(v)}" ${initialValues.includes(v) ? 'disabled' : ''}>${v}</option>`).join('')}
+            </select>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="expReflection">Reflection</label>
+          <textarea id="expReflection" name="reflection" class="form-control" rows="6" minlength="${config.limits.min_reflection}" maxlength="${config.limits.max_reflection}" required placeholder="What did this experience teach you? Which values did it connect to and why?">${editing ? escapeHtml(editing.reflection) : ''}</textarea>
+          <div class="exp-form-counter"><span id="expReflectionCount">${editing ? editing.reflection.length : 0}</span> / ${config.limits.max_reflection} (min ${config.limits.min_reflection})</div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline" onclick="closeModal()">Cancel</button>
+        <button type="submit" class="btn btn-primary">Save Experience</button>
+      </div>
+    </form>
+  `);
+
+  const ta = document.getElementById('expReflection');
+  if (ta) ta.addEventListener('input', () => {
+    const cnt = document.getElementById('expReflectionCount');
+    if (cnt) cnt.textContent = ta.value.length;
+  });
+};
+
+window.expAddValueToForm = function (select) {
+  const v = select.value;
+  if (!v) return;
+  const picker = document.getElementById('expValuesPicker');
+  const chips = picker.querySelectorAll('.exp-value-chip');
+  if (chips.length >= 3) {
+    toast('You can select up to 3 values for each experience.', 'error');
+    select.value = '';
+    return;
+  }
+  const config = _expCache.config;
+  const chipHTML = expValueChip(v, config, { removable: true });
+  select.insertAdjacentHTML('beforebegin', chipHTML);
+  // Disable that option
+  Array.from(select.options).forEach(o => { if (o.value === v) o.disabled = true; });
+  select.value = '';
+};
+
+window.expRemoveValueFromForm = function (btn) {
+  const chip = btn.closest('.exp-value-chip');
+  const value = chip.textContent.replace('×', '').trim();
+  chip.remove();
+  const select = document.getElementById('expValueSelect');
+  if (select) {
+    Array.from(select.options).forEach(o => { if (o.value === value) o.disabled = false; });
+  }
+};
+
+window.submitExperienceForm = async function (e, id) {
+  e.preventDefault();
+  const form = e.target;
+  const picker = document.getElementById('expValuesPicker');
+  const values = Array.from(picker.querySelectorAll('.exp-value-chip')).map(c =>
+    c.textContent.replace('×', '').trim()
+  );
+  const payload = {
+    title: form.title.value.trim(),
+    category: form.category.value,
+    experience_date: form.experience_date.value,
+    reflection: form.reflection.value.trim(),
+    values,
+  };
+  if (values.length < 1) return toast('Pick at least one UWC value.', 'error');
+  if (values.length > 3) return toast('You can select up to 3 values for each experience.', 'error');
+
+  try {
+    if (id) {
+      await API.patch(`/experiences/${id}`, payload);
+      toast('Experience updated.');
+    } else {
+      await API.post('/experiences', payload);
+      toast('Your experience has been added to your map.');
+    }
+    closeModal();
+    _expCache = null;
+    renderStudentExperiences();
+  } catch (err) {
+    toast(err.message || 'Could not save experience', 'error');
+  }
+};
+
+window.confirmDeleteExperience = async function (id) {
+  const ok = await confirmDialog('Delete this experience? This cannot be undone.', 'Delete', 'Cancel');
+  if (!ok) return;
+  try {
+    await API.delete(`/experiences/${id}`);
+    toast('Experience deleted.');
+    _expCache = null;
+    renderStudentExperiences();
+  } catch (err) {
+    toast(err.message || 'Could not delete experience', 'error');
+  }
+};
+
+function formatExpDate(d) {
+  if (!d) return '';
+  const date = new Date(d);
+  if (isNaN(date.getTime())) return d;
+  return date.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+}
+
+function escapeHtml(str) {
+  return String(str || '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+function escapeAttr(str) {
+  return String(str || '').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
+// ============ HEAD: Experience Map overview ============
+async function renderHeadExperiences() {
+  const el = document.getElementById('contentArea');
+  el.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
+  const [data, config] = await Promise.all([
+    API.get('/experiences/head/overview'),
+    loadExperienceConfig(),
+  ]);
+
+  const { totals, by_category, by_month, by_value, students } = data;
+
+  el.innerHTML = `
+    <div class="grid grid-4" style="margin-bottom:24px">
+      <div class="stat-card"><div class="stat-label">Total reflections</div><div class="stat-value">${totals.total_experiences}</div></div>
+      <div class="stat-card"><div class="stat-label">Students engaged</div><div class="stat-value">${totals.students_engaged} <span class="exp-stat-meta">/ ${totals.students_total}</span></div></div>
+      <div class="stat-card"><div class="stat-label">Participation</div><div class="stat-value">${totals.participation_pct}%</div></div>
+      <div class="stat-card"><div class="stat-label">Top value</div><div class="stat-value-sm">${by_value[0]?.count ? by_value[0].value : '—'}</div></div>
+    </div>
+
+    <div class="grid grid-2" style="margin-bottom:24px">
+      <div class="card">
+        <div class="card-header"><h3>Reflections by UWC value</h3></div>
+        <div class="card-body" style="height:340px"><canvas id="headExpByValue"></canvas></div>
+      </div>
+      <div class="card">
+        <div class="card-header"><h3>Reflections by category</h3></div>
+        <div class="card-body" style="height:340px"><canvas id="headExpByCategory"></canvas></div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-bottom:24px">
+      <div class="card-header"><h3>Reflections over time</h3></div>
+      <div class="card-body" style="height:280px"><canvas id="headExpByMonth"></canvas></div>
+    </div>
+
+    <div class="card">
+      <div class="card-header" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
+        <h3>Students</h3>
+        <span style="font-size:0.78rem;color:var(--gray-500)">${students.length} student${students.length !== 1 ? 's' : ''}</span>
+      </div>
+      <div class="card-body" style="padding:0">
+        <div style="padding:12px 16px;border-bottom:1px solid var(--gray-100)">
+          <input id="headExpStudentSearch" type="search" class="form-control" placeholder="Search students by name" oninput="filterHeadExpStudents(this.value)" autocomplete="off">
+        </div>
+        <div class="table-container">
+          <table>
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Grade</th>
+                <th style="text-align:right">Reflections</th>
+                <th>Last reflection</th>
+                <th style="text-align:right">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="headExpStudentsBody">
+              ${students.map(s => `
+                <tr data-search="${escapeAttr((s.student_name || '').toLowerCase())}">
+                  <td><strong>${escapeHtml(s.student_name || '')}</strong></td>
+                  <td>${s.grade || '-'}</td>
+                  <td style="text-align:right;font-weight:600">${s.count}</td>
+                  <td>${s.last_date ? formatExpDate(s.last_date) : '<span style="color:var(--gray-400)">—</span>'}</td>
+                  <td style="text-align:right">
+                    <button class="btn btn-sm ${s.count > 0 ? 'btn-primary' : 'btn-outline'}" ${s.count === 0 ? 'disabled' : ''} onclick="viewStudentExperiences(${s.student_id})">View</button>
+                  </td>
+                </tr>
+              `).join('')}
+              <tr id="headExpStudentsEmpty" style="display:none"><td colspan="5" style="text-align:center;padding:24px;color:var(--gray-500)">No students match that search.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  `;
+
+  // Charts
+  const palette = ['#059669', '#0ea5e9', '#8b5cf6', '#ec4899', '#f59e0b', '#10b981', '#3b82f6', '#ef4444', '#a16207'];
+  const valCtx = document.getElementById('headExpByValue');
+  if (valCtx) {
+    chartInstances.headExpByValue = new Chart(valCtx, {
+      type: 'bar',
+      data: {
+        labels: by_value.map(v => v.value),
+        datasets: [{ label: 'Reflections', data: by_value.map(v => v.count), backgroundColor: by_value.map((_, i) => palette[i % palette.length]), borderRadius: 6 }],
+      },
+      options: {
+        indexAxis: 'y', responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: { x: { beginAtZero: true, ticks: { stepSize: 1, precision: 0 } }, y: { ticks: { font: { size: 11 } } } },
+      },
+    });
+  }
+  const catCtx = document.getElementById('headExpByCategory');
+  if (catCtx) {
+    chartInstances.headExpByCategory = new Chart(catCtx, {
+      type: 'bar',
+      data: {
+        labels: by_category.map(c => c.category),
+        datasets: [{ label: 'Reflections', data: by_category.map(c => c.count), backgroundColor: '#059669', borderRadius: 6 }],
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: { y: { beginAtZero: true, ticks: { stepSize: 1, precision: 0 } } },
+      },
+    });
+  }
+  const monthCtx = document.getElementById('headExpByMonth');
+  if (monthCtx) {
+    chartInstances.headExpByMonth = new Chart(monthCtx, {
+      type: 'line',
+      data: {
+        labels: by_month.map(m => m.month),
+        datasets: [{ label: 'Reflections', data: by_month.map(m => m.count), borderColor: '#059669', backgroundColor: '#05966922', tension: 0.25, fill: true, pointRadius: 3 }],
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: { y: { beginAtZero: true, ticks: { stepSize: 1, precision: 0 } } },
+      },
+    });
+  }
+}
+
+window.filterHeadExpStudents = function (raw) {
+  const q = (raw || '').trim().toLowerCase();
+  const rows = document.querySelectorAll('#headExpStudentsBody tr[data-search]');
+  let visible = 0;
+  rows.forEach(r => {
+    const match = !q || (r.dataset.search || '').includes(q);
+    r.style.display = match ? '' : 'none';
+    if (match) visible++;
+  });
+  const empty = document.getElementById('headExpStudentsEmpty');
+  if (empty) empty.style.display = visible === 0 ? '' : 'none';
+};
+
+window.viewStudentExperiences = async function (studentId) {
+  try {
+    const [data, config] = await Promise.all([
+      API.get(`/experiences/head/student/${studentId}`),
+      loadExperienceConfig(),
+    ]);
+    openModal(renderStudentExperiencesModalHTML(data, config));
+  } catch (err) {
+    toast(err.message || 'Could not load student', 'error');
+  }
+};
+
+function renderStudentExperiencesModalHTML(data, config) {
+  const { student, experiences } = data;
+  return `
+    <div class="modal-header">
+      <h3>${escapeHtml(student.full_name)}'s Experience Map</h3>
+      <button class="modal-close" onclick="closeModal()">&times;</button>
+    </div>
+    <div class="modal-body" style="min-width:0">
+      <div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:16px;font-size:0.85rem;color:var(--gray-600)">
+        <span>${escapeHtml(student.email)}${student.grade_or_position ? ' · ' + escapeHtml(student.grade_or_position) : ''}</span>
+        <span>${experiences.length} reflection${experiences.length !== 1 ? 's' : ''}</span>
+      </div>
+      ${experiences.length === 0
+        ? '<p style="color:var(--gray-500);text-align:center;padding:32px">No reflections yet.</p>'
+        : experiences.map(e => `
+          <article class="exp-card exp-card--readonly">
+            <div class="exp-card-head">
+              <div>
+                <h3 class="exp-card-title">${escapeHtml(e.title)}</h3>
+                <div class="exp-card-meta">
+                  <span class="exp-card-category">${escapeHtml(e.category)}</span>
+                  <span class="exp-card-dot">·</span>
+                  <span class="exp-card-date">${formatExpDate(e.date)}</span>
+                </div>
+              </div>
+            </div>
+            <div class="exp-card-values">${(e.values || []).map(v => expValueChip(v, config)).join('')}</div>
+            <div class="exp-card-reflection">${escapeHtml(e.reflection)}</div>
+          </article>
+        `).join('')}
+    </div>
+    <div class="modal-footer"><button class="btn btn-outline" onclick="closeModal()">Close</button></div>
   `;
 }
 
