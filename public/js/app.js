@@ -6319,7 +6319,7 @@ function renderExpMyTab(config, experiences) {
         <div class="exp-filter-row">
           <div class="exp-filter-search">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
-            <input id="expSearch" type="search" placeholder="Search title or reflection" value="${escapeAttr(_expFilters.q || '')}" oninput="expSetFilterQ(this.value)" autocomplete="off">
+            <input id="expSearch" type="search" class="form-control" placeholder="Search title or reflection" value="${escapeAttr(_expFilters.q || '')}" oninput="expSetFilterQ(this.value)" autocomplete="off" style="padding-left:36px">
           </div>
           <select id="expCategoryFilter" onchange="expSetFilterCategory(this.value)" class="form-control exp-filter-select">
             <option value="">All categories</option>
@@ -6373,8 +6373,8 @@ function expCardHTML(e, config) {
         </div>
       </div>
       <div class="exp-card-actions">
-        <button class="exp-card-icon-btn" title="Edit" onclick="openExperienceForm(${e.id})" aria-label="Edit">${EXP_ICON_EDIT}</button>
-        <button class="exp-card-icon-btn exp-card-icon-btn--danger" title="Delete" onclick="confirmDeleteExperience(${e.id})" aria-label="Delete">${EXP_ICON_TRASH}</button>
+        <button class="btn btn-sm btn-outline exp-card-action-btn" title="Edit" onclick="openExperienceForm(${e.id})" aria-label="Edit">${EXP_ICON_EDIT}<span>Edit</span></button>
+        <button class="btn btn-sm btn-outline exp-card-action-btn exp-card-action-btn--danger" title="Delete" onclick="confirmDeleteExperience(${e.id})" aria-label="Delete">${EXP_ICON_TRASH}<span>Delete</span></button>
       </div>
     </div>
     <div class="exp-card-values">
