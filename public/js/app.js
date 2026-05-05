@@ -6179,7 +6179,7 @@ const EXP_VALUE_PALETTE = [
 
 let _expCache = null;       // {experiences, config}
 let _expFilters = { category: '', value: '', q: '' };
-let _expTab = 'create';     // 'create' | 'my'
+let _expTab = 'hub';        // 'hub' | 'create' | 'my'
 
 const EXP_ICON_EDIT = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>';
 const EXP_ICON_TRASH = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-2 14a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2"/></svg>';
@@ -6222,25 +6222,58 @@ function paintStudentExperiences() {
   const { config, experiences } = _expCache;
   const el = document.getElementById('contentArea');
 
+  if (_expTab === 'hub') {
+    el.innerHTML = renderExpHub(experiences.length);
+    return;
+  }
+
+  const backBtn = `<button class="btn btn-outline btn-sm exp-back-btn" onclick="expSetTab('hub')">← Back</button>`;
   el.innerHTML = `
     <div class="exp-hero">
       <h1 class="exp-hero-title">EXPERIENCE MAP</h1>
       <p class="exp-hero-sub">Every moment is a landmark. Map your journey through our shared values.</p>
     </div>
-
-    <div class="exp-tabs" role="tablist">
-      <button class="exp-tab ${_expTab === 'create' ? 'is-active' : ''}" role="tab" aria-selected="${_expTab === 'create'}" onclick="expSetTab('create')">Create an Experience Map</button>
-      <button class="exp-tab ${_expTab === 'my' ? 'is-active' : ''}" role="tab" aria-selected="${_expTab === 'my'}" onclick="expSetTab('my')">My Experience Maps ${experiences.length ? `<span class="exp-tab-count">${experiences.length}</span>` : ''}</button>
-    </div>
-
-    <div id="expTabPanel">
-      ${_expTab === 'create' ? renderExpCreateTab(config) : renderExpMyTab(config, experiences)}
-    </div>
+    ${backBtn}
+    ${_expTab === 'create' ? renderExpOrbitPicker(config) : renderExpMyTab(config, experiences)}
   `;
 }
 
-function renderExpCreateTab(config) {
-  return renderExpOrbitPicker(config);
+function renderExpHub(count) {
+  return `
+    <div class="exp-hero">
+      <h1 class="exp-hero-title">EXPERIENCE MAP</h1>
+      <p class="exp-hero-sub">Every moment is a landmark. Map your journey through our shared values.</p>
+    </div>
+    <div class="exp-hub">
+      <div class="exp-hub-card" onclick="expSetTab('create')" tabindex="0" onkeydown="if(event.key==='Enter')expSetTab('create')" role="button" aria-label="Create an Experience Map">
+        <div class="exp-hub-icon">
+          <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="9"/>
+            <circle cx="12" cy="12" r="4"/>
+            <circle cx="12" cy="3" r="1.4" fill="currentColor"/>
+            <circle cx="21" cy="12" r="1.4" fill="currentColor"/>
+            <circle cx="12" cy="21" r="1.4" fill="currentColor"/>
+            <circle cx="3"  cy="12" r="1.4" fill="currentColor"/>
+          </svg>
+        </div>
+        <div class="exp-hub-title">Create an Experience Map</div>
+        <div class="exp-hub-desc">Pick an experience, connect it to UWC values, and capture what it meant to you.</div>
+        <div class="exp-hub-arrow">→</div>
+      </div>
+      <div class="exp-hub-card" onclick="expSetTab('my')" tabindex="0" onkeydown="if(event.key==='Enter')expSetTab('my')" role="button" aria-label="My Experience Maps">
+        <div class="exp-hub-icon">
+          <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M9 4 3 6v14l6-2 6 2 6-2V4l-6 2-6-2z"/>
+            <path d="M9 4v14"/>
+            <path d="M15 6v14"/>
+          </svg>
+        </div>
+        <div class="exp-hub-title">My Experience Maps ${count ? `<span class="exp-hub-count">${count}</span>` : ''}</div>
+        <div class="exp-hub-desc">Browse, search, edit, or delete the moments you've already mapped.</div>
+        <div class="exp-hub-arrow">→</div>
+      </div>
+    </div>
+  `;
 }
 
 function renderExpMyTab(config, experiences) {
