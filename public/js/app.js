@@ -4051,7 +4051,6 @@ function _buildUserRows(users) {
           <div class="action-dropdown-menu" id="dropdown-menu-${u.id}">
             <button class="action-dropdown-item" onclick="closeActionMenus();editUserById(${u.id})">${t('common.edit')}</button>
             <button class="action-dropdown-item" onclick="closeActionMenus();resetPassword(${u.id}, '${safeName}')">${t('admin.reset_password')}</button>
-            ${u.role === 'student' ? `<button class="action-dropdown-item" onclick="closeActionMenus();viewStudentExperiences(${u.id})">View experiences</button>` : ''}
             ${u.role === 'student' ? `<button class="action-dropdown-item" onclick="closeActionMenus();toggleCouncilMember(${u.id}, ${u.is_student_council ? 0 : 1})">${u.is_student_council ? 'Revoke council access' : 'Grant council access'}</button>` : ''}
             ${!isSelf ? `<button class="action-dropdown-item" onclick="closeActionMenus();toggleSuspend(${u.id})">${u.suspended ? t('admin.unsuspend') : t('admin.suspend')}</button>` : ''}
             ${canDelete ? `<button class="action-dropdown-item danger" onclick="closeActionMenus();deleteUser(${u.id}, '${safeName}')">${t('admin.delete_account')}</button>` : ''}
@@ -6206,19 +6205,12 @@ async function renderStudentExperiences() {
   const el = document.getElementById('contentArea');
   el.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
 
-  const [config, consent, experiences] = await Promise.all([
+  const [config, experiences] = await Promise.all([
     loadExperienceConfig(),
-    API.get('/experiences/consent'),
     API.get('/experiences/mine'),
   ]);
-  _expCache = { config, consent, experiences };
-
-  // Consent gate (Model B): block until acknowledged.
-  if (!consent.consented) {
-    renderExperienceConsentGate();
-    return;
-  }
-
+  _expCache = { config, experiences };
+  _expDraft = _expDraft || { category: null, values: [] };
   paintStudentExperiences();
 }
 
@@ -6226,7 +6218,7 @@ function paintStudentExperiences() {
   const { config, experiences } = _expCache;
   const el = document.getElementById('contentArea');
 
-  // Apply filters
+  // Apply filters (timeline section below the picker)
   const q = (_expFilters.q || '').trim().toLowerCase();
   const filtered = experiences.filter(e => {
     if (_expFilters.category && e.category !== _expFilters.category) return false;
@@ -6241,24 +6233,17 @@ function paintStudentExperiences() {
   // Aggregates
   const valueCounts = Object.fromEntries(config.values.map(v => [v, 0]));
   experiences.forEach(e => (e.values || []).forEach(v => { if (valueCounts[v] !== undefined) valueCounts[v]++; }));
-  const maxValueCount = Math.max(1, ...Object.values(valueCounts));
   const topValue = Object.entries(valueCounts).sort((a, b) => b[1] - a[1]).find(([, c]) => c > 0);
   const valuesExplored = Object.values(valueCounts).filter(c => c > 0).length;
-  const latest = experiences[0]; // already sorted desc by API
+  const latest = experiences[0];
 
   el.innerHTML = `
-    <div class="exp-privacy-notice" role="note">
-      <span class="exp-privacy-icon">${ICONS.shield || '🛈'}</span>
-      <span><strong>Visibility:</strong> Your school administration (head of school and admins) can read every reflection you save here. Write what you would be comfortable sharing.</span>
+    <div class="exp-hero">
+      <h1 class="exp-hero-title">EXPERIENCE MAP</h1>
+      <p class="exp-hero-sub">Every moment is a landmark. Map your journey through our shared values.</p>
     </div>
 
-    <div class="exp-header">
-      <div>
-        <h2 style="margin:0">Experience Map</h2>
-        <p class="exp-subtitle">Connect your school experiences to UWC values and reflect on your journey.</p>
-      </div>
-      <button class="btn btn-primary" onclick="openExperienceForm()">+ Add Experience</button>
-    </div>
+    ${renderExpOrbitPicker(config)}
 
     <div class="grid grid-4 exp-summary">
       <div class="exp-stat-card">
@@ -6276,24 +6261,6 @@ function paintStudentExperiences() {
       <div class="exp-stat-card">
         <div class="exp-stat-label">Latest reflection</div>
         <div class="exp-stat-value-sm">${latest ? `<div class="exp-stat-line">${escapeHtml(latest.title)}</div><div class="exp-stat-meta">${formatExpDate(latest.date)}</div>` : '<span class="exp-stat-empty">No reflections yet</span>'}</div>
-      </div>
-    </div>
-
-    <div class="card exp-value-map">
-      <div class="card-header"><h3>Your value map</h3><span class="exp-value-map-hint">Bigger = more reflections</span></div>
-      <div class="card-body">
-        <div class="exp-value-grid">
-          ${config.values.map(v => {
-            const c = valueCounts[v];
-            const pct = Math.round((c / maxValueCount) * 100);
-            const dim = c === 0 ? 'exp-value-tile--empty' : '';
-            return `<button class="exp-value-tile ${dim}" style="--chip-color:${expValueColor(v, config)}" onclick="expSetFilterValue('${escapeHtml(v).replace(/'/g, '&#39;')}')" title="Filter by ${escapeHtml(v)}">
-              <div class="exp-value-tile-name">${v}</div>
-              <div class="exp-value-tile-count">${c}</div>
-              <div class="exp-value-tile-bar"><div class="exp-value-tile-fill" style="width:${pct}%"></div></div>
-            </button>`;
-          }).join('')}
-        </div>
       </div>
     </div>
 
@@ -6323,8 +6290,7 @@ function paintStudentExperiences() {
         ? `<div class="exp-empty-state">
             <div class="exp-empty-icon">📍</div>
             <h3>Start mapping your journey</h3>
-            <p>Add your first experience and connect it to the UWC values that shaped it.</p>
-            <button class="btn btn-primary" onclick="openExperienceForm()">+ Add your first experience</button>
+            <p>Pick an experience on the outer ring, choose up to 3 UWC values it connected to, and capture the moment.</p>
           </div>`
         : filtered.length === 0
           ? `<div class="exp-empty-state exp-empty-state--filtered">
@@ -6362,36 +6328,196 @@ function expCardHTML(e, config) {
   </article>`;
 }
 
-function renderExperienceConsentGate() {
-  const el = document.getElementById('contentArea');
-  el.innerHTML = `
-    <div class="exp-consent-card">
-      <div class="exp-consent-icon">📍</div>
-      <h2>Welcome to your Experience Map</h2>
-      <p class="exp-consent-lede">Before you start, here is how this works.</p>
-      <ul class="exp-consent-list">
-        <li><strong>This is yours.</strong> You write reflections about your experiences and connect them to UWC values.</li>
-        <li><strong>It is not anonymous.</strong> Your school's head of school and admins can read every reflection you save here, alongside your name.</li>
-        <li><strong>You can edit or delete</strong> any reflection at any time.</li>
-        <li><strong>Write what you would be comfortable sharing.</strong> If something is private, keep it in a private journal instead.</li>
-      </ul>
-      <div class="exp-consent-actions">
-        <button class="btn btn-primary" onclick="acceptExperienceConsent()">I understand — start my map</button>
-        <button class="btn btn-outline" onclick="navigateTo('student-home')">Maybe later</button>
+// ─── Orbital picker ───────────────────────────────────────────────────────────
+// Outer ring = experience categories (10). Inner ring = UWC values (9).
+// Center = live "N/3 VALUES" counter. Right panel = title + date + reflection
+// + save. The picker is the primary "add" surface; editing still uses the
+// modal because re-entering the orbital state for an existing entry is
+// noisier than just opening a focused dialog.
+
+let _expDraft = { category: null, values: [] };
+
+const EXP_CATEGORY_SHORT = {
+  'CAS': 'CAS',
+  'Explore Armenia / Project Week': 'PROJECT WEEK',
+  'Exeat Weekends': 'EXEAT WEEKENDS',
+  'Regional Evenings': 'REGIONAL EVENINGS',
+  'Academic Subjects': 'ACADEMIC SUBJECTS',
+  'Residential Life / Toon Time': 'RESIDENTIAL LIFE',
+  'LOTs': 'LOTS',
+  'Monday Briefings': 'MONDAY BRIEFINGS',
+  'Leadership & Student Voice': 'LEADERSHIP',
+  'Other': 'OTHER',
+};
+const EXP_VALUE_SHORT = {
+  'Intercultural understanding': 'INT. UNDERSTANDING',
+  'Celebration of difference': 'DIVERSITY',
+  'Personal responsibility and integrity': 'INTEGRITY',
+  'Mutual responsibility and respect': 'MUTUAL RESPECT',
+  'Compassion and service': 'COMPASSION',
+  'Respect for the environment': 'SUSTAINABILITY',
+  'A sense of idealism': 'PEACE',
+  'Personal challenge': 'CHALLENGE',
+  'Action and personal example': 'RESPONSIBILITY',
+};
+
+function expOrbitPosition(index, total, radiusPct) {
+  // Place item index on a circle, top of circle = index 0.
+  const angle = ((index / total) * 360 - 90) * Math.PI / 180;
+  const x = 50 + radiusPct * Math.cos(angle);
+  const y = 50 + radiusPct * Math.sin(angle);
+  return { x, y };
+}
+
+function renderExpOrbitPicker(config) {
+  const cats = config.categories;
+  const vals = config.values;
+
+  const outerNodes = cats.map((c, i) => {
+    const { x, y } = expOrbitPosition(i, cats.length, 44);
+    const isSelected = _expDraft.category === c;
+    return `<button type="button"
+      class="exp-orbit-node exp-orbit-node--outer ${isSelected ? 'is-selected' : ''}"
+      style="left:${x}%;top:${y}%"
+      data-category="${escapeAttr(c)}"
+      onclick="expSelectCategory('${escapeAttr(c).replace(/'/g, "\\'")}')"
+      title="${escapeAttr(c)}">
+      <span class="exp-orbit-node-label">${EXP_CATEGORY_SHORT[c] || c.toUpperCase()}</span>
+    </button>`;
+  }).join('');
+
+  const innerNodes = vals.map((v, i) => {
+    const { x, y } = expOrbitPosition(i, vals.length, 26);
+    const isSelected = _expDraft.values.includes(v);
+    return `<button type="button"
+      class="exp-orbit-node exp-orbit-node--inner ${isSelected ? 'is-selected' : ''}"
+      style="left:${x}%;top:${y}%"
+      data-value="${escapeAttr(v)}"
+      onclick="expToggleValue('${escapeAttr(v).replace(/'/g, "\\'")}')"
+      title="${escapeAttr(v)}">
+      <span class="exp-orbit-node-label">${EXP_VALUE_SHORT[v] || v.toUpperCase()}</span>
+    </button>`;
+  }).join('');
+
+  const today = new Date().toISOString().slice(0, 10);
+  const valueChips = _expDraft.values.length === 0
+    ? '<span class="exp-orbit-panel-empty">Pick up to 3 values from the inner ring</span>'
+    : _expDraft.values.map(v => `<span class="exp-value-chip" style="--chip-color:${expValueColor(v, config)}">${v}</span>`).join('');
+
+  return `
+    <section class="exp-orbit-shell">
+      <div class="exp-orbit-stage" id="expOrbitStage">
+        <div class="exp-orbit-ring exp-orbit-ring--outer" aria-hidden="true"></div>
+        <div class="exp-orbit-ring exp-orbit-ring--inner" aria-hidden="true"></div>
+        <div class="exp-orbit-center">
+          <div class="exp-orbit-center-icon">✷</div>
+          <div class="exp-orbit-center-count"><span id="expValueCount">${_expDraft.values.length}</span>/3 VALUES</div>
+        </div>
+        ${outerNodes}
+        ${innerNodes}
       </div>
-    </div>
+      <aside class="exp-orbit-panel">
+        <h3 class="exp-orbit-panel-title">CAPTURE A MOMENT</h3>
+        <div class="exp-orbit-panel-block">
+          <div class="exp-orbit-panel-label">Selected experience</div>
+          <div class="exp-orbit-panel-value" id="expDraftCategory">${_expDraft.category ? escapeHtml(_expDraft.category) : '<span class="exp-orbit-panel-empty">Click a category on the outer ring</span>'}</div>
+        </div>
+        <div class="exp-orbit-panel-block">
+          <div class="exp-orbit-panel-label">UWC values <span class="exp-orbit-panel-meta"><span id="expValueCountInline">${_expDraft.values.length}</span>/3</span></div>
+          <div class="exp-orbit-panel-chips" id="expDraftValues">${valueChips}</div>
+        </div>
+        <div class="exp-orbit-panel-divider"></div>
+        <form id="expOrbitForm" onsubmit="expSaveOrbital(event)">
+          <input type="text" id="expOrbitTitle" class="form-control exp-orbit-input" placeholder="Title" maxlength="${config.limits.max_title}" required>
+          <input type="date" id="expOrbitDate" class="form-control exp-orbit-input" max="${today}" value="${today}" required>
+          <textarea id="expOrbitReflection" class="form-control exp-orbit-textarea" rows="5" minlength="${config.limits.min_reflection}" maxlength="${config.limits.max_reflection}" placeholder="How did this moment shape your perspective?" required oninput="document.getElementById('expOrbitCounter').textContent = this.value.length"></textarea>
+          <div class="exp-orbit-counter"><span id="expOrbitCounter">0</span> / ${config.limits.max_reflection} (min ${config.limits.min_reflection})</div>
+          <button type="submit" class="exp-orbit-save">CAPTURE THIS MOMENT</button>
+          <div class="exp-orbit-disclaimer">Your map is private to you.</div>
+        </form>
+      </aside>
+    </section>
   `;
 }
 
-async function acceptExperienceConsent() {
-  try {
-    await API.post('/experiences/consent', {});
-    _expCache = null; // refresh
-    renderStudentExperiences();
-  } catch (err) {
-    toast(err.message || 'Could not record consent', 'error');
+window.expSelectCategory = function (cat) {
+  _expDraft.category = _expDraft.category === cat ? null : cat;
+  expRepaintOrbit();
+};
+
+window.expToggleValue = function (v) {
+  const i = _expDraft.values.indexOf(v);
+  if (i >= 0) {
+    _expDraft.values.splice(i, 1);
+  } else {
+    if (_expDraft.values.length >= 3) {
+      toast('You can select up to 3 values for each experience.', 'error');
+      return;
+    }
+    _expDraft.values.push(v);
+  }
+  expRepaintOrbit();
+};
+
+function expRepaintOrbit() {
+  // In-place updates so the form's text/date/reflection inputs keep state.
+  const config = _expCache?.config;
+  if (!config) return;
+
+  // Outer ring selection
+  document.querySelectorAll('.exp-orbit-node--outer').forEach(btn => {
+    btn.classList.toggle('is-selected', btn.dataset.category === _expDraft.category);
+  });
+  // Inner ring selection
+  document.querySelectorAll('.exp-orbit-node--inner').forEach(btn => {
+    btn.classList.toggle('is-selected', _expDraft.values.includes(btn.dataset.value));
+  });
+  // Counters
+  const countEls = [document.getElementById('expValueCount'), document.getElementById('expValueCountInline')];
+  countEls.forEach(e => { if (e) e.textContent = _expDraft.values.length; });
+  // Selected category text
+  const catEl = document.getElementById('expDraftCategory');
+  if (catEl) {
+    catEl.innerHTML = _expDraft.category
+      ? escapeHtml(_expDraft.category)
+      : '<span class="exp-orbit-panel-empty">Click a category on the outer ring</span>';
+  }
+  // Selected values chips
+  const chipsEl = document.getElementById('expDraftValues');
+  if (chipsEl) {
+    chipsEl.innerHTML = _expDraft.values.length === 0
+      ? '<span class="exp-orbit-panel-empty">Pick up to 3 values from the inner ring</span>'
+      : _expDraft.values.map(v => `<span class="exp-value-chip" style="--chip-color:${expValueColor(v, config)}">${v}</span>`).join('');
   }
 }
+
+window.expSaveOrbital = async function (e) {
+  e.preventDefault();
+  if (!_expDraft.category) return toast('Pick an experience on the outer ring.', 'error');
+  if (_expDraft.values.length < 1) return toast('Pick at least one UWC value.', 'error');
+
+  const title = document.getElementById('expOrbitTitle').value.trim();
+  const date = document.getElementById('expOrbitDate').value;
+  const reflection = document.getElementById('expOrbitReflection').value.trim();
+
+  const payload = {
+    title,
+    category: _expDraft.category,
+    experience_date: date,
+    reflection,
+    values: _expDraft.values,
+  };
+
+  try {
+    await API.post('/experiences', payload);
+    toast('Your experience has been added to your map.');
+    _expDraft = { category: null, values: [] };
+    _expCache = null;
+    renderStudentExperiences();
+  } catch (err) {
+    toast(err.message || 'Could not save experience', 'error');
+  }
+};
 
 window.expSetFilterCategory = function (v) {
   _expFilters.category = v || '';
@@ -6627,7 +6753,6 @@ async function renderHeadExperiences() {
                 <th>Grade</th>
                 <th style="text-align:right">Reflections</th>
                 <th>Last reflection</th>
-                <th style="text-align:right">Actions</th>
               </tr>
             </thead>
             <tbody id="headExpStudentsBody">
@@ -6637,12 +6762,9 @@ async function renderHeadExperiences() {
                   <td>${s.grade || '-'}</td>
                   <td style="text-align:right;font-weight:600">${s.count}</td>
                   <td>${s.last_date ? formatExpDate(s.last_date) : '<span style="color:var(--gray-400)">—</span>'}</td>
-                  <td style="text-align:right">
-                    <button class="btn btn-sm ${s.count > 0 ? 'btn-primary' : 'btn-outline'}" ${s.count === 0 ? 'disabled' : ''} onclick="viewStudentExperiences(${s.student_id})">View</button>
-                  </td>
                 </tr>
               `).join('')}
-              <tr id="headExpStudentsEmpty" style="display:none"><td colspan="5" style="text-align:center;padding:24px;color:var(--gray-500)">No students match that search.</td></tr>
+              <tr id="headExpStudentsEmpty" style="display:none"><td colspan="4" style="text-align:center;padding:24px;color:var(--gray-500)">No students match that search.</td></tr>
             </tbody>
           </table>
         </div>
@@ -6712,52 +6834,6 @@ window.filterHeadExpStudents = function (raw) {
   if (empty) empty.style.display = visible === 0 ? '' : 'none';
 };
 
-window.viewStudentExperiences = async function (studentId) {
-  try {
-    const [data, config] = await Promise.all([
-      API.get(`/experiences/head/student/${studentId}`),
-      loadExperienceConfig(),
-    ]);
-    openModal(renderStudentExperiencesModalHTML(data, config));
-  } catch (err) {
-    toast(err.message || 'Could not load student', 'error');
-  }
-};
-
-function renderStudentExperiencesModalHTML(data, config) {
-  const { student, experiences } = data;
-  return `
-    <div class="modal-header">
-      <h3>${escapeHtml(student.full_name)}'s Experience Map</h3>
-      <button class="modal-close" onclick="closeModal()">&times;</button>
-    </div>
-    <div class="modal-body" style="min-width:0">
-      <div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:16px;font-size:0.85rem;color:var(--gray-600)">
-        <span>${escapeHtml(student.email)}${student.grade_or_position ? ' · ' + escapeHtml(student.grade_or_position) : ''}</span>
-        <span>${experiences.length} reflection${experiences.length !== 1 ? 's' : ''}</span>
-      </div>
-      ${experiences.length === 0
-        ? '<p style="color:var(--gray-500);text-align:center;padding:32px">No reflections yet.</p>'
-        : experiences.map(e => `
-          <article class="exp-card exp-card--readonly">
-            <div class="exp-card-head">
-              <div>
-                <h3 class="exp-card-title">${escapeHtml(e.title)}</h3>
-                <div class="exp-card-meta">
-                  <span class="exp-card-category">${escapeHtml(e.category)}</span>
-                  <span class="exp-card-dot">·</span>
-                  <span class="exp-card-date">${formatExpDate(e.date)}</span>
-                </div>
-              </div>
-            </div>
-            <div class="exp-card-values">${(e.values || []).map(v => expValueChip(v, config)).join('')}</div>
-            <div class="exp-card-reflection">${escapeHtml(e.reflection)}</div>
-          </article>
-        `).join('')}
-    </div>
-    <div class="modal-footer"><button class="btn btn-outline" onclick="closeModal()">Close</button></div>
-  `;
-}
 
 // ============ ACCOUNT DETAILS ============
 async function renderAccount() {

@@ -2199,31 +2199,193 @@ tbody tr:last-child td { border-bottom: none; }
 }
 
 /* ============ EXPERIENCE MAP ============ */
-.exp-privacy-notice {
-  background: #f0f9ff;
-  border: 1px solid #bae6fd;
-  color: #0c4a6e;
-  border-radius: var(--radius-md);
-  padding: 12px 14px;
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
-  margin-bottom: 20px;
-  font-size: 0.85rem;
-  line-height: 1.45;
+.exp-hero { text-align: center; margin: 8px 0 24px; }
+.exp-hero-title {
+  font-size: 1.85rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  margin: 0;
+  color: var(--gray-800, #0f172a);
 }
-.exp-privacy-icon { flex-shrink: 0; display: inline-flex; width: 18px; height: 18px; color: #0284c7; }
-.exp-privacy-icon svg { width: 18px; height: 18px; }
+.exp-hero-sub {
+  color: var(--gray-500);
+  margin: 6px auto 0;
+  font-size: 0.95rem;
+  max-width: 60ch;
+}
 
-.exp-header {
+/* Orbital picker — outer categories ring, inner values ring, center counter,
+   right-side form panel. Math: nodes are absolute-positioned by percentage on
+   a square stage; expOrbitPosition() places index i of N at (50 + r·cosθ,
+   50 + r·sinθ) with θ starting from the top (-90°). The dashed rings are pure
+   CSS circles; selection state is a class swap. */
+.exp-orbit-shell {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 360px);
+  gap: 28px;
+  align-items: center;
+  margin-bottom: 32px;
+}
+.exp-orbit-stage {
+  position: relative;
+  width: 100%;
+  max-width: 620px;
+  aspect-ratio: 1 / 1;
+  margin: 0 auto;
+}
+.exp-orbit-ring {
+  position: absolute;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  border: 1.5px dashed #e2e8f0;
+  border-radius: 50%;
+  pointer-events: none;
+}
+.exp-orbit-ring--outer { width: 88%; height: 88%; }
+.exp-orbit-ring--inner { width: 52%; height: 52%; }
+.exp-orbit-center {
+  position: absolute;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  width: 22%;
+  aspect-ratio: 1 / 1;
+  background: #0f172a;
+  color: #fff;
+  border-radius: 50%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  box-shadow: 0 12px 32px rgba(15, 23, 42, 0.18);
+}
+.exp-orbit-center-icon { color: #fbbf24; font-size: 1.1rem; }
+.exp-orbit-center-count {
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-align: center;
+}
+.exp-orbit-node {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  background: #fff;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 6px;
+  font-family: inherit;
+  transition: transform 0.12s ease, box-shadow 0.12s ease, border-color 0.12s ease, background 0.12s ease, color 0.12s ease;
+  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.05);
+  color: #4f46e5;
+}
+.exp-orbit-node:hover {
+  transform: translate(-50%, -50%) scale(1.06);
+  border-color: #6366f1;
+  box-shadow: 0 6px 18px rgba(79, 70, 229, 0.18);
+}
+.exp-orbit-node-label {
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  line-height: 1.1;
+  word-break: break-word;
+  hyphens: auto;
+}
+.exp-orbit-node--outer { width: 14%; aspect-ratio: 1 / 1; }
+.exp-orbit-node--inner { width: 12.5%; aspect-ratio: 1 / 1; color: #475569; }
+.exp-orbit-node--inner .exp-orbit-node-label { color: #475569; }
+.exp-orbit-node.is-selected {
+  background: #4f46e5;
+  border-color: #4f46e5;
+  color: #fff;
+  box-shadow: 0 8px 20px rgba(79, 70, 229, 0.32);
+  transform: translate(-50%, -50%) scale(1.08);
+}
+.exp-orbit-node.is-selected .exp-orbit-node-label { color: #fff; }
+
+.exp-orbit-panel {
+  background: #fff;
+  border: 1px solid var(--gray-100);
+  border-radius: 16px;
+  padding: 22px 22px 20px;
+  box-shadow: 0 4px 24px rgba(15, 23, 42, 0.05);
+  align-self: stretch;
+  display: flex;
+  flex-direction: column;
+}
+.exp-orbit-panel-title {
+  font-size: 1rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  margin: 0 0 16px;
+  color: var(--gray-800);
+}
+.exp-orbit-panel-block { margin-bottom: 14px; }
+.exp-orbit-panel-label {
+  font-size: 0.7rem;
+  letter-spacing: 0.08em;
+  font-weight: 700;
+  color: var(--gray-400);
+  text-transform: uppercase;
+  margin-bottom: 6px;
   display: flex;
   justify-content: space-between;
-  align-items: flex-start;
-  gap: 16px;
-  flex-wrap: wrap;
-  margin-bottom: 20px;
+  align-items: center;
 }
-.exp-subtitle { color: var(--gray-500); margin: 4px 0 0; font-size: 0.9rem; max-width: 60ch; }
+.exp-orbit-panel-meta { color: var(--gray-500); font-weight: 600; }
+.exp-orbit-panel-value {
+  background: #eef2ff;
+  border-radius: 10px;
+  padding: 10px 12px;
+  color: #4338ca;
+  font-weight: 600;
+  font-size: 0.92rem;
+}
+.exp-orbit-panel-empty { color: var(--gray-400); font-weight: 400; font-style: italic; }
+.exp-orbit-panel-chips { display: flex; flex-wrap: wrap; gap: 6px; min-height: 28px; align-items: center; }
+.exp-orbit-panel-divider { border-top: 1px solid var(--gray-100); margin: 8px 0 14px; }
+.exp-orbit-input, .exp-orbit-textarea { margin-bottom: 10px; }
+.exp-orbit-textarea { resize: vertical; min-height: 110px; }
+.exp-orbit-counter { font-size: 0.72rem; color: var(--gray-400); text-align: right; margin: -4px 0 12px; }
+.exp-orbit-save {
+  width: 100%;
+  background: #0f172a;
+  color: #fff;
+  border: none;
+  padding: 13px 16px;
+  border-radius: 12px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: background 0.12s ease, transform 0.06s ease;
+}
+.exp-orbit-save:hover { background: #1e293b; }
+.exp-orbit-save:active { transform: translateY(1px); }
+.exp-orbit-disclaimer {
+  margin-top: 10px;
+  font-size: 0.7rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--gray-400);
+  text-align: center;
+}
+
+@media (max-width: 920px) {
+  .exp-orbit-shell { grid-template-columns: 1fr; }
+  .exp-orbit-stage { max-width: 480px; }
+}
+@media (max-width: 540px) {
+  .exp-orbit-node-label { font-size: 0.55rem; }
+  .exp-orbit-node--outer { width: 17%; }
+  .exp-orbit-node--inner { width: 15.5%; }
+  .exp-orbit-center { width: 26%; }
+}
 
 .exp-summary { gap: 14px; margin-bottom: 24px; }
 .exp-stat-card {
@@ -2387,39 +2549,6 @@ tbody tr:last-child td { border-bottom: none; }
 .exp-empty-state p { color: var(--gray-500); max-width: 42ch; margin: 0 auto 16px; }
 .exp-empty-icon { font-size: 2.4rem; margin-bottom: 4px; }
 .exp-empty-state--filtered { padding: 24px; }
-
-.exp-consent-card {
-  max-width: 640px;
-  margin: 24px auto;
-  background: #fff;
-  border: 1px solid var(--gray-100);
-  border-radius: var(--radius-md);
-  padding: 32px;
-  text-align: center;
-  box-shadow: 0 4px 24px rgba(0,0,0,0.04);
-}
-.exp-consent-icon { font-size: 2.4rem; margin-bottom: 8px; }
-.exp-consent-card h2 { margin: 0 0 6px; }
-.exp-consent-lede { color: var(--gray-500); margin: 0 0 18px; }
-.exp-consent-list { text-align: left; max-width: 480px; margin: 0 auto 24px; padding: 0; list-style: none; }
-.exp-consent-list li {
-  position: relative;
-  padding: 8px 0 8px 28px;
-  font-size: 0.92rem;
-  color: var(--gray-700);
-  line-height: 1.5;
-  border-bottom: 1px solid var(--gray-50);
-}
-.exp-consent-list li:last-child { border-bottom: none; }
-.exp-consent-list li::before {
-  content: "•";
-  position: absolute;
-  left: 8px;
-  top: 8px;
-  color: var(--primary, #059669);
-  font-weight: 700;
-}
-.exp-consent-actions { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
 
 .exp-form-row { display: grid; grid-template-columns: 1fr 200px; gap: 14px; }
 .exp-form-hint { color: var(--gray-400); font-weight: 400; font-size: 0.78rem; margin-left: 6px; }

@@ -1,10 +1,12 @@
 // Experience Map — student-authored reflections tied to UWC values.
 //
-// Privacy model (Model B, decided 2026-05): reflections are visible to the
-// head of school by name and to admins via the Users tab. Students consent
-// once at first visit (POST /experiences/consent). The consent record is
-// stored in experience_consents and surfaced as a persistent banner on the
-// student view.
+// Privacy model (revised 2026-05): reflections are PRIVATE to the student.
+// Head of school and admins see ONLY aggregate counts — total reflections,
+// per-value tallies, per-category tallies, monthly engagement, and per-
+// student counts (no titles, no reflection text, no values per-student).
+// The /head/student/:id endpoint and the consent flow were removed when
+// the visibility model flipped. The consent table is left in place so
+// existing rows aren't lost; nothing reads from it any more.
 const express = require('express');
 const db = require('../database');
 const { authenticate, authorize, authorizeOrg } = require('../middleware/auth');
@@ -105,29 +107,6 @@ router.get('/config', authenticate, (req, res) => {
   });
 });
 
-// GET /api/experiences/consent — has the student consented?
-router.get('/consent', authenticate, authorize('student'), (req, res) => {
-  const row = db.prepare('SELECT consented_at, version FROM experience_consents WHERE user_id = ?').get(req.user.id);
-  res.json({ consented: !!row, consented_at: row?.consented_at || null, version: row?.version || null });
-});
-
-// POST /api/experiences/consent — record consent
-router.post('/consent', authenticate, authorize('student'), authorizeOrg, (req, res) => {
-  db.prepare(`
-    INSERT INTO experience_consents (user_id, consented_at, version)
-    VALUES (?, CURRENT_TIMESTAMP, 'v1')
-    ON CONFLICT(user_id) DO UPDATE SET consented_at = CURRENT_TIMESTAMP, version = 'v1'
-  `).run(req.user.id);
-  logAuditEvent({
-    userId: req.user.id, userRole: req.user.role, userName: req.user.full_name,
-    actionType: 'experience_consent',
-    actionDescription: 'Acknowledged Experience Map visibility to school administration',
-    targetType: 'experience_consent', targetId: req.user.id,
-    ipAddress: req.ip, orgId: req.orgId,
-  });
-  res.json({ ok: true });
-});
-
 // GET /api/experiences/mine — student's own experiences
 router.get('/mine', authenticate, authorize('student'), (req, res) => {
   const rows = db.prepare(`
@@ -139,9 +118,6 @@ router.get('/mine', authenticate, authorize('student'), (req, res) => {
 
 // POST /api/experiences — create
 router.post('/', authenticate, authorize('student'), authorizeOrg, (req, res) => {
-  const consent = db.prepare('SELECT 1 FROM experience_consents WHERE user_id = ?').get(req.user.id);
-  if (!consent) return res.status(403).json({ error: 'Acknowledge the visibility notice before adding experiences.' });
-
   const { errors, clean } = validatePayload(req.body);
   if (errors.length) return res.status(400).json({ error: errors[0], errors });
 
@@ -221,9 +197,12 @@ router.delete('/:id', authenticate, authorize('student'), (req, res) => {
   res.json({ ok: true });
 });
 
-// ============ HEAD VIEW — by-name visibility (Model B) ============
+// ============ HEAD VIEW — aggregates only (private model) ============
+// No reflection text, no values-per-student, no individual content. Just
+// counts of how many reflections were submitted, broken down by value /
+// category / month, plus a per-student count for engagement tracking.
 
-// GET /api/experiences/head/overview — aggregates + per-student summary
+// GET /api/experiences/head/overview — aggregates + per-student counts only
 router.get('/head/overview', authenticate, authorize('head', 'admin'), authorizeOrg, (req, res) => {
   const orgFilter = 'WHERE e.org_id = ?';
   const orgArgs = [req.orgId];
@@ -286,32 +265,6 @@ router.get('/head/overview', authenticate, authorize('head', 'admin'), authorize
     by_value: byValue,
     students: perStudent,
   });
-});
-
-// GET /api/experiences/head/student/:id — head/admin sees one student's timeline
-router.get('/head/student/:id', authenticate, authorize('head', 'admin'), authorizeOrg, (req, res) => {
-  const studentId = parseInt(req.params.id, 10);
-  const student = db.prepare(`
-    SELECT id, full_name, email, grade_or_position FROM users
-    WHERE id = ? AND role = 'student' AND COALESCE(org_id, 1) = ?
-  `).get(studentId, req.orgId);
-  if (!student) return res.status(404).json({ error: 'Student not found' });
-
-  const rows = db.prepare(`
-    SELECT * FROM experiences WHERE student_id = ?
-    ORDER BY experience_date DESC, created_at DESC
-  `).all(studentId);
-
-  logAuditEvent({
-    userId: req.user.id, userRole: req.user.role, userName: req.user.full_name,
-    actionType: 'experience_view_admin',
-    actionDescription: `Viewed Experience Map of ${student.full_name}`,
-    targetType: 'user', targetId: studentId,
-    metadata: { count: rows.length },
-    ipAddress: req.ip, orgId: req.orgId,
-  });
-
-  res.json({ student, experiences: rows.map(rowToDTO) });
 });
 
 module.exports = router;
