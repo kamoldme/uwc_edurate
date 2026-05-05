@@ -2284,16 +2284,16 @@ tbody tr:last-child td { border-bottom: none; }
 .exp-orbit-shell {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(260px, 320px);
-  gap: 64px;
+  gap: 56px;
   align-items: center;
   justify-content: center;
-  max-width: 1000px;
+  max-width: 1120px;
   margin: 0 auto 32px;
 }
 .exp-orbit-stage {
   position: relative;
   width: 100%;
-  max-width: 620px;
+  max-width: 720px;
   aspect-ratio: 1 / 1;
   margin: 0 auto;
 }
@@ -2353,15 +2353,15 @@ tbody tr:last-child td { border-bottom: none; }
   box-shadow: 0 6px 18px rgba(79, 70, 229, 0.18);
 }
 .exp-orbit-node-label {
-  font-size: 0.62rem;
+  font-size: 0.7rem;
   font-weight: 700;
-  letter-spacing: 0.04em;
-  line-height: 1.1;
+  letter-spacing: 0.03em;
+  line-height: 1.15;
   word-break: break-word;
   hyphens: auto;
 }
-.exp-orbit-node--outer { width: 14%; aspect-ratio: 1 / 1; }
-.exp-orbit-node--inner { width: 12.5%; aspect-ratio: 1 / 1; color: #475569; }
+.exp-orbit-node--outer { width: 17%; aspect-ratio: 1 / 1; }
+.exp-orbit-node--inner { width: 15%; aspect-ratio: 1 / 1; color: #475569; }
 .exp-orbit-node--inner .exp-orbit-node-label { color: #475569; }
 .exp-orbit-node.is-selected {
   background: #4f46e5;
@@ -2438,9 +2438,9 @@ tbody tr:last-child td { border-bottom: none; }
   .exp-orbit-stage { max-width: 480px; }
 }
 @media (max-width: 540px) {
-  .exp-orbit-node-label { font-size: 0.55rem; }
-  .exp-orbit-node--outer { width: 17%; }
-  .exp-orbit-node--inner { width: 15.5%; }
+  .exp-orbit-node-label { font-size: 0.62rem; }
+  .exp-orbit-node--outer { width: 19%; }
+  .exp-orbit-node--inner { width: 17%; }
   .exp-orbit-center { width: 26%; }
 }
 

@@ -6393,28 +6393,30 @@ function expCardHTML(e, config) {
 
 let _expDraft = { category: null, values: [] };
 
+// Short codes for the orbital ring. Full names live on the title attribute
+// (hover tooltip) and in the right-panel chips when selected.
 const EXP_CATEGORY_SHORT = {
   'CAS': 'CAS',
   'Explore Armenia / Project Week': 'PROJECT WEEK',
-  'Exeat Weekends': 'EXEAT WEEKENDS',
-  'Regional Evenings': 'REGIONAL EVENINGS',
-  'Academic Subjects': 'ACADEMIC SUBJECTS',
-  'Residential Life / Toon Time': 'RESIDENTIAL LIFE',
-  'LOTs': 'LOTS',
-  'Monday Briefings': 'MONDAY BRIEFINGS',
+  'Exeat Weekends': 'EXEAT',
+  'Regional Evenings': 'REGIONAL',
+  'Academic Subjects': 'ACADEMICS',
+  'Residential Life / Toon Time': 'TOON TIME',
+  'LOTs': 'LOTs',
+  'Monday Briefings': 'BRIEFINGS',
   'Leadership & Student Voice': 'LEADERSHIP',
   'Other': 'OTHER',
 };
 const EXP_VALUE_SHORT = {
-  'Intercultural understanding': 'INT. UNDERSTANDING',
+  'Intercultural understanding': 'INTERCULTURAL',
   'Celebration of difference': 'DIVERSITY',
   'Personal responsibility and integrity': 'INTEGRITY',
   'Mutual responsibility and respect': 'MUTUAL RESPECT',
   'Compassion and service': 'COMPASSION',
-  'Respect for the environment': 'SUSTAINABILITY',
-  'A sense of idealism': 'PEACE',
+  'Respect for the environment': 'ENVIRONMENT',
+  'A sense of idealism': 'IDEALISM',
   'Personal challenge': 'CHALLENGE',
-  'Action and personal example': 'RESPONSIBILITY',
+  'Action and personal example': 'ACTION',
 };
 
 function expOrbitPosition(index, total, radiusPct) {
