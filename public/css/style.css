@@ -2214,6 +2214,50 @@ tbody tr:last-child td { border-bottom: none; }
   max-width: 60ch;
 }
 
+.exp-tabs {
+  display: inline-flex;
+  background: #f1f5f9;
+  border-radius: 12px;
+  padding: 4px;
+  margin: 0 auto 24px;
+  gap: 4px;
+  display: flex;
+  width: fit-content;
+  margin-left: auto;
+  margin-right: auto;
+}
+.exp-tab {
+  background: transparent;
+  border: none;
+  padding: 9px 18px;
+  font-size: 0.86rem;
+  font-weight: 600;
+  color: var(--gray-500);
+  cursor: pointer;
+  border-radius: 8px;
+  transition: background 0.12s ease, color 0.12s ease, box-shadow 0.12s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.exp-tab:hover { color: var(--gray-700); }
+.exp-tab.is-active {
+  background: #fff;
+  color: #0f172a;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08);
+}
+.exp-tab-count {
+  background: var(--gray-100);
+  color: var(--gray-600);
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 1px 7px;
+  border-radius: 999px;
+  min-width: 20px;
+  text-align: center;
+}
+.exp-tab.is-active .exp-tab-count { background: #eef2ff; color: #4338ca; }
+
 /* Orbital picker — outer categories ring, inner values ring, center counter,
    right-side form panel. Math: nodes are absolute-positioned by percentage on
    a square stage; expOrbitPosition() places index i of N at (50 + r·cosθ,

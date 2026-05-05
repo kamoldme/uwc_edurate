@@ -6177,8 +6177,12 @@ const EXP_VALUE_PALETTE = [
   '#10b981', '#3b82f6', '#ef4444', '#a16207'
 ];
 
-let _expCache = null;       // {experiences, config, consent}
+let _expCache = null;       // {experiences, config}
 let _expFilters = { category: '', value: '', q: '' };
+let _expTab = 'create';     // 'create' | 'my'
+
+const EXP_ICON_EDIT = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>';
+const EXP_ICON_TRASH = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-2 14a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2"/></svg>';
 
 async function loadExperienceConfig() {
   if (_expCache?.config) return _expCache.config;
@@ -6218,7 +6222,28 @@ function paintStudentExperiences() {
   const { config, experiences } = _expCache;
   const el = document.getElementById('contentArea');
 
-  // Apply filters (timeline section below the picker)
+  el.innerHTML = `
+    <div class="exp-hero">
+      <h1 class="exp-hero-title">EXPERIENCE MAP</h1>
+      <p class="exp-hero-sub">Every moment is a landmark. Map your journey through our shared values.</p>
+    </div>
+
+    <div class="exp-tabs" role="tablist">
+      <button class="exp-tab ${_expTab === 'create' ? 'is-active' : ''}" role="tab" aria-selected="${_expTab === 'create'}" onclick="expSetTab('create')">Create an Experience Map</button>
+      <button class="exp-tab ${_expTab === 'my' ? 'is-active' : ''}" role="tab" aria-selected="${_expTab === 'my'}" onclick="expSetTab('my')">My Experience Maps ${experiences.length ? `<span class="exp-tab-count">${experiences.length}</span>` : ''}</button>
+    </div>
+
+    <div id="expTabPanel">
+      ${_expTab === 'create' ? renderExpCreateTab(config) : renderExpMyTab(config, experiences)}
+    </div>
+  `;
+}
+
+function renderExpCreateTab(config) {
+  return renderExpOrbitPicker(config);
+}
+
+function renderExpMyTab(config, experiences) {
   const q = (_expFilters.q || '').trim().toLowerCase();
   const filtered = experiences.filter(e => {
     if (_expFilters.category && e.category !== _expFilters.category) return false;
@@ -6230,21 +6255,13 @@ function paintStudentExperiences() {
     return true;
   });
 
-  // Aggregates
   const valueCounts = Object.fromEntries(config.values.map(v => [v, 0]));
   experiences.forEach(e => (e.values || []).forEach(v => { if (valueCounts[v] !== undefined) valueCounts[v]++; }));
   const topValue = Object.entries(valueCounts).sort((a, b) => b[1] - a[1]).find(([, c]) => c > 0);
   const valuesExplored = Object.values(valueCounts).filter(c => c > 0).length;
   const latest = experiences[0];
 
-  el.innerHTML = `
-    <div class="exp-hero">
-      <h1 class="exp-hero-title">EXPERIENCE MAP</h1>
-      <p class="exp-hero-sub">Every moment is a landmark. Map your journey through our shared values.</p>
-    </div>
-
-    ${renderExpOrbitPicker(config)}
-
+  return `
     <div class="grid grid-4 exp-summary">
       <div class="exp-stat-card">
         <div class="exp-stat-label">Total reflections</div>
@@ -6289,8 +6306,9 @@ function paintStudentExperiences() {
       ${experiences.length === 0
         ? `<div class="exp-empty-state">
             <div class="exp-empty-icon">📍</div>
-            <h3>Start mapping your journey</h3>
-            <p>Pick an experience on the outer ring, choose up to 3 UWC values it connected to, and capture the moment.</p>
+            <h3>No reflections yet</h3>
+            <p>Switch to "Create an Experience Map" to capture your first moment.</p>
+            <button class="btn btn-primary" onclick="expSetTab('create')">Create an Experience Map</button>
           </div>`
         : filtered.length === 0
           ? `<div class="exp-empty-state exp-empty-state--filtered">
@@ -6302,6 +6320,11 @@ function paintStudentExperiences() {
     </div>
   `;
 }
+
+window.expSetTab = function (tab) {
+  _expTab = tab;
+  paintStudentExperiences();
+};
 
 function expCardHTML(e, config) {
   const preview = (e.reflection || '').slice(0, 240);
@@ -6317,8 +6340,8 @@ function expCardHTML(e, config) {
         </div>
       </div>
       <div class="exp-card-actions">
-        <button class="exp-card-icon-btn" title="Edit" onclick="openExperienceForm(${e.id})" aria-label="Edit">${ICONS.edit || '✎'}</button>
-        <button class="exp-card-icon-btn exp-card-icon-btn--danger" title="Delete" onclick="confirmDeleteExperience(${e.id})" aria-label="Delete">${ICONS.trash || '🗑'}</button>
+        <button class="exp-card-icon-btn" title="Edit" onclick="openExperienceForm(${e.id})" aria-label="Edit">${EXP_ICON_EDIT}</button>
+        <button class="exp-card-icon-btn exp-card-icon-btn--danger" title="Delete" onclick="confirmDeleteExperience(${e.id})" aria-label="Delete">${EXP_ICON_TRASH}</button>
       </div>
     </div>
     <div class="exp-card-values">
@@ -6399,7 +6422,6 @@ function renderExpOrbitPicker(config) {
     </button>`;
   }).join('');
 
-  const today = new Date().toISOString().slice(0, 10);
   const valueChips = _expDraft.values.length === 0
     ? '<span class="exp-orbit-panel-empty">Pick up to 3 values from the inner ring</span>'
     : _expDraft.values.map(v => `<span class="exp-value-chip" style="--chip-color:${expValueColor(v, config)}">${v}</span>`).join('');
@@ -6429,11 +6451,9 @@ function renderExpOrbitPicker(config) {
         <div class="exp-orbit-panel-divider"></div>
         <form id="expOrbitForm" onsubmit="expSaveOrbital(event)">
           <input type="text" id="expOrbitTitle" class="form-control exp-orbit-input" placeholder="Title" maxlength="${config.limits.max_title}" required>
-          <input type="date" id="expOrbitDate" class="form-control exp-orbit-input" max="${today}" value="${today}" required>
           <textarea id="expOrbitReflection" class="form-control exp-orbit-textarea" rows="5" minlength="${config.limits.min_reflection}" maxlength="${config.limits.max_reflection}" placeholder="How did this moment shape your perspective?" required oninput="document.getElementById('expOrbitCounter').textContent = this.value.length"></textarea>
           <div class="exp-orbit-counter"><span id="expOrbitCounter">0</span> / ${config.limits.max_reflection} (min ${config.limits.min_reflection})</div>
           <button type="submit" class="exp-orbit-save">CAPTURE THIS MOMENT</button>
-          <div class="exp-orbit-disclaimer">Your map is private to you.</div>
         </form>
       </aside>
     </section>
@@ -6497,13 +6517,12 @@ window.expSaveOrbital = async function (e) {
   if (_expDraft.values.length < 1) return toast('Pick at least one UWC value.', 'error');
 
   const title = document.getElementById('expOrbitTitle').value.trim();
-  const date = document.getElementById('expOrbitDate').value;
   const reflection = document.getElementById('expOrbitReflection').value.trim();
 
   const payload = {
     title,
     category: _expDraft.category,
-    experience_date: date,
+    experience_date: new Date().toISOString().slice(0, 10),
     reflection,
     values: _expDraft.values,
   };
@@ -6512,6 +6531,7 @@ window.expSaveOrbital = async function (e) {
     await API.post('/experiences', payload);
     toast('Your experience has been added to your map.');
     _expDraft = { category: null, values: [] };
+    _expTab = 'my';
     _expCache = null;
     renderStudentExperiences();
   } catch (err) {
