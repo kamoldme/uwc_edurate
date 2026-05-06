@@ -6782,10 +6782,9 @@ function renderExpMyTab(config, experiences) {
   experiences.forEach(e => (e.values || []).forEach(v => { if (valueCounts[v] !== undefined) valueCounts[v]++; }));
   const topValue = Object.entries(valueCounts).sort((a, b) => b[1] - a[1]).find(([, c]) => c > 0);
   const valuesExplored = Object.values(valueCounts).filter(c => c > 0).length;
-  const latest = experiences[0];
 
   return `
-    <div class="grid grid-4 exp-summary">
+    <div class="grid grid-3 exp-summary">
       <div class="exp-stat-card">
         <div class="exp-stat-label">Total reflections</div>
         <div class="exp-stat-value">${experiences.length}</div>
@@ -6797,10 +6796,6 @@ function renderExpMyTab(config, experiences) {
       <div class="exp-stat-card">
         <div class="exp-stat-label">Values explored</div>
         <div class="exp-stat-value">${valuesExplored} <span class="exp-stat-meta">/ ${config.values.length}</span></div>
-      </div>
-      <div class="exp-stat-card">
-        <div class="exp-stat-label">Latest reflection</div>
-        <div class="exp-stat-value-sm">${latest ? `<div class="exp-stat-line">${escapeHtml(latest.title)}</div><div class="exp-stat-meta">${formatExpDate(latest.date)}</div>` : '<span class="exp-stat-empty">No reflections yet</span>'}</div>
       </div>
     </div>
 
@@ -7488,10 +7483,9 @@ function renderStudentExperiencesModalHTML(data, config) {
   }));
   const topValueEntry = Object.entries(valueCounts).sort((a, b) => b[1] - a[1]).find(([, c]) => c > 0);
   const valuesExplored = Object.values(valueCounts).filter(c => c > 0).length;
-  const latest = experiences[0];
 
   const statsHTML = `
-    <div class="grid grid-4 exp-summary" style="margin-bottom:20px">
+    <div class="grid grid-3 exp-summary" style="margin-bottom:20px">
       <div class="exp-stat-card">
         <div class="exp-stat-label">Total reflections</div>
         <div class="exp-stat-value">${experiences.length}</div>
@@ -7505,12 +7499,6 @@ function renderStudentExperiencesModalHTML(data, config) {
       <div class="exp-stat-card">
         <div class="exp-stat-label">Values explored</div>
         <div class="exp-stat-value">${valuesExplored} <span class="exp-stat-meta">/ ${(config.values || []).length}</span></div>
-      </div>
-      <div class="exp-stat-card">
-        <div class="exp-stat-label">Latest reflection</div>
-        <div class="exp-stat-value-sm">${latest
-          ? `<div class="exp-stat-line">${escapeHtml(latest.title)}</div><div class="exp-stat-meta">${formatExpDate(latest.date)}</div>`
-          : '<span class="exp-stat-empty">No reflections yet</span>'}</div>
       </div>
     </div>
   `;
