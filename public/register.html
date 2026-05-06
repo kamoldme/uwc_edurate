@@ -89,15 +89,15 @@
         Accounts created with personal emails will be removed without warning.
       </div>
 
-      <div class="grade-label">Your graduation class</div>
+      <div class="grade-label">Your cohort / year</div>
       <select id="gradeSelect" class="form-control" onchange="selectGrade(this.value)" style="width:100%;padding:12px 14px;border:2px solid #e2e8f0;border-radius:10px;font-size:0.95rem;font-family:inherit;background:#fff;color:#0f172a">
-        <option value="">Choose your graduation class</option>
+        <option value="">Choose your cohort / year</option>
         <option value="Class of 2026">Class of 2026</option>
         <option value="Class of 2027">Class of 2027</option>
         <option value="Class of 2028">Class of 2028</option>
         <option value="Class of 2029">Class of 2029</option>
       </select>
-      <div class="grade-hint" id="gradeHint">Pick your graduation class, then sign in with Google.</div>
+      <div class="grade-hint" id="gradeHint">Pick your cohort / year, then sign in with Google.</div>
 
       <div id="error" class="error-msg"></div>
       <div class="google-wrap" id="googleBtnWrap"></div>
@@ -122,13 +122,13 @@
       const hint = document.getElementById('gradeHint');
       if (hint) hint.textContent = selectedGrade
         ? `Selected: ${selectedGrade}. Now sign in with Google.`
-        : 'Pick your graduation class, then sign in with Google.';
+        : 'Pick your cohort / year, then sign in with Google.';
       errEl.className = 'error-msg';
     }
 
     async function handleCred(response) {
       if (!selectedGrade) {
-        showError('Please choose your graduation class before signing in.');
+        showError('Please choose your cohort / year before signing in.');
         return;
       }
       try {

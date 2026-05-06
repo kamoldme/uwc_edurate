@@ -57,7 +57,7 @@ router.post('/google', async (req, res) => {
     // Avoiding a hard whitelist so admins can roll new cohorts forward without
     // server changes; the registration form still presents a fixed dropdown.
     if (intent === 'student' && grade_or_position && (typeof grade_or_position !== 'string' || grade_or_position.length > 60)) {
-      return res.status(400).json({ error: 'Invalid graduation class.' });
+      return res.status(400).json({ error: 'Invalid cohort / year.' });
     }
 
     // Verify the ID token with Google. This checks signature, audience, and expiry.

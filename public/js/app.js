@@ -4813,9 +4813,9 @@ async function showCreateUser() {
         </select>
       </div>
       <div class="form-group" id="gradeFieldWrap">
-        <label id="newUserGradeLabel">Graduation class</label>
+        <label id="newUserGradeLabel">Cohort / Year</label>
         <select class="form-control" id="newUserGrade">
-          <option value="">Choose graduation class</option>
+          <option value="">Choose cohort / year</option>
           <option value="Class of 2026">Class of 2026</option>
           <option value="Class of 2027">Class of 2027</option>
           <option value="Class of 2028">Class of 2028</option>
@@ -4849,7 +4849,7 @@ function onNewUserRoleChange(role) {
   if (!gradeWrap) return;
   if (role === 'student') {
     gradeWrap.style.display = 'block';
-    if (gradeLabel) gradeLabel.textContent = 'Graduation class';
+    if (gradeLabel) gradeLabel.textContent = 'Cohort / Year';
     if (gradeSelect) gradeSelect.style.display = '';
     if (gradeText) gradeText.style.display = 'none';
   } else if (role === 'teacher') {
@@ -4925,10 +4925,10 @@ function editUser(user) {
         <input type="email" class="form-control" id="editUserEmail" value="${user.email}">
       </div>
       <div class="form-group" id="editGradeFieldWrap" style="display:${showGrade ? 'block' : 'none'}">
-        <label id="editUserGradeLabel">${user.role === 'student' ? 'Graduation class' : 'Position'}</label>
+        <label id="editUserGradeLabel">${user.role === 'student' ? 'Cohort / Year' : 'Position'}</label>
         ${user.role === 'student' ? `
           <select class="form-control" id="editUserGrade">
-            <option value="">Choose graduation class</option>
+            <option value="">Choose cohort / year</option>
             ${['Class of 2026','Class of 2027','Class of 2028','Class of 2029'].map(opt =>
               `<option value="${opt}" ${user.grade_or_position === opt ? 'selected' : ''}>${opt}</option>`).join('')}
             ${user.grade_or_position && !['Class of 2026','Class of 2027','Class of 2028','Class of 2029'].includes(user.grade_or_position)
