@@ -2305,8 +2305,8 @@ tbody tr:last-child td { border-bottom: none; }
   border-radius: 50%;
   pointer-events: none;
 }
-.exp-orbit-ring--outer { width: 88%; height: 88%; }
-.exp-orbit-ring--inner { width: 52%; height: 52%; }
+.exp-orbit-ring--outer { width: 94%; height: 94%; }
+.exp-orbit-ring--inner { width: 44%; height: 44%; }
 .exp-orbit-center {
   position: absolute;
   top: 50%; left: 50%;
@@ -2386,7 +2386,7 @@ tbody tr:last-child td { border-bottom: none; }
 .exp-orbit-node--outer .exp-orbit-node-label {
   width: 80%;
   margin: 0;
-  font-size: 0.72rem;
+  font-size: 0.78rem;
   line-height: 1.2;
   letter-spacing: 0.01em;
   display: -webkit-box;
@@ -2497,7 +2497,7 @@ tbody tr:last-child td { border-bottom: none; }
   .exp-orbit-node-label { font-size: 0.55rem; width: 140%; margin: 0 -20%; }
   .exp-orbit-node--outer { width: 22%; }
   .exp-orbit-node--inner { width: 17%; }
-  .exp-orbit-node--outer .exp-orbit-node-label { font-size: 0.62rem; width: 80%; margin: 0; }
+  .exp-orbit-node--outer .exp-orbit-node-label { font-size: 0.66rem; width: 80%; margin: 0; }
   .exp-orbit-center { width: 26%; }
   .exp-orbit-node-add-icon { font-size: 1.3rem; }
 }

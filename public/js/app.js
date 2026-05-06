@@ -6425,7 +6425,7 @@ function renderExpOrbitPicker(config) {
   // Total slots on the outer ring = categories + the "+" add-new button.
   const outerSlots = cats.length + 1;
   const outerNodes = cats.map((c, i) => {
-    const { x, y } = expOrbitPosition(i, outerSlots, 44);
+    const { x, y } = expOrbitPosition(i, outerSlots, 47);
     const isSelected = _expDraft.category === c;
     return `<button type="button"
       class="exp-orbit-node exp-orbit-node--outer ${isSelected ? 'is-selected' : ''}"
@@ -6439,7 +6439,7 @@ function renderExpOrbitPicker(config) {
 
   // "+" sits in the last slot. Different visual (dashed) so it reads as an
   // action, not a category.
-  const addPos = expOrbitPosition(cats.length, outerSlots, 44);
+  const addPos = expOrbitPosition(cats.length, outerSlots, 47);
   const addNode = `<button type="button"
     class="exp-orbit-node exp-orbit-node--outer exp-orbit-node--add"
     style="left:${addPos.x}%;top:${addPos.y}%"
@@ -6449,7 +6449,7 @@ function renderExpOrbitPicker(config) {
   </button>`;
 
   const innerNodes = vals.map((v, i) => {
-    const { x, y } = expOrbitPosition(i, vals.length, 26);
+    const { x, y } = expOrbitPosition(i, vals.length, 22);
     const isSelected = _expDraft.values.includes(v);
     return `<button type="button"
       class="exp-orbit-node exp-orbit-node--inner ${isSelected ? 'is-selected' : ''}"
