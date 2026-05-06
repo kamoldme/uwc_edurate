@@ -41,10 +41,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     currentUser = data.user;
     teacherInfo = data.teacher;
     userOrgs = data.organizations || [];
-    // Sync language from server if different
-    if (data.user.language && data.user.language !== I18n.getLocale()) {
-      await I18n.setLocale(data.user.language);
-    }
+    // English-only platform — no language sync.
     setupUI();
     startNotifPolling();
     setTimeout(checkCommsBadge, 500);
