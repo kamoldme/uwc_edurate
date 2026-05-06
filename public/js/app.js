@@ -3213,7 +3213,7 @@ async function renderHeadTeachers() {
       <td>${tchr.scores.review_count}</td>
       <td>${tchr.trend ? trendArrow(tchr.trend.trend) : '-'}</td>
       <td style="text-align:right;white-space:nowrap">
-        ${tchr.is_mentor ? `<button class="btn btn-sm btn-outline" style="font-size:0.78rem;padding:5px 10px" onclick="viewMentorMentees(${tchr.id}, ${JSON.stringify(tchr.full_name)})">View mentees</button>` : ''}
+        ${tchr.is_mentor ? `<button class="btn btn-sm btn-outline" style="font-size:0.78rem;padding:5px 10px" onclick="viewMentorMentees(${tchr.id}, ${jsAttr(tchr.full_name)})">View mentees</button>` : ''}
         <button class="btn btn-sm btn-primary" style="font-size:0.78rem;padding:5px 12px" onclick="viewTeacherFeedback(${tchr.id})">View</button>
         <button class="btn btn-sm btn-outline" style="font-size:0.78rem;padding:5px 10px" onclick="exportTeacherPDF(${tchr.id})" title="${t('admin.export_pdf')}">PDF</button>
       </td>
@@ -5304,12 +5304,12 @@ async function renderAdminClassrooms() {
                 ${orgColumn}
                 <td>${escapeHtml(c.teacher_name || '-')}</td>
                 <td>${escapeHtml(c.grade_level)}</td>
-                <td><a href="#" onclick="event.preventDefault();viewClassroomMembers(${c.id}, ${JSON.stringify(c.subject)})" style="color:var(--primary);font-weight:600">${c.student_count || 0}</a></td>
+                <td><a href="#" onclick="event.preventDefault();viewClassroomMembers(${c.id}, ${jsAttr(c.subject)})" style="color:var(--primary);font-weight:600">${c.student_count || 0}</a></td>
                 <td><code style="background:var(--gray-100);padding:2px 8px;border-radius:4px">${formatJoinCode(c.join_code)}</code></td>
                 <td>
-                  <button class="btn btn-sm btn-outline" onclick="viewClassroomMembers(${c.id}, ${JSON.stringify(c.subject)})">${t('teacher.members')}</button>
+                  <button class="btn btn-sm btn-outline" onclick="viewClassroomMembers(${c.id}, ${jsAttr(c.subject)})">${t('teacher.members')}</button>
                   <button class="btn btn-sm btn-outline" onclick="editClassroom(${c.id})">${t('common.edit')}</button>
-                  <button class="btn btn-sm btn-danger" onclick="deleteClassroom(${c.id}, ${JSON.stringify(c.subject)})">${t('common.delete')}</button>
+                  <button class="btn btn-sm btn-danger" onclick="deleteClassroom(${c.id}, ${jsAttr(c.subject)})">${t('common.delete')}</button>
                 </td>
               </tr>
               `;
@@ -7258,6 +7258,16 @@ function escapeHtml(str) {
 }
 function escapeAttr(str) {
   return String(str || '').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
+// Safe interpolation of a string into an inline `onclick="..."` attribute.
+// JSON.stringify produces `"value"` (with double quotes) which would close
+// the surrounding double-quoted attribute. HTML-encoding the inner double
+// quotes yields a payload that the HTML parser converts back to a JS string
+// literal when the onclick is evaluated. Use for any string passed as a JS
+// argument inside an inline event handler.
+function jsAttr(value) {
+  return JSON.stringify(value == null ? '' : String(value)).replace(/"/g, '&quot;');
 }
 
 // ============ HEAD: Experience Map overview ============
