@@ -25,7 +25,6 @@ const CATEGORIES = [
   'LOTs',
   'Monday Briefings',
   'Leadership & Student Voice',
-  'Other',
 ];
 
 const VALUES = [
