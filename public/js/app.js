@@ -1321,15 +1321,32 @@ async function submitReview(e, teacherId, classroomId) {
 
 async function renderStudentMyReviews() {
   const reviews = await cachedGet('/reviews/my-reviews', CACHE_TTL.short);
-  const el = document.getElementById('contentArea');
+  // Cache so the pager can re-render the slice without a refetch.
+  window._studentMyReviews = reviews;
+  if (window._studentMyReviewsPage == null) window._studentMyReviewsPage = 1;
+  paintStudentMyReviews();
+}
 
+const STUDENT_MY_REVIEWS_PAGE_SIZE = 5;
+
+function paintStudentMyReviews() {
+  const reviews = window._studentMyReviews || [];
+  const page = window._studentMyReviewsPage || 1;
+  const totalPages = Math.max(1, Math.ceil(reviews.length / STUDENT_MY_REVIEWS_PAGE_SIZE));
+  const safePage = Math.min(Math.max(1, page), totalPages);
+  const start = (safePage - 1) * STUDENT_MY_REVIEWS_PAGE_SIZE;
+  const pageRows = reviews.slice(start, start + STUDENT_MY_REVIEWS_PAGE_SIZE);
+  const from = reviews.length === 0 ? 0 : start + 1;
+  const to = Math.min(reviews.length, start + STUDENT_MY_REVIEWS_PAGE_SIZE);
+
+  const el = document.getElementById('contentArea');
   el.innerHTML = `
     <div class="card">
       <div class="card-header"><h3>${t('student.my_reviews_count', {count: reviews.length})}</h3></div>
       <div class="card-body">
         ${reviews.length === 0
           ? `<div class="empty-state"><h3>${t('student.no_reviews')}</h3><p>${t('student.submit_during_active')}</p></div>`
-          : reviews.map(r => {
+          : pageRows.map(r => {
             const avg = criteriaAverage(r);
             const colorVal = avg !== null ? avg : (r.overall_rating || 0);
             return `
@@ -1365,10 +1382,28 @@ async function renderStudentMyReviews() {
             </div>
           `;
           }).join('')}
+        ${reviews.length > STUDENT_MY_REVIEWS_PAGE_SIZE ? `
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:16px;padding-top:14px;border-top:1px solid var(--gray-100);flex-wrap:wrap">
+            <span style="font-size:0.82rem;color:var(--gray-500)">${from}–${to} of ${reviews.length}</span>
+            <div style="display:flex;gap:6px;align-items:center">
+              <button class="btn btn-sm btn-outline" onclick="studentMyReviewsPage(${safePage - 1})" ${safePage === 1 ? 'disabled' : ''}>← Prev</button>
+              <span style="font-size:0.82rem;color:var(--gray-600)">Page ${safePage} of ${totalPages}</span>
+              <button class="btn btn-sm btn-outline" onclick="studentMyReviewsPage(${safePage + 1})" ${safePage >= totalPages ? 'disabled' : ''}>Next →</button>
+            </div>
+          </div>
+        ` : ''}
       </div>
     </div>
   `;
 }
+
+window.studentMyReviewsPage = function (page) {
+  window._studentMyReviewsPage = page;
+  paintStudentMyReviews();
+  // Scroll to top of the card so the user sees the first row of the new page.
+  const el = document.getElementById('contentArea');
+  if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+};
 
 async function editMyReview(reviewId) {
   const reviews = await API.get('/reviews/my-reviews').catch(() => []);
