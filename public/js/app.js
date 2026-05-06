@@ -2033,7 +2033,7 @@ async function renderTeacherClassrooms() {
             </div>
             <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
               ${!isArchived ? `<button class="btn btn-sm btn-outline" onclick="regenerateCode(${c.id})">${t('teacher.new_code')}</button>` : ''}
-              ${!isArchived ? `<button class="btn btn-sm btn-outline" onclick="editClassroomTeacher(${c.id}, '${c.subject.replace(/'/g, "\\'")}', '${c.grade_level.replace(/'/g, "\\'")}')"> ${t('common.edit')}</button>` : ''}
+              ${!isArchived ? `<button class="btn btn-sm btn-outline" onclick="editClassroomTeacher(${c.id}, ${jsAttr(c.subject)}, ${jsAttr(c.grade_level)}, ${jsAttr(c.kind || 'academic')})"> ${t('common.edit')}</button>` : ''}
               ${!isArchived
                 ? `<button class="btn btn-sm btn-outline" style="color:var(--gray-500)" onclick="archiveClassroomTeacher(${c.id}, '${c.subject.replace(/'/g, "\\'")}')"> ${t('teacher.archive')}</button>`
                 : `<button class="btn btn-sm btn-outline" onclick="unarchiveClassroomTeacher(${c.id})">${t('teacher.unarchive')}</button>`}
@@ -2135,8 +2135,8 @@ async function showCreateClassroomTeacher() {
           </label>
         </div>
       ` : ''}
-      <div class="form-group" id="newSubjectWrap">
-        <label>${t('common.subject')}</label>
+      <div class="form-group">
+        <label id="newSubjectLabel">${t('common.subject')}</label>
         <input type="text" class="form-control" id="newSubject" placeholder="${t('teacher.subject_placeholder')}">
       </div>
       <div class="form-group">
@@ -2152,22 +2152,22 @@ async function showCreateClassroomTeacher() {
 }
 
 window.onCreateClassroomKindToggle = function (isMentorGroup) {
-  const subjectWrap = document.getElementById('newSubjectWrap');
+  // Mentor groups still have BOTH fields — name (saved as subject) + cohort
+  // (saved as grade_level). Only the labels and placeholders change.
+  const subjectLabel = document.getElementById('newSubjectLabel');
+  const subjectInput = document.getElementById('newSubject');
   const gradeLabel = document.getElementById('newGradeLabel');
-  if (subjectWrap) subjectWrap.style.display = isMentorGroup ? 'none' : '';
-  if (gradeLabel) gradeLabel.textContent = isMentorGroup ? 'Mentor group name / cohort' : 'Cohort / Year';
   const gradeInput = document.getElementById('newGradeLevel');
-  if (gradeInput) gradeInput.placeholder = isMentorGroup ? 'e.g. Mentor Group A · Class of 2027' : 'e.g. Class of 2027';
+  if (subjectLabel) subjectLabel.textContent = isMentorGroup ? 'Mentor group name' : t('common.subject');
+  if (subjectInput) subjectInput.placeholder = isMentorGroup ? "e.g. Yaro's Mentor Group" : t('teacher.subject_placeholder');
+  if (gradeLabel) gradeLabel.textContent = 'Cohort / Year';
+  if (gradeInput) gradeInput.placeholder = 'e.g. Class of 2027';
 };
 
 async function createClassroomTeacher() {
   const isMentorGroup = !!document.getElementById('newClassroomIsMentor')?.checked;
+  const subject = document.getElementById('newSubject').value.trim();
   const grade_level = document.getElementById('newGradeLevel').value.trim();
-  // For mentor groups the cohort line is the only label; subject is fixed to
-  // 'Mentor Group' so existing dashboard/aggregate queries still have a value.
-  const subject = isMentorGroup
-    ? 'Mentor Group'
-    : (document.getElementById('newSubject').value.trim());
   if (!subject || !grade_level) return toast(t('teacher.fill_all_fields'), 'error');
   try {
     const data = await API.post('/classrooms', {
@@ -2208,17 +2208,18 @@ async function unarchiveClassroomTeacher(id) {
   } catch (err) { toast(err.message, 'error'); }
 }
 
-function editClassroomTeacher(id, subject, gradeLevel) {
+function editClassroomTeacher(id, subject, gradeLevel, kind) {
+  const isMentor = (kind || 'academic') === 'mentor';
   openModal(`
-    <div class="modal-header"><h3>${t('teacher.edit_classroom')}</h3><button class="modal-close" onclick="closeModal()">&times;</button></div>
+    <div class="modal-header"><h3>${t('teacher.edit_classroom')}${isMentor ? ' <span style="font-size:0.7rem;background:#eef2ff;color:#4338ca;padding:2px 8px;border-radius:10px;font-weight:600;margin-left:6px;vertical-align:middle">MENTOR</span>' : ''}</h3><button class="modal-close" onclick="closeModal()">&times;</button></div>
     <div class="modal-body">
       <div class="form-group">
-        <label>${t('common.subject')}</label>
-        <input type="text" class="form-control" id="editSubject" value="${subject}">
+        <label>${isMentor ? 'Mentor group name' : t('common.subject')}</label>
+        <input type="text" class="form-control" id="editSubject" value="${escapeAttr(subject)}">
       </div>
       <div class="form-group">
-        <label>${t('common.grade')}</label>
-        <input type="text" class="form-control" id="editGradeLevel" value="${gradeLevel}">
+        <label>${isMentor ? 'Cohort / Year' : t('common.grade')}</label>
+        <input type="text" class="form-control" id="editGradeLevel" value="${escapeAttr(gradeLevel)}">
       </div>
     </div>
     <div class="modal-footer">
@@ -5521,8 +5522,8 @@ function showCreateClassroom() {
             No mentor-eligible teachers yet. Grant the mentor role from <strong>Users → ⋮ → Make mentor</strong> first.
           </div>
         `}
-        <div class="form-group" id="newClassroomSubjectWrap">
-          <label>${t('admin.subject_required')}</label>
+        <div class="form-group">
+          <label id="newClassroomSubjectLabel">${t('admin.subject_required')}</label>
           <input type="text" class="form-control" id="newClassroomSubject" placeholder="${t('admin.subject_placeholder')}">
         </div>
         <div class="form-group">
@@ -5546,19 +5547,23 @@ function showCreateClassroom() {
 }
 
 window.onAdminCreateClassroomKindToggle = function (isMentorGroup) {
-  const subjectWrap = document.getElementById('newClassroomSubjectWrap');
+  // Both fields stay visible for mentor groups too — only the labels and
+  // placeholders change so admins know they're entering the group name +
+  // cohort separately.
+  const subjectLabel = document.getElementById('newClassroomSubjectLabel');
+  const subjectInput = document.getElementById('newClassroomSubject');
   const gradeLabel = document.getElementById('newClassroomGradeLabel');
   const gradeInput = document.getElementById('newClassroomGrade');
   const teacherLabel = document.getElementById('newClassroomTeacherLabel');
   const teacherSelect = document.getElementById('newClassroomTeacher');
-  if (subjectWrap) subjectWrap.style.display = isMentorGroup ? 'none' : '';
-  if (gradeLabel) gradeLabel.textContent = isMentorGroup ? 'Mentor group name / cohort' : t('admin.grade_required');
-  if (gradeInput) gradeInput.placeholder = isMentorGroup ? 'e.g. Mentor Group A · Class of 2027' : t('admin.grade_placeholder');
+  if (subjectLabel) subjectLabel.textContent = isMentorGroup ? 'Mentor group name' : t('admin.subject_required');
+  if (subjectInput) subjectInput.placeholder = isMentorGroup ? "e.g. Yaro's Mentor Group" : t('admin.subject_placeholder');
+  if (gradeLabel) gradeLabel.textContent = 'Cohort / Year';
+  if (gradeInput) gradeInput.placeholder = 'e.g. Class of 2027';
   if (teacherLabel) teacherLabel.textContent = isMentorGroup ? 'Mentor' : t('admin.teacher_required');
-  // Filter the teacher dropdown to mentor-eligible only when the toggle is on.
   if (teacherSelect) {
     [...teacherSelect.options].forEach(opt => {
-      if (!opt.value) return; // keep the placeholder
+      if (!opt.value) return;
       const isMentor = opt.dataset.isMentor === '1';
       opt.hidden = isMentorGroup && !isMentor;
       if (opt.hidden && opt.selected) teacherSelect.value = '';
@@ -5568,10 +5573,9 @@ window.onAdminCreateClassroomKindToggle = function (isMentorGroup) {
 
 async function createClassroom() {
   const isMentorGroup = !!document.getElementById('newClassroomIsMentorAdmin')?.checked;
-  const subjectInput = document.getElementById('newClassroomSubject');
-  const grade_level = document.getElementById('newClassroomGrade').value;
+  const subject = document.getElementById('newClassroomSubject').value.trim();
+  const grade_level = document.getElementById('newClassroomGrade').value.trim();
   const teacher_id = parseInt(document.getElementById('newClassroomTeacher').value);
-  const subject = isMentorGroup ? 'Mentor Group' : (subjectInput?.value || '');
   const body = {
     subject,
     grade_level,
@@ -5591,8 +5595,8 @@ async function createClassroom() {
 
 function editClassroom(idOrObject) {
   // Accepts either an id (preferred — looked up from window._adminClassrooms)
-  // or a classroom object (legacy callers). Mentor groups skip the Subject
-  // input and ask for cohort only, since they don't have a subject by design.
+  // or a classroom object (legacy callers). Mentor groups now expose both
+  // name (subject) and cohort (grade_level) as separate editable fields.
   const classroom = typeof idOrObject === 'number'
     ? (window._adminClassrooms || []).find(c => c.id === idOrObject)
     : idOrObject;
@@ -5605,14 +5609,12 @@ function editClassroom(idOrObject) {
     openModal(`
       <div class="modal-header"><h3>${t('admin.edit_classroom_title', {subject: classroom.subject})}${isMentor ? ' <span style="font-size:0.7rem;background:#eef2ff;color:#4338ca;padding:2px 8px;border-radius:10px;font-weight:600;margin-left:6px;vertical-align:middle">MENTOR</span>' : ''}</h3><button class="modal-close" onclick="closeModal()">&times;</button></div>
       <div class="modal-body">
-        ${isMentor ? '' : `
-          <div class="form-group">
-            <label>${t('common.subject')}</label>
-            <input type="text" class="form-control" id="editClassroomSubject" value="${escapeAttr(classroom.subject)}">
-          </div>
-        `}
         <div class="form-group">
-          <label>${isMentor ? 'Mentor group name / cohort' : t('admin.grade_level')}</label>
+          <label>${isMentor ? 'Mentor group name' : t('common.subject')}</label>
+          <input type="text" class="form-control" id="editClassroomSubject" value="${escapeAttr(classroom.subject)}">
+        </div>
+        <div class="form-group">
+          <label>${isMentor ? 'Cohort / Year' : t('admin.grade_level')}</label>
           <input type="text" class="form-control" id="editClassroomGrade" value="${escapeAttr(classroom.grade_level)}">
         </div>
         <div class="form-group">
@@ -5624,23 +5626,18 @@ function editClassroom(idOrObject) {
       </div>
       <div class="modal-footer">
         <button class="btn btn-outline" onclick="closeModal()">${t('common.cancel')}</button>
-        <button class="btn btn-primary" onclick="saveClassroomEdit(${classroom.id}, ${isMentor ? 'true' : 'false'})">${t('admin.save_changes')}</button>
+        <button class="btn btn-primary" onclick="saveClassroomEdit(${classroom.id})">${t('admin.save_changes')}</button>
       </div>
     `);
   });
 }
 
-async function saveClassroomEdit(classroomId, isMentor = false) {
-  const subjectInput = document.getElementById('editClassroomSubject');
+async function saveClassroomEdit(classroomId) {
   const body = {
+    subject: document.getElementById('editClassroomSubject').value,
     grade_level: document.getElementById('editClassroomGrade').value,
     teacher_id: parseInt(document.getElementById('editClassroomTeacher').value),
   };
-  if (isMentor) {
-    body.subject = 'Mentor Group';
-  } else if (subjectInput) {
-    body.subject = subjectInput.value;
-  }
   try {
     await API.put(`/admin/classrooms/${classroomId}`, body);
     toast(t('admin.classroom_updated'));
