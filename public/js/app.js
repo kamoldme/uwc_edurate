@@ -2336,52 +2336,6 @@ async function renderTeacherFeedback() {
       </div>
     </div>
 
-    ${(() => {
-      // Mentor "Overall Performance" — only for teachers with is_mentor=1.
-      // Aggregates the approved mentor reviews from data.recent_reviews so
-      // mentors see a single performance summary in the same place as their
-      // academic feedback (no separate sidebar tab).
-      if (!currentUser?.is_mentor) return '';
-      const mentorReviews = (data.recent_reviews || []).filter(r => r.review_kind === 'mentor' && r.approved_status === 1);
-      const n = mentorReviews.length;
-      const avgOverall = n ? mentorReviews.reduce((s, r) => s + (r.overall_rating || 0), 0) / n : 0;
-      const perCriterion = {};
-      MENTOR_CRITERIA_CONFIG.forEach(c => {
-        const vals = mentorReviews.map(r => r[c.db_col]).filter(v => v != null && v > 0);
-        perCriterion[c.slug] = vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : 0;
-      });
-      return `
-        <div class="card" style="margin-bottom:28px">
-          <div class="card-header" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
-            <h3>Mentor — Overall Performance</h3>
-            <span style="font-size:0.7rem;background:#eef2ff;color:#4338ca;padding:3px 9px;border-radius:10px;font-weight:600;letter-spacing:0.04em">MENTOR</span>
-          </div>
-          <div class="card-body">
-            <div style="text-align:center;padding:20px 0">
-              <div style="font-size:3rem;font-weight:700;color:${n > 0 ? scoreColor(avgOverall) : 'var(--gray-300)'};margin-bottom:16px">
-                ${n > 0 ? fmtScore(avgOverall) : '0.00'}
-              </div>
-              ${starsHTML(avgOverall, 'large')}
-              <div style="color:var(--gray-500);margin-top:16px;font-size:1rem">${n} mentor review${n !== 1 ? 's' : ''}</div>
-              ${n === 0 ? `<div style="margin-top:8px;font-size:0.8rem;color:var(--gray-400)">No mentor feedback yet — mentees will rate you when a feedback period is active.</div>` : ''}
-            </div>
-            <div style="margin-top:24px">
-              ${MENTOR_CRITERIA_CONFIG.map((c, i) => {
-                const val = perCriterion[c.slug];
-                const border = i < MENTOR_CRITERIA_CONFIG.length - 1 ? 'border-bottom:1px solid var(--gray-100)' : '';
-                return `<div style="display:flex;justify-content:space-between;align-items:center;padding:12px 0;${border}">
-                  <span style="display:flex;align-items:center;gap:4px">${escapeHtml(c.label)}${criteriaInfoIcon(c.info_key)}</span>
-                  <span style="font-weight:600;color:${n > 0 ? scoreColor(val) : 'var(--gray-300)'}">
-                    ${n > 0 ? fmtScore(val) : '0.00'} ${starsHTML(n > 0 ? val : 0)}
-                  </span>
-                </div>`;
-              }).join('')}
-            </div>
-          </div>
-        </div>
-      `;
-    })()}
-
     <!-- Individual Reviews (paginated) -->
     <div class="card">
       <div class="card-header" style="display:flex;justify-content:space-between;align-items:center">
