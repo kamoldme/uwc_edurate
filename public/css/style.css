@@ -2773,6 +2773,10 @@ tbody tr:last-child td { border-bottom: none; }
 }
 .exp-card:hover { box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08); transform: translateY(-1px); }
 .exp-card--readonly:hover { box-shadow: var(--shadow); transform: none; }
+/* Readonly cards (head's per-student modal) aren't wrapped in .exp-card-list,
+   so they don't get gap from the flex container. Add bottom spacing here. */
+.exp-card--readonly { margin-bottom: 14px; }
+.exp-card--readonly:last-child { margin-bottom: 0; }
 .exp-card-head {
   display: flex;
   justify-content: space-between;
