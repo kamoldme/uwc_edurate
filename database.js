@@ -1234,6 +1234,64 @@ try {
   console.error('Migration error (reviews nullable criteria):', err.message);
 }
 
+// Migration: widen the reviews UNIQUE constraint to include classroom_id.
+// Original constraint was UNIQUE(teacher_id, student_id, feedback_period_id),
+// which blocked a student from reviewing the same teacher across two
+// classrooms in one period — for example, reviewing a teacher's academic
+// classroom AND mentor group in the same feedback cycle. Detect by trying
+// to detect "(teacher_id, student_id, feedback_period_id)" without classroom_id
+// in the table SQL, and rebuild if found.
+try {
+  const reviewsSql = db.prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='reviews'").get()?.sql || '';
+  const oldUnique = /UNIQUE\s*\(\s*teacher_id\s*,\s*student_id\s*,\s*feedback_period_id\s*\)/i.test(reviewsSql);
+  const newUnique = /UNIQUE\s*\([^)]*classroom_id[^)]*\)/i.test(reviewsSql);
+  if (oldUnique && !newUnique) {
+    console.log('🔄 Migration: widening reviews UNIQUE to include classroom_id...');
+    db.pragma('foreign_keys = OFF');
+    db.transaction(() => {
+      const cols = db.prepare("PRAGMA table_info(reviews)").all();
+      const existingColNames = cols.map(c => c.name);
+
+      // Build the new table from the existing column list, but add classroom_id
+      // to the UNIQUE constraint. We replicate every column from the current
+      // reviews table verbatim so we don't lose mentor criteria or review_kind.
+      const colDefs = existingColNames.map(name => {
+        const col = cols.find(c => c.name === name);
+        const type = col.type || '';
+        const notnull = col.notnull ? ' NOT NULL' : '';
+        const dflt = col.dflt_value !== null ? ` DEFAULT ${col.dflt_value}` : '';
+        const pk = col.pk ? ' PRIMARY KEY AUTOINCREMENT' : '';
+        return `${name} ${type}${pk}${notnull}${dflt}`;
+      }).join(',\n          ');
+
+      db.exec(`
+        CREATE TABLE reviews_new2 (
+          ${colDefs},
+          FOREIGN KEY (teacher_id) REFERENCES teachers(id) ON DELETE CASCADE,
+          FOREIGN KEY (classroom_id) REFERENCES classrooms(id) ON DELETE CASCADE,
+          FOREIGN KEY (student_id) REFERENCES users(id) ON DELETE CASCADE,
+          FOREIGN KEY (term_id) REFERENCES terms(id) ON DELETE CASCADE,
+          FOREIGN KEY (feedback_period_id) REFERENCES feedback_periods(id) ON DELETE CASCADE,
+          UNIQUE(teacher_id, student_id, feedback_period_id, classroom_id)
+        );
+      `);
+      const colList = existingColNames.join(', ');
+      db.exec(`INSERT INTO reviews_new2 (${colList}) SELECT ${colList} FROM reviews;`);
+      db.exec('DROP TABLE reviews;');
+      db.exec('ALTER TABLE reviews_new2 RENAME TO reviews;');
+      db.exec('CREATE INDEX IF NOT EXISTS idx_reviews_teacher ON reviews(teacher_id);');
+      db.exec('CREATE INDEX IF NOT EXISTS idx_reviews_student ON reviews(student_id);');
+      db.exec('CREATE INDEX IF NOT EXISTS idx_reviews_period ON reviews(feedback_period_id);');
+      db.exec('CREATE INDEX IF NOT EXISTS idx_reviews_classroom ON reviews(classroom_id);');
+      db.exec("CREATE INDEX IF NOT EXISTS idx_reviews_kind ON reviews(review_kind);");
+    })();
+    db.pragma('foreign_keys = ON');
+    console.log('✅ Migration: reviews UNIQUE now includes classroom_id');
+  }
+} catch (err) {
+  console.error('Migration error (reviews unique with classroom_id):', err.message);
+}
+
 // Seed the default admin only. Teacher / head / student accounts are created
 // through the admin UI on each deploy as needed — no need to seed them every
 // boot. The admin seed remains so a fresh DB is recoverable without DB access.

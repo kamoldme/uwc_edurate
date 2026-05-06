@@ -96,6 +96,7 @@ router.get('/eligible-teachers', authenticate, authorize('student'), (req, res) 
       LEFT JOIN reviews r ON r.teacher_id = te.id
         AND r.student_id = cm.student_id
         AND r.feedback_period_id = fpc_a.period_id
+        AND r.classroom_id = c.id
         AND r.flagged_status != 'rejected'
       WHERE cm.student_id = ?
         AND c.id IN (${clP})
@@ -211,14 +212,17 @@ router.post('/', authenticate, authorize('student'), (req, res) => {
     // happens we recycle the existing rejected row in place — same id, fresh
     // values, status reset to 'pending'/'flagged'.
     const submitReview = db.transaction(() => {
+      // Dup-check is per (teacher, student, period, classroom) — wider than
+      // the legacy (teacher, student, period) so a student can submit both
+      // academic and mentor reviews for the same teacher in one period.
       const activeDup = db.prepare(
-        "SELECT id FROM reviews WHERE teacher_id = ? AND student_id = ? AND feedback_period_id = ? AND flagged_status != 'rejected'"
-      ).get(teacher_id, req.user.id, activePeriod.id);
+        "SELECT id FROM reviews WHERE teacher_id = ? AND student_id = ? AND feedback_period_id = ? AND classroom_id = ? AND flagged_status != 'rejected'"
+      ).get(teacher_id, req.user.id, activePeriod.id, classroom_id);
       if (activeDup) return { duplicate: true };
 
       const rejected = db.prepare(
-        "SELECT id FROM reviews WHERE teacher_id = ? AND student_id = ? AND feedback_period_id = ? AND flagged_status = 'rejected'"
-      ).get(teacher_id, req.user.id, activePeriod.id);
+        "SELECT id FROM reviews WHERE teacher_id = ? AND student_id = ? AND feedback_period_id = ? AND classroom_id = ? AND flagged_status = 'rejected'"
+      ).get(teacher_id, req.user.id, activePeriod.id, classroom_id);
 
       if (rejected) {
         const setCols = activeCriteriaCols.map(c => `${c} = ?`).join(', ');
