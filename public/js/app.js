@@ -7309,16 +7309,16 @@ function paintHeadExperiences() {
   el.innerHTML = `
     <div class="grid grid-3" style="margin-bottom:24px">
       <div class="stat-card"><div class="stat-label">Total reflections</div><div class="stat-value">${totals.total_experiences}</div></div>
-      <div class="stat-card">
+      <div class="stat-card exp-top-card">
         <div class="stat-label">Top value</div>
-        <div class="stat-value-sm">${topValue
-          ? `<span style="font-weight:600">${escapeHtml(topValue.value)}</span> <span class="exp-stat-meta">${topValue.count}×</span>`
+        <div class="exp-top-tag-row">${topValue
+          ? `<span class="exp-top-tag exp-top-tag--value">${escapeHtml(topValue.value)}</span><span class="exp-top-count">${topValue.count}×</span>`
           : '<span class="score-empty">Not yet available</span>'}</div>
       </div>
-      <div class="stat-card">
+      <div class="stat-card exp-top-card">
         <div class="stat-label">Top experience</div>
-        <div class="stat-value-sm">${topCategory
-          ? `<span style="font-weight:600">${escapeHtml(topCategory.category)}</span> <span class="exp-stat-meta">${topCategory.count}×</span>`
+        <div class="exp-top-tag-row">${topCategory
+          ? `<span class="exp-top-tag exp-top-tag--experience">${escapeHtml(topCategory.category)}</span><span class="exp-top-count">${topCategory.count}×</span>`
           : '<span class="score-empty">Not yet available</span>'}</div>
       </div>
     </div>
@@ -7478,6 +7478,43 @@ window.headExpStudentsPage = function (page) {
 // the calling site picks the right URL.
 function renderStudentExperiencesModalHTML(data, config) {
   const { student, experiences } = data;
+
+  // Same four headline stats as the student's own "My UWC Experience Maps"
+  // page. Computed from the student's reflections so the head sees exactly
+  // what the student would see on their own dashboard, plus the timeline below.
+  const valueCounts = Object.fromEntries((config.values || []).map(v => [v, 0]));
+  experiences.forEach(e => (e.values || []).forEach(v => {
+    if (valueCounts[v] !== undefined) valueCounts[v]++;
+  }));
+  const topValueEntry = Object.entries(valueCounts).sort((a, b) => b[1] - a[1]).find(([, c]) => c > 0);
+  const valuesExplored = Object.values(valueCounts).filter(c => c > 0).length;
+  const latest = experiences[0];
+
+  const statsHTML = `
+    <div class="grid grid-4 exp-summary" style="margin-bottom:20px">
+      <div class="exp-stat-card">
+        <div class="exp-stat-label">Total reflections</div>
+        <div class="exp-stat-value">${experiences.length}</div>
+      </div>
+      <div class="exp-stat-card">
+        <div class="exp-stat-label">Most connected value</div>
+        <div class="exp-stat-value-sm">${topValueEntry
+          ? `<span class="exp-value-chip" style="--chip-color:${expValueColor(topValueEntry[0], config)}">${escapeHtml(topValueEntry[0])}</span> <span class="exp-stat-meta">${topValueEntry[1]}×</span>`
+          : '<span class="exp-stat-empty">—</span>'}</div>
+      </div>
+      <div class="exp-stat-card">
+        <div class="exp-stat-label">Values explored</div>
+        <div class="exp-stat-value">${valuesExplored} <span class="exp-stat-meta">/ ${(config.values || []).length}</span></div>
+      </div>
+      <div class="exp-stat-card">
+        <div class="exp-stat-label">Latest reflection</div>
+        <div class="exp-stat-value-sm">${latest
+          ? `<div class="exp-stat-line">${escapeHtml(latest.title)}</div><div class="exp-stat-meta">${formatExpDate(latest.date)}</div>`
+          : '<span class="exp-stat-empty">No reflections yet</span>'}</div>
+      </div>
+    </div>
+  `;
+
   return `
     <div class="modal-header">
       <h3>${escapeHtml(student.full_name)}'s UWC Experience Map</h3>
@@ -7489,8 +7526,8 @@ function renderStudentExperiencesModalHTML(data, config) {
         <span>${experiences.length} reflection${experiences.length !== 1 ? 's' : ''}</span>
       </div>
       ${experiences.length === 0
-        ? '<p style="color:var(--gray-500);text-align:center;padding:32px">No reflections yet.</p>'
-        : experiences.map(e => `
+        ? `${statsHTML}<p style="color:var(--gray-500);text-align:center;padding:32px">No reflections yet.</p>`
+        : `${statsHTML}${experiences.map(e => `
           <article class="exp-card exp-card--readonly">
             <div class="exp-card-head">
               <div>
@@ -7505,7 +7542,7 @@ function renderStudentExperiencesModalHTML(data, config) {
             <div class="exp-card-values">${(e.values || []).map(v => expValueChip(v, config)).join('')}</div>
             <div class="exp-card-reflection">${escapeHtml(e.reflection)}</div>
           </article>
-        `).join('')}
+        `).join('')}`}
     </div>
     <div class="modal-footer"><button class="btn btn-outline" onclick="closeModal()">Close</button></div>
   `;

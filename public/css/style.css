@@ -2281,6 +2281,51 @@ tbody tr:last-child td { border-bottom: none; }
 }
 .exp-back-btn { margin-bottom: 16px; }
 
+/* Head Experience Map "Top value" / "Top experience" stat cards. The label
+   sits at the top, then a generous gap, then the category/value as a
+   colorful pill tag with the count number trailing in muted gray. */
+.exp-top-card {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 18px;
+  min-height: 116px;
+}
+.exp-top-tag-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: auto;
+}
+.exp-top-tag {
+  display: inline-block;
+  padding: 7px 14px;
+  border-radius: 999px;
+  font-size: 0.95rem;
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: 0.01em;
+  max-width: 100%;
+  word-break: break-word;
+}
+.exp-top-tag--value {
+  background: linear-gradient(135deg, #ede9fe 0%, #ddd6fe 100%);
+  color: #4338ca;
+  border: 1px solid #c7d2fe;
+}
+.exp-top-tag--experience {
+  background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%);
+  color: #047857;
+  border: 1px solid #86efac;
+}
+.exp-top-count {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--gray-500);
+  font-variant-numeric: tabular-nums;
+}
+
 /* Empty placeholder used inside score cells so the surrounding scoreColor()
    red/orange doesn't bleed onto a "no data yet" label. !important here is
    load-bearing — the parent inline style="color: var(--danger)" wins
