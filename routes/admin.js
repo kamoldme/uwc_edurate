@@ -785,9 +785,13 @@ router.post('/feedback-periods', authenticate, authorize('admin'), authorizeOrg,
     const existingCount = db.prepare('SELECT COUNT(*) as c FROM feedback_periods WHERE term_id = ?').get(term_id).c;
     const periodName = (name && name.trim()) || `Period ${existingCount + 1}`;
 
+    // Periods now activate on creation — admins create them when they want
+    // students to start submitting. The overlap check above ensures we don't
+    // double-open a classroom across two active periods. Admins can still
+    // close a period from the UI toggle if they need a draft state.
     const periodId = db.transaction(() => {
       const r = db.prepare(
-        'INSERT INTO feedback_periods (term_id, name, start_date, end_date, active_status, teacher_private) VALUES (?, ?, ?, ?, 0, ?)'
+        'INSERT INTO feedback_periods (term_id, name, start_date, end_date, active_status, teacher_private) VALUES (?, ?, ?, ?, 1, ?)'
       ).run(term_id, periodName, start_date, end_date, tp !== undefined ? (tp ? 1 : 0) : 1);
       const pid = r.lastInsertRowid;
       const ins = db.prepare('INSERT OR IGNORE INTO feedback_period_classrooms (feedback_period_id, classroom_id) VALUES (?, ?)');
