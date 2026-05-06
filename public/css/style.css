@@ -2377,8 +2377,26 @@ tbody tr:last-child td { border-bottom: none; }
   text-align: center;
   color: inherit;
 }
-.exp-orbit-node--outer { width: 17%; aspect-ratio: 1 / 1; }
+.exp-orbit-node--outer { width: 20%; aspect-ratio: 1 / 1; }
 .exp-orbit-node--inner { width: 15%; aspect-ratio: 1 / 1; color: #475569; }
+/* Outer ring text uses the inscribed square inside the circle (≈71% of
+   diameter). Text wraps inside that square instead of spilling out, so
+   it can be visibly bigger without breaking the orbit's clean silhouette.
+   Up to 5 lines, then ellipsis as a last resort. */
+.exp-orbit-node--outer .exp-orbit-node-label {
+  width: 80%;
+  margin: 0;
+  font-size: 0.72rem;
+  line-height: 1.2;
+  letter-spacing: 0.01em;
+  display: -webkit-box;
+  -webkit-line-clamp: 5;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  word-break: normal;
+  overflow-wrap: anywhere;
+  hyphens: auto;
+}
 .exp-orbit-node--inner .exp-orbit-node-label { color: inherit; }
 .exp-orbit-node.is-selected {
   background: #4f46e5;
@@ -2477,8 +2495,9 @@ tbody tr:last-child td { border-bottom: none; }
 }
 @media (max-width: 540px) {
   .exp-orbit-node-label { font-size: 0.55rem; width: 140%; margin: 0 -20%; }
-  .exp-orbit-node--outer { width: 19%; }
+  .exp-orbit-node--outer { width: 22%; }
   .exp-orbit-node--inner { width: 17%; }
+  .exp-orbit-node--outer .exp-orbit-node-label { font-size: 0.62rem; width: 80%; margin: 0; }
   .exp-orbit-center { width: 26%; }
   .exp-orbit-node-add-icon { font-size: 1.3rem; }
 }
