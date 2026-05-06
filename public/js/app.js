@@ -2457,7 +2457,18 @@ async function renderTeacherMentorFeedback() {
   const el = document.getElementById('contentArea');
   const reviews = (data.recent_reviews || []).filter(r => r.review_kind === 'mentor' && r.approved_status === 1);
 
-  // Group by mentor group
+  // Aggregate across all mentor reviews — powers the "Overall Performance"
+  // card. Same shape as the academic Overall Performance card in the
+  // Teacher Feedback tab, just with the 5 mentor criteria.
+  const n = reviews.length;
+  const overallAvg = n ? reviews.reduce((s, r) => s + (r.overall_rating || 0), 0) / n : 0;
+  const overallPerCriterion = {};
+  MENTOR_CRITERIA_CONFIG.forEach(c => {
+    const vals = reviews.map(r => r[c.db_col]).filter(v => v != null && v > 0);
+    overallPerCriterion[c.slug] = vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : 0;
+  });
+
+  // Per-mentor-group breakdown (same as before, sits below Overall Performance).
   const byGroup = {};
   reviews.forEach(r => {
     const key = `${r.classroom_subject} (${r.grade_level})`;
@@ -2476,12 +2487,28 @@ async function renderTeacherMentorFeedback() {
 
   el.innerHTML = `
     <div class="card" style="margin-bottom:24px">
-      <div class="card-header" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
-        <h3>Mentor feedback</h3>
-        <span style="font-size:0.78rem;color:var(--gray-500)">${reviews.length} approved review${reviews.length !== 1 ? 's' : ''}</span>
-      </div>
+      <div class="card-header"><h3>${t('teacher.overall_performance')}</h3></div>
       <div class="card-body">
-        <p style="color:var(--gray-500);margin:0 0 12px;font-size:0.88rem">Anonymous feedback from your mentees, broken down by mentor group.</p>
+        <div style="text-align:center;padding:20px 0">
+          <div style="font-size:3rem;font-weight:700;color:${n > 0 ? scoreColor(overallAvg) : 'var(--gray-300)'};margin-bottom:16px">
+            ${n > 0 ? fmtScore(overallAvg) : '0.00'}
+          </div>
+          ${starsHTML(overallAvg, 'large')}
+          <div style="color:var(--gray-500);margin-top:16px;font-size:1rem">${n} mentor review${n !== 1 ? 's' : ''}</div>
+          ${n === 0 ? `<div style="margin-top:8px;font-size:0.8rem;color:var(--gray-400)">No mentor feedback yet — mentees will rate you when a feedback period is active.</div>` : ''}
+        </div>
+        <div style="margin-top:24px">
+          ${MENTOR_CRITERIA_CONFIG.map((c, i) => {
+            const val = overallPerCriterion[c.slug];
+            const border = i < MENTOR_CRITERIA_CONFIG.length - 1 ? 'border-bottom:1px solid var(--gray-100)' : '';
+            return `<div style="display:flex;justify-content:space-between;align-items:center;padding:12px 0;${border}">
+              <span style="display:flex;align-items:center;gap:4px">${escapeHtml(c.label)}${criteriaInfoIcon(c.info_key)}</span>
+              <span style="font-weight:600;color:${n > 0 ? scoreColor(val) : 'var(--gray-300)'}">
+                ${n > 0 ? fmtScore(val) : '0.00'} ${starsHTML(n > 0 ? val : 0)}
+              </span>
+            </div>`;
+          }).join('')}
+        </div>
       </div>
     </div>
 
