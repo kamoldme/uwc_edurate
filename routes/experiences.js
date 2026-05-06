@@ -204,15 +204,37 @@ router.delete('/:id', authenticate, authorize('student'), (req, res) => {
 // counts of how many reflections were submitted, broken down by value /
 // category / month, plus a per-student count for engagement tracking.
 
-// GET /api/experiences/head/overview — aggregates + per-student counts only
+// GET /api/experiences/head/overview — aggregates + per-student counts.
+// Scope: ?scope=term (default) limits aggregates to the active term's date
+// range so participation reflects "this cycle". ?scope=all = lifetime.
+// The students_total denominator is always currently-enrolled students,
+// regardless of scope, so participation reads as "X% of current students
+// reflected during {term}".
 router.get('/head/overview', authenticate, authorize('head', 'admin'), authorizeOrg, (req, res) => {
-  const orgFilter = 'WHERE e.org_id = ?';
-  const orgArgs = [req.orgId];
+  const scope = req.query.scope === 'all' ? 'all' : 'term';
+
+  let activeTerm = null;
+  let scopeFilter = '';
+  let scopeArgs = [];
+  if (scope === 'term') {
+    activeTerm = db.prepare(`
+      SELECT id, name, start_date, end_date FROM terms
+      WHERE active_status = 1 AND COALESCE(school_id, 1) = 1
+      ORDER BY id DESC LIMIT 1
+    `).get();
+    if (activeTerm && activeTerm.start_date && activeTerm.end_date) {
+      scopeFilter = ' AND date(e.experience_date) BETWEEN date(?) AND date(?)';
+      scopeArgs = [activeTerm.start_date, activeTerm.end_date];
+    }
+  }
+
+  const baseFilter = `WHERE e.org_id = ?${scopeFilter}`;
+  const baseArgs = [req.orgId, ...scopeArgs];
 
   const totals = db.prepare(`
     SELECT COUNT(*) as total_experiences, COUNT(DISTINCT e.student_id) as students_engaged
-    FROM experiences e ${orgFilter}
-  `).get(...orgArgs);
+    FROM experiences e ${baseFilter}
+  `).get(...baseArgs);
 
   const totalStudents = db.prepare(`
     SELECT COUNT(*) as n FROM users WHERE role = 'student' AND COALESCE(org_id, 1) = ?
@@ -220,19 +242,13 @@ router.get('/head/overview', authenticate, authorize('head', 'admin'), authorize
 
   const byCategory = db.prepare(`
     SELECT category, COUNT(*) as count
-    FROM experiences e ${orgFilter}
+    FROM experiences e ${baseFilter}
     GROUP BY category ORDER BY count DESC
-  `).all(...orgArgs);
-
-  const byMonth = db.prepare(`
-    SELECT strftime('%Y-%m', experience_date) as month, COUNT(*) as count
-    FROM experiences e ${orgFilter}
-    GROUP BY month ORDER BY month ASC
-  `).all(...orgArgs);
+  `).all(...baseArgs);
 
   const allRows = db.prepare(`
-    SELECT values_json FROM experiences e ${orgFilter}
-  `).all(...orgArgs);
+    SELECT values_json FROM experiences e ${baseFilter}
+  `).all(...baseArgs);
   const valueCounts = Object.fromEntries(VALUES.map(v => [v, 0]));
   allRows.forEach(r => {
     try {
@@ -244,18 +260,32 @@ router.get('/head/overview', authenticate, authorize('head', 'admin'), authorize
   const byValue = VALUES.map(v => ({ value: v, count: valueCounts[v] }))
     .sort((a, b) => b.count - a.count);
 
-  const perStudent = db.prepare(`
-    SELECT u.id as student_id, u.full_name as student_name, u.grade_or_position as grade,
-      COUNT(e.id) as count,
-      MAX(e.experience_date) as last_date
+  // Per-student counts. Counts respect the scope; the row list is every
+  // currently-enrolled student so the head sees who hasn't engaged yet.
+  const perStudentRows = db.prepare(`
+    SELECT u.id as student_id, u.full_name as student_name, u.grade_or_position as grade
     FROM users u
-    LEFT JOIN experiences e ON e.student_id = u.id
     WHERE u.role = 'student' AND COALESCE(u.org_id, 1) = ?
-    GROUP BY u.id
-    ORDER BY count DESC, u.full_name ASC
+    ORDER BY u.full_name ASC
   `).all(req.orgId);
 
+  const studentCountsRows = db.prepare(`
+    SELECT student_id, COUNT(id) as count, MAX(experience_date) as last_date
+    FROM experiences e ${baseFilter}
+    GROUP BY student_id
+  `).all(...baseArgs);
+  const countsMap = Object.fromEntries(studentCountsRows.map(r => [r.student_id, r]));
+
+  const perStudent = perStudentRows.map(s => ({
+    student_id: s.student_id,
+    student_name: s.student_name,
+    grade: s.grade,
+    count: countsMap[s.student_id]?.count || 0,
+    last_date: countsMap[s.student_id]?.last_date || null,
+  })).sort((a, b) => b.count - a.count || a.student_name.localeCompare(b.student_name));
+
   res.json({
+    scope: { mode: scope, term: activeTerm },
     totals: {
       total_experiences: totals.total_experiences,
       students_engaged: totals.students_engaged,
@@ -263,7 +293,6 @@ router.get('/head/overview', authenticate, authorize('head', 'admin'), authorize
       participation_pct: totalStudents ? Math.round((totals.students_engaged / totalStudents) * 100) : 0,
     },
     by_category: byCategory,
-    by_month: byMonth,
     by_value: byValue,
     students: perStudent,
   });

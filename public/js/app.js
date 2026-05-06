@@ -755,7 +755,7 @@ function scoreColor(score) {
 
 // Format a score to always show 2 decimal places (e.g. 4 → "4.00", 3.5 → "3.50")
 function fmtScore(val) {
-  if (val === null || val === undefined) return 'N/A';
+  if (val === null || val === undefined) return 'No info yet';
   return Number(val).toFixed(2);
 }
 
@@ -4296,6 +4296,7 @@ async function showCreateUser() {
           <option value="student">${t('common.student')}</option>
           <option value="teacher">${t('common.teacher')}</option>
           <option value="head">${t('common.school_head')}</option>
+          <option value="admin">${t('common.admin') || 'Admin'}</option>
         </select>
       </div>
       <div class="form-group" id="gradeFieldWrap">
@@ -6802,48 +6803,73 @@ function escapeAttr(str) {
 }
 
 // ============ HEAD: Experience Map overview ============
+let _headExpScope = 'term';   // 'term' | 'all'
+let _headExpData = null;
+let _headExpConfig = null;
+let _headExpStudentsPage = 1;
+let _headExpStudentsQuery = '';
+const HEAD_EXP_PAGE_SIZE = 10;
+
 async function renderHeadExperiences() {
   const el = document.getElementById('contentArea');
   el.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
   const [data, config] = await Promise.all([
-    API.get('/experiences/head/overview'),
+    API.get(`/experiences/head/overview?scope=${_headExpScope}`),
     loadExperienceConfig(),
   ]);
+  _headExpData = data;
+  _headExpConfig = config;
+  _headExpStudentsPage = 1;
+  _headExpStudentsQuery = '';
+  paintHeadExperiences();
+}
 
-  const { totals, by_category, by_month, by_value, students } = data;
+function paintHeadExperiences() {
+  const data = _headExpData;
+  const el = document.getElementById('contentArea');
+  const { totals, by_category, by_value, students, scope } = data;
+  const scopeLabel = scope.mode === 'term' && scope.term ? scope.term.name : 'All time';
+  const participationLabel = scope.mode === 'term' && scope.term
+    ? `${scope.term.name} participation`
+    : 'All-time participation';
 
   el.innerHTML = `
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:16px;flex-wrap:wrap">
+      <div style="font-size:0.9rem;color:var(--gray-600)">
+        Showing <strong>${escapeHtml(scopeLabel)}</strong>${scope.mode === 'term' && scope.term ? ` <span style="color:var(--gray-400)">(${scope.term.start_date} → ${scope.term.end_date})</span>` : ''}
+      </div>
+      <div class="exp-tabs" style="margin:0">
+        <button class="exp-tab ${scope.mode === 'term' ? 'is-active' : ''}" onclick="headExpSetScope('term')">This term</button>
+        <button class="exp-tab ${scope.mode === 'all' ? 'is-active' : ''}" onclick="headExpSetScope('all')">All time</button>
+      </div>
+    </div>
+
     <div class="grid grid-4" style="margin-bottom:24px">
       <div class="stat-card"><div class="stat-label">Total reflections</div><div class="stat-value">${totals.total_experiences}</div></div>
       <div class="stat-card"><div class="stat-label">Students engaged</div><div class="stat-value">${totals.students_engaged} <span class="exp-stat-meta">/ ${totals.students_total}</span></div></div>
-      <div class="stat-card"><div class="stat-label">Participation</div><div class="stat-value">${totals.participation_pct}%</div></div>
-      <div class="stat-card"><div class="stat-label">Top value</div><div class="stat-value-sm">${by_value[0]?.count ? by_value[0].value : '—'}</div></div>
+      <div class="stat-card"><div class="stat-label">${escapeHtml(participationLabel)}</div><div class="stat-value">${totals.participation_pct}%</div></div>
+      <div class="stat-card"><div class="stat-label">Top value</div><div class="stat-value-sm">${by_value[0]?.count ? by_value[0].value : '<span class="exp-stat-empty">No info yet</span>'}</div></div>
     </div>
 
     <div class="grid grid-2" style="margin-bottom:24px">
       <div class="card">
         <div class="card-header"><h3>Reflections by UWC value</h3></div>
-        <div class="card-body" style="height:340px"><canvas id="headExpByValue"></canvas></div>
+        <div class="card-body" style="height:340px">${by_value.some(v => v.count) ? '<canvas id="headExpByValue"></canvas>' : '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--gray-400);font-size:0.9rem">No info yet.</div>'}</div>
       </div>
       <div class="card">
         <div class="card-header"><h3>Reflections by category</h3></div>
-        <div class="card-body" style="height:340px"><canvas id="headExpByCategory"></canvas></div>
+        <div class="card-body" style="height:340px">${by_category.length ? '<canvas id="headExpByCategory"></canvas>' : '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--gray-400);font-size:0.9rem">No info yet.</div>'}</div>
       </div>
-    </div>
-
-    <div class="card" style="margin-bottom:24px">
-      <div class="card-header"><h3>Reflections over time</h3></div>
-      <div class="card-body" style="height:280px"><canvas id="headExpByMonth"></canvas></div>
     </div>
 
     <div class="card">
       <div class="card-header" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
         <h3>Students</h3>
-        <span style="font-size:0.78rem;color:var(--gray-500)">${students.length} student${students.length !== 1 ? 's' : ''}</span>
+        <span style="font-size:0.78rem;color:var(--gray-500)" id="headExpStudentsCount"></span>
       </div>
       <div class="card-body" style="padding:0">
         <div style="padding:12px 16px;border-bottom:1px solid var(--gray-100)">
-          <input id="headExpStudentSearch" type="search" class="form-control" placeholder="Search students by name" oninput="filterHeadExpStudents(this.value)" autocomplete="off">
+          <input id="headExpStudentSearch" type="search" class="form-control" placeholder="Search students by name" value="${escapeAttr(_headExpStudentsQuery)}" oninput="headExpSetStudentQuery(this.value)" autocomplete="off">
         </div>
         <div class="table-container">
           <table>
@@ -6855,22 +6881,15 @@ async function renderHeadExperiences() {
                 <th>Last reflection</th>
               </tr>
             </thead>
-            <tbody id="headExpStudentsBody">
-              ${students.map(s => `
-                <tr data-search="${escapeAttr((s.student_name || '').toLowerCase())}">
-                  <td><strong>${escapeHtml(s.student_name || '')}</strong></td>
-                  <td>${s.grade || '-'}</td>
-                  <td style="text-align:right;font-weight:600">${s.count}</td>
-                  <td>${s.last_date ? formatExpDate(s.last_date) : '<span style="color:var(--gray-400)">—</span>'}</td>
-                </tr>
-              `).join('')}
-              <tr id="headExpStudentsEmpty" style="display:none"><td colspan="4" style="text-align:center;padding:24px;color:var(--gray-500)">No students match that search.</td></tr>
-            </tbody>
+            <tbody id="headExpStudentsBody"></tbody>
           </table>
         </div>
+        <div id="headExpStudentsPager" style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:12px 16px;border-top:1px solid var(--gray-100);flex-wrap:wrap"></div>
       </div>
     </div>
   `;
+
+  paintHeadExpStudentsTable();
 
   // Charts
   const palette = ['#059669', '#0ea5e9', '#8b5cf6', '#ec4899', '#f59e0b', '#10b981', '#3b82f6', '#ef4444', '#a16207'];
@@ -6904,34 +6923,85 @@ async function renderHeadExperiences() {
       },
     });
   }
-  const monthCtx = document.getElementById('headExpByMonth');
-  if (monthCtx) {
-    chartInstances.headExpByMonth = new Chart(monthCtx, {
-      type: 'line',
-      data: {
-        labels: by_month.map(m => m.month),
-        datasets: [{ label: 'Reflections', data: by_month.map(m => m.count), borderColor: '#059669', backgroundColor: '#05966922', tension: 0.25, fill: true, pointRadius: 3 }],
-      },
-      options: {
-        responsive: true, maintainAspectRatio: false,
-        plugins: { legend: { display: false } },
-        scales: { y: { beginAtZero: true, ticks: { stepSize: 1, precision: 0 } } },
-      },
-    });
+}
+
+function paintHeadExpStudentsTable() {
+  const all = _headExpData?.students || [];
+  const q = _headExpStudentsQuery.trim().toLowerCase();
+  const filtered = q
+    ? all.filter(s => (s.student_name || '').toLowerCase().includes(q))
+    : all;
+  const totalPages = Math.max(1, Math.ceil(filtered.length / HEAD_EXP_PAGE_SIZE));
+  if (_headExpStudentsPage > totalPages) _headExpStudentsPage = totalPages;
+  if (_headExpStudentsPage < 1) _headExpStudentsPage = 1;
+  const start = (_headExpStudentsPage - 1) * HEAD_EXP_PAGE_SIZE;
+  const pageRows = filtered.slice(start, start + HEAD_EXP_PAGE_SIZE);
+
+  const body = document.getElementById('headExpStudentsBody');
+  if (!body) return;
+  body.innerHTML = pageRows.length
+    ? pageRows.map(s => `
+        <tr>
+          <td><strong>${escapeHtml(s.student_name || '')}</strong></td>
+          <td>${s.grade ? escapeHtml(s.grade) : '<span style="color:var(--gray-400)">No info yet</span>'}</td>
+          <td style="text-align:right;font-weight:600">${s.count}</td>
+          <td>${s.last_date ? formatExpDate(s.last_date) : '<span style="color:var(--gray-400)">No info yet</span>'}</td>
+        </tr>
+      `).join('')
+    : `<tr><td colspan="4" style="text-align:center;padding:24px;color:var(--gray-500)">No students match.</td></tr>`;
+
+  const counter = document.getElementById('headExpStudentsCount');
+  if (counter) {
+    counter.textContent = q
+      ? `${filtered.length} of ${all.length} student${all.length !== 1 ? 's' : ''}`
+      : `${all.length} student${all.length !== 1 ? 's' : ''}`;
+  }
+
+  const pager = document.getElementById('headExpStudentsPager');
+  if (pager) {
+    if (filtered.length <= HEAD_EXP_PAGE_SIZE) {
+      pager.innerHTML = '';
+    } else {
+      const from = filtered.length === 0 ? 0 : start + 1;
+      const to = Math.min(filtered.length, start + HEAD_EXP_PAGE_SIZE);
+      pager.innerHTML = `
+        <span style="font-size:0.82rem;color:var(--gray-500)">${from}–${to} of ${filtered.length}</span>
+        <div style="display:flex;gap:6px;align-items:center">
+          <button class="btn btn-sm btn-outline" onclick="headExpStudentsPage(${_headExpStudentsPage - 1})" ${_headExpStudentsPage === 1 ? 'disabled' : ''}>← Prev</button>
+          <span style="font-size:0.82rem;color:var(--gray-600)">Page ${_headExpStudentsPage} of ${totalPages}</span>
+          <button class="btn btn-sm btn-outline" onclick="headExpStudentsPage(${_headExpStudentsPage + 1})" ${_headExpStudentsPage >= totalPages ? 'disabled' : ''}>Next →</button>
+        </div>
+      `;
+    }
   }
 }
 
-window.filterHeadExpStudents = function (raw) {
-  const q = (raw || '').trim().toLowerCase();
-  const rows = document.querySelectorAll('#headExpStudentsBody tr[data-search]');
-  let visible = 0;
-  rows.forEach(r => {
-    const match = !q || (r.dataset.search || '').includes(q);
-    r.style.display = match ? '' : 'none';
-    if (match) visible++;
-  });
-  const empty = document.getElementById('headExpStudentsEmpty');
-  if (empty) empty.style.display = visible === 0 ? '' : 'none';
+window.headExpSetScope = function (mode) {
+  if (_headExpScope === mode) return;
+  _headExpScope = mode;
+  destroyCharts();
+  renderHeadExperiences();
+};
+
+let _headExpStudentsTimer = null;
+window.headExpSetStudentQuery = function (v) {
+  _headExpStudentsQuery = v || '';
+  _headExpStudentsPage = 1;
+  if (_headExpStudentsTimer) clearTimeout(_headExpStudentsTimer);
+  _headExpStudentsTimer = setTimeout(() => {
+    paintHeadExpStudentsTable();
+    const input = document.getElementById('headExpStudentSearch');
+    if (input) {
+      input.focus();
+      const len = input.value.length;
+      try { input.setSelectionRange(len, len); } catch (_) {}
+    }
+  }, 80);
+};
+
+window.headExpStudentsPage = function (page) {
+  _headExpStudentsPage = page;
+  paintHeadExpStudentsTable();
 };
 
 
@@ -7328,7 +7398,7 @@ function editOrganization(orgIndex) {
 
 function copySuperInviteCode() {
   const code = document.getElementById('superInviteCode')?.textContent;
-  if (!code || code === 'N/A' || code === 'Loading...' || code === 'Error' || code === '—') return;
+  if (!code || code === 'N/A' || code === 'No info yet' || code === 'Loading...' || code === 'Error' || code === '—') return;
   navigator.clipboard.writeText(code).then(() => toast(t('org.code_copied'), 'success')).catch(() => toast(t('org.copy_failed'), 'error'));
 }
 

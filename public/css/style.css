@@ -2271,6 +2271,35 @@ tbody tr:last-child td { border-bottom: none; }
 }
 .exp-back-btn { margin-bottom: 16px; }
 
+/* Compact segmented control reused for the head's scope toggle (this term /
+   all time). Same visual language as the larger pill controls elsewhere in
+   the platform. */
+.exp-tabs {
+  display: inline-flex;
+  background: #f1f5f9;
+  border-radius: 10px;
+  padding: 3px;
+  gap: 2px;
+}
+.exp-tab {
+  background: transparent;
+  border: none;
+  padding: 7px 14px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--gray-500);
+  cursor: pointer;
+  border-radius: 7px;
+  transition: background 0.12s ease, color 0.12s ease, box-shadow 0.12s ease;
+  font-family: inherit;
+}
+.exp-tab:hover { color: var(--gray-700); }
+.exp-tab.is-active {
+  background: #fff;
+  color: #0f172a;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08);
+}
+
 @media (max-width: 720px) {
   .exp-hub { grid-template-columns: 1fr; }
   .exp-hub-card { padding: 24px 22px; }

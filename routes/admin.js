@@ -54,11 +54,6 @@ router.post('/users', authenticate, authorize('admin'), authorizeOrg, async (req
       return res.status(400).json({ error: 'Invalid role' });
     }
 
-    // org_admin cannot create another org_admin
-    if (role === 'admin') {
-      return res.status(403).json({ error: 'You cannot create users with this role' });
-    }
-
     const existing = db.prepare('SELECT id FROM users WHERE email = ?').get(email.toLowerCase());
     if (existing) return res.status(409).json({ error: 'Email already exists' });
 
