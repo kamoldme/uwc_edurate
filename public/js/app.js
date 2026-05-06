@@ -1994,12 +1994,12 @@ async function renderTeacherClassrooms() {
             </div>
             ${isArchived ? `<span style="font-size:0.75rem;background:var(--gray-200);color:var(--gray-600);padding:2px 8px;border-radius:10px;font-weight:500">${t('teacher.archived')}</span>` : ''}
           </div>
-          <div style="margin-top:16px;display:flex;justify-content:space-between;align-items:center">
-            <div>
-              <div style="font-size:0.75rem;color:var(--gray-500);margin-bottom:4px">${t('teacher.join_code')}</div>
+          <div style="margin-top:16px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px">
+            <div style="display:inline-flex;align-items:center;gap:10px">
+              <span style="font-size:0.75rem;color:var(--gray-500)">${t('teacher.join_code')}</span>
               <span class="join-code">${formatJoinCode(c.join_code)}</span>
             </div>
-            <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
               ${!isArchived ? `<button class="btn btn-sm btn-outline" onclick="regenerateCode(${c.id})">${t('teacher.new_code')}</button>` : ''}
               ${!isArchived ? `<button class="btn btn-sm btn-outline" onclick="editClassroomTeacher(${c.id}, '${c.subject.replace(/'/g, "\\'")}', '${c.grade_level.replace(/'/g, "\\'")}')"> ${t('common.edit')}</button>` : ''}
               ${!isArchived
