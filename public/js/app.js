@@ -6721,9 +6721,6 @@ function paintStudentExperiences() {
       <p class="exp-hero-sub">Every moment is a landmark. Map your journey through our shared values.</p>
     </div>
     ${backBtn}
-    <div class="exp-privacy-notice" role="note">
-      <span><strong>Visibility:</strong> Your assigned mentor and the head of school can read these reflections. Write what you would be comfortable sharing.</span>
-    </div>
     ${_expTab === 'create' ? renderExpOrbitPicker(config) : renderExpMyTab(config, experiences)}
   `;
 }
@@ -6928,6 +6925,16 @@ function renderExpOrbitPicker(config) {
 
   const innerNodes = vals.map((v, i) => {
     const { x, y } = expOrbitPosition(i, vals.length, 26);
+    // Place the info badge on the side of the orb that faces the orbit
+    // center: opposite the wrapper's angular position. Math: wrapper sits
+    // at angle θ from orbit center (same as expOrbitPosition); the
+    // center-facing direction is θ+180°. We translate that vector inside
+    // the wrapper's coordinate space (50,50 = wrapper center, 50,100 =
+    // wrapper bottom, etc.).
+    const angleDeg = (i / vals.length) * 360 - 90;
+    const opp = (angleDeg + 180) * Math.PI / 180;
+    const infoX = 50 + 50 * Math.cos(opp);
+    const infoY = 50 + 50 * Math.sin(opp);
     const isSelected = _expDraft.values.includes(v);
     const shortLabel = EXP_VALUE_SHORT[v] || v;
     const safeFull = escapeAttr(v).replace(/'/g, "\\'");
@@ -6941,6 +6948,7 @@ function renderExpOrbitPicker(config) {
       </button>
       <button type="button"
         class="exp-orbit-info-btn"
+        style="left:${infoX.toFixed(1)}%;top:${infoY.toFixed(1)}%"
         onclick="expShowValueInfo('${safeFull}')"
         aria-label="What does ${escapeAttr(v)} mean?"
         title="View full name">
@@ -6959,8 +6967,7 @@ function renderExpOrbitPicker(config) {
         <div class="exp-orbit-ring exp-orbit-ring--outer" aria-hidden="true"></div>
         <div class="exp-orbit-ring exp-orbit-ring--inner" aria-hidden="true"></div>
         <div class="exp-orbit-center">
-          <div class="exp-orbit-center-icon">✷</div>
-          <div class="exp-orbit-center-count"><span id="expValueCount">${_expDraft.values.length}</span>/3 VALUES</div>
+          <div class="exp-orbit-center-count"><span id="expValueCount">${_expDraft.values.length}</span>/3</div>
         </div>
         ${outerNodes}
         ${innerNodes}

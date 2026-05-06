@@ -2404,27 +2404,26 @@ tbody tr:last-child td { border-bottom: none; }
 .exp-orbit-ring--outer { width: 94%; height: 94%; }
 .exp-orbit-ring--inner { width: 52%; height: 52%; }
 .exp-orbit-center {
+  /* Just enough room for "N/3" — the center is a counter, not a hero. */
   position: absolute;
   top: 50%; left: 50%;
   transform: translate(-50%, -50%);
-  width: 22%;
+  width: 14%;
   aspect-ratio: 1 / 1;
   background: #0f172a;
   color: #fff;
   border-radius: 50%;
   display: flex;
-  flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 6px;
-  box-shadow: 0 12px 32px rgba(15, 23, 42, 0.18);
+  box-shadow: 0 8px 22px rgba(15, 23, 42, 0.18);
 }
-.exp-orbit-center-icon { color: #fbbf24; font-size: 1.1rem; }
 .exp-orbit-center-count {
-  font-size: 0.78rem;
+  font-size: 1.05rem;
   font-weight: 700;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.02em;
   text-align: center;
+  font-variant-numeric: tabular-nums;
 }
 .exp-orbit-node {
   position: absolute;
@@ -2499,9 +2498,11 @@ tbody tr:last-child td { border-bottom: none; }
   transform: scale(1.08);
 }
 .exp-orbit-info-btn {
+  /* Position-anchor at (left%, top%) within the wrapper, then translate by
+     -50% so the badge is centered on the anchor. JS sets left/top inline so
+     the badge lands on the orb's inner-facing edge (toward orbit center). */
   position: absolute;
-  top: -2px;
-  right: -2px;
+  transform: translate(-50%, -50%);
   width: 22px;
   height: 22px;
   border-radius: 50%;
@@ -2521,7 +2522,7 @@ tbody tr:last-child td { border-bottom: none; }
   background: #4f46e5;
   color: #fff;
   border-color: #4f46e5;
-  transform: scale(1.12);
+  transform: translate(-50%, -50%) scale(1.12);
 }
 .exp-orbit-info-btn svg { width: 12px; height: 12px; }
 @media (max-width: 540px) {
@@ -2637,7 +2638,7 @@ tbody tr:last-child td { border-bottom: none; }
   .exp-orbit-node--outer { width: 22%; }
   .exp-orbit-node--inner { width: 17%; }
   .exp-orbit-node--outer .exp-orbit-node-label { font-size: 0.66rem; width: 80%; margin: 0; }
-  .exp-orbit-center { width: 26%; }
+  .exp-orbit-center { width: 18%; }
   .exp-orbit-node-add-icon { font-size: 1.3rem; }
 }
 
