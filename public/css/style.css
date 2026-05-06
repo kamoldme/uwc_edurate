@@ -2209,7 +2209,7 @@ tbody tr:last-child td { border-bottom: none; }
   font-size: 0.85rem;
   line-height: 1.45;
 }
-.exp-hero { text-align: center; margin: 8px 0 24px; }
+.exp-hero { text-align: center; margin: 8px 0 56px; }
 .exp-hero-title {
   font-size: 1.85rem;
   font-weight: 800;
