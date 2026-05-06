@@ -1102,13 +1102,13 @@ async function renderStudentReview() {
             </div>
           </div>
           <div class="card-body">
-            <form onsubmit="submitReview(event, ${teacher.teacher_id}, ${teacher.classroom_id})" data-teacher-id="${teacher.teacher_id}" data-classroom-kind="${isMentor ? 'mentor' : 'academic'}">
+            <form onsubmit="submitReview(event, ${teacher.teacher_id}, ${teacher.classroom_id})" data-teacher-id="${teacher.teacher_id}" data-classroom-id="${teacher.classroom_id}" data-classroom-kind="${isMentor ? 'mentor' : 'academic'}">
               <div class="grid grid-2" style="margin-bottom:20px">
                 ${activeCriteria.map(c => `
                   <div class="form-group" style="margin-bottom:12px">
                     <label style="display:flex;align-items:center;gap:6px">${c.label}${c.info_key ? ' ' + criteriaInfoIcon(c.info_key) : ''}</label>
                     ${c.hint ? `<div style="color:var(--gray-500);font-size:0.75rem;margin-top:-2px;margin-bottom:4px">${c.hint}</div>` : ''}
-                    <div class="star-rating-input" data-name="${c.db_col}" data-form="review-${teacher.teacher_id}">
+                    <div class="star-rating-input" data-name="${c.db_col}" data-form="review-${teacher.classroom_id}">
                       ${[1,2,3,4,5].map(i => `<button type="button" class="star-btn" data-value="${i}" onclick="setRating(this)">\u2606</button>`).join('')}
                     </div>
                   </div>
@@ -1117,17 +1117,19 @@ async function renderStudentReview() {
               <div class="form-group" style="margin-bottom:24px;padding:20px;background:linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);border-radius:12px;border:2px solid #bae6fd">
                 <label style="font-size:1.1rem;font-weight:600;margin-bottom:12px;display:block;color:#0c4a6e">${t('student.overall_rating_label')}</label>
                 <div style="display:flex;align-items:center;gap:16px">
-                  <div id="overall-stars-${teacher.teacher_id}" class="fractional-stars" style="font-size:2.5rem;display:flex;gap:4px"></div>
-                  <div id="overall-value-${teacher.teacher_id}" style="font-size:2rem;font-weight:700;color:#0369a1;min-width:60px">-</div>
+                  <div id="overall-stars-${teacher.classroom_id}" class="fractional-stars" style="font-size:2.5rem;display:flex;gap:4px"></div>
+                  <div id="overall-value-${teacher.classroom_id}" style="font-size:2rem;font-weight:700;color:#0369a1;min-width:60px">-</div>
                 </div>
                 <div style="margin-top:8px;color:#0369a1;font-size:0.85rem;font-style:italic">${t('student.rate_all_criteria')}</div>
               </div>
-              <div class="form-group">
-                <label>${t('student.feedback_tags_label')}</label>
-                <div class="tag-container" id="tags-${teacher.teacher_id}">
-                  ${tags.map(tag => `<div class="tag" onclick="this.classList.toggle('selected')" data-tag="${tag}">${translateTag(tag)}</div>`).join('')}
+              ${isMentor ? '' : `
+                <div class="form-group">
+                  <label>${t('student.feedback_tags_label')}</label>
+                  <div class="tag-container" id="tags-${teacher.classroom_id}">
+                    ${tags.map(tag => `<div class="tag" onclick="this.classList.toggle('selected')" data-tag="${tag}">${translateTag(tag)}</div>`).join('')}
+                  </div>
                 </div>
-              </div>
+              `}
               <div class="form-group">
                 <label>${t('student.written_feedback_label')}</label>
                 <textarea class="form-control" name="feedback_text" placeholder="${t('student.written_feedback_placeholder')}" rows="3"></textarea>
@@ -1194,8 +1196,11 @@ function renderFractionalStars(containerId, rating) {
 }
 
 function updateOverallRating(form) {
-  const teacherId = form.dataset.teacherId;
-  if (!teacherId) return;
+  // IDs are scoped to classroom_id, not teacher_id, so a teacher who has
+  // both an academic classroom and a mentor group renders two cards with
+  // distinct DOM ids — getElementById lookups stay correct.
+  const classroomId = form.dataset.classroomId || form.dataset.teacherId;
+  if (!classroomId) return;
 
   const isMentor = form.dataset.classroomKind === 'mentor';
   const cols = isMentor ? MENTOR_CRITERIA_COLS : CRITERIA_COLS;
@@ -1205,18 +1210,16 @@ function updateOverallRating(form) {
 
   if (allRated) {
     const overall = ratings.reduce((s, v) => s + v, 0) / count;
-    const rounded = Math.round(overall);
+    renderFractionalStars(`overall-stars-${classroomId}`, overall);
 
-    renderFractionalStars(`overall-stars-${teacherId}`, overall);
-
-    const valueEl = document.getElementById(`overall-value-${teacherId}`);
+    const valueEl = document.getElementById(`overall-value-${classroomId}`);
     if (valueEl) {
       valueEl.textContent = overall.toFixed(2);
       valueEl.style.color = overall >= 4 ? '#059669' : overall >= 3 ? '#0369a1' : overall >= 2 ? '#d97706' : '#dc2626';
     }
   } else {
-    const starsEl = document.getElementById(`overall-stars-${teacherId}`);
-    const valueEl = document.getElementById(`overall-value-${teacherId}`);
+    const starsEl = document.getElementById(`overall-stars-${classroomId}`);
+    const valueEl = document.getElementById(`overall-value-${classroomId}`);
     if (starsEl) starsEl.innerHTML = '<span style="color:#e5e7eb">★★★★★</span>';
     if (valueEl) {
       valueEl.textContent = '-';
@@ -1263,8 +1266,16 @@ async function submitReview(e, teacherId, classroomId) {
 
   const overall = Math.round(allValues.reduce((s, v) => s + v, 0) / count);
 
-  const tagsContainer = document.getElementById(`tags-${teacherId}`);
-  const selectedTags = [...tagsContainer.querySelectorAll('.tag.selected')].map(el => el.dataset.tag);
+  // Tags are only used on academic reviews; the mentor form doesn't render
+  // them. Look up by classroom_id so two cards for the same teacher don't
+  // collide on getElementById.
+  let selectedTags = [];
+  if (!isMentor) {
+    const tagsContainer = document.getElementById(`tags-${classroomId}`);
+    if (tagsContainer) {
+      selectedTags = [...tagsContainer.querySelectorAll('.tag.selected')].map(el => el.dataset.tag);
+    }
+  }
   const feedbackText = form.querySelector('[name="feedback_text"]').value;
 
   try {

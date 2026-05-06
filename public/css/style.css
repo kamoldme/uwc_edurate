@@ -2459,7 +2459,7 @@ tbody tr:last-child td { border-bottom: none; }
   transform: translate(-50%, -50%) scale(1.18);
 }
 .exp-orbit-node-label {
-  font-size: 0.6rem;
+  font-size: 0.9rem;
   font-weight: 700;
   letter-spacing: 0.02em;
   line-height: 1.18;
@@ -2541,7 +2541,7 @@ tbody tr:last-child td { border-bottom: none; }
 .exp-orbit-node--outer .exp-orbit-node-label {
   width: 80%;
   margin: 0;
-  font-size: 0.78rem;
+  font-size: 0.9rem;
   line-height: 1.2;
   letter-spacing: 0.01em;
   display: -webkit-box;
@@ -2556,7 +2556,7 @@ tbody tr:last-child td { border-bottom: none; }
   color: inherit;
   width: 100%;
   margin: 0;
-  font-size: 0.68rem;
+  font-size: 0.9rem;
   line-height: 1.18;
 }
 .exp-orbit-node.is-selected {
