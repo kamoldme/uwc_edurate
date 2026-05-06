@@ -389,85 +389,9 @@ router.put('/update-profile', authenticate, (req, res) => {
   }
 });
 
-// POST /api/auth/avatar
-router.post('/avatar', authenticate, (req, res) => {
-  try {
-    const { avatar, filename } = req.body;
-    const { saveAvatarFile, deleteAvatarFile } = require('../utils/avatars');
-
-    if (req.user.role !== 'teacher' && req.user.role !== 'head') {
-      return res.status(403).json({ error: 'Only teachers and school heads can upload avatars' });
-    }
-
-    let avatarUrl;
-    try {
-      avatarUrl = saveAvatarFile(avatar, req.user.id);
-    } catch (e) {
-      return res.status(400).json({ error: e.message });
-    }
-
-    if (req.user.avatar_url) {
-      deleteAvatarFile(req.user.avatar_url);
-    }
-
-    db.prepare('UPDATE users SET avatar_url = ? WHERE id = ?').run(avatarUrl, req.user.id);
-
-    if (req.user.role === 'teacher') {
-      db.prepare('UPDATE teachers SET avatar_url = ? WHERE user_id = ?').run(avatarUrl, req.user.id);
-    }
-
-    logAuditEvent({
-      userId: req.user.id,
-      userRole: req.user.role,
-      userName: req.user.full_name,
-      actionType: 'avatar_upload',
-      actionDescription: 'Updated profile photo',
-      targetType: 'user',
-      targetId: req.user.id,
-      ipAddress: req.ip
-    });
-
-    res.json({ message: 'Avatar uploaded', avatar_url: avatarUrl });
-  } catch (err) {
-    console.error('Avatar upload error:', err);
-    res.status(500).json({ error: 'Failed to upload avatar' });
-  }
-});
-
-// DELETE /api/auth/avatar
-router.delete('/avatar', authenticate, (req, res) => {
-  try {
-    const { deleteAvatarFile } = require('../utils/avatars');
-
-    if (!req.user.avatar_url) {
-      return res.status(400).json({ error: 'No avatar to remove' });
-    }
-
-    deleteAvatarFile(req.user.avatar_url);
-
-    db.prepare('UPDATE users SET avatar_url = NULL WHERE id = ?').run(req.user.id);
-
-    if (req.user.role === 'teacher') {
-      db.prepare('UPDATE teachers SET avatar_url = NULL WHERE user_id = ?').run(req.user.id);
-    }
-
-    logAuditEvent({
-      userId: req.user.id,
-      userRole: req.user.role,
-      userName: req.user.full_name,
-      actionType: 'avatar_remove',
-      actionDescription: 'Removed profile photo',
-      targetType: 'user',
-      targetId: req.user.id,
-      ipAddress: req.ip
-    });
-
-    res.json({ message: 'Avatar removed' });
-  } catch (err) {
-    console.error('Avatar remove error:', err);
-    res.status(500).json({ error: 'Failed to remove avatar' });
-  }
-});
+// Avatar upload/remove endpoints (POST/DELETE /api/auth/avatar) were removed
+// in the UWC pilot — profile pictures are sourced from Google OAuth only and
+// can no longer be replaced through the platform.
 
 // POST /api/auth/logout
 router.post('/logout', (req, res) => {
