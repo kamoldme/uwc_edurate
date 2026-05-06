@@ -502,8 +502,32 @@ function ratingText(val) {
 // Compute the true average of the 13 per-criterion ratings on a review.
 // We don't trust server `overall_rating` — that column is rounded to an
 // integer at insert time; for display we want the original float (e.g. 4.62).
+// All rating helpers are kind-aware: a review row carries `review_kind`
+// ('teacher' | 'mentor'). Mentor reviews use the 5 mentor criteria
+// (mentor_c{1..5}_rating), teacher reviews use the 13 academic criteria.
+// Returning the right criteria set here means every surface that renders
+// reviews (moderation queue, audit, admin teacher modal, my reviews,
+// student profile, head feedback view) automatically does the right thing
+// without per-call branching.
+function reviewCriteriaList(r) {
+  const isMentor = r && r.review_kind === 'mentor';
+  if (isMentor) {
+    return (window.MENTOR_CRITERIA_CONFIG || []).map(c => ({
+      db_col: c.db_col,
+      label: c.label,
+      info_key: c.info_key,
+    }));
+  }
+  return CRITERIA_CONFIG.map(c => ({
+    db_col: c.db_col,
+    label: t(c.label_key),
+    info_key: c.info_key,
+  }));
+}
+
 function criteriaAverage(r) {
-  const vals = CRITERIA_COLS.map(col => r[col]).filter(v => v !== null && v !== undefined && v > 0);
+  const cols = reviewCriteriaList(r).map(c => c.db_col);
+  const vals = cols.map(col => r[col]).filter(v => v !== null && v !== undefined && v > 0);
   if (vals.length === 0) return null;
   return vals.reduce((s, v) => s + v, 0) / vals.length;
 }
@@ -513,11 +537,12 @@ function fmtRatingFloat(v) {
 }
 
 function ratingGridHTML(r) {
+  const list = reviewCriteriaList(r);
   return `<div class="rating-grid-responsive">
-    ${CRITERIA_CONFIG.map(c => {
+    ${list.map(c => {
       const v = r[c.db_col]; const val = v || 0;
       return `<div class="rating-grid-item">
-        <span class="rating-grid-label">${t(c.label_key)}${criteriaInfoIcon(c.info_key)}</span>
+        <span class="rating-grid-label">${escapeHtml(c.label)}${c.info_key ? criteriaInfoIcon(c.info_key) : ''}</span>
         <span class="rating-grid-value" style="color:${scoreColor(val)};display:inline-flex;align-items:center;gap:8px">
           ${v ? `<span>${v}/5</span>${starsHTML(v, 'small')}` : '<span style="color:var(--gray-400)">-</span>'}
         </span>
@@ -527,18 +552,19 @@ function ratingGridHTML(r) {
 }
 
 // Moderation/flagged rating grid: single column, overall = float average,
-// per-criterion rows reuse the same .rating-grid-item layout.
+// per-criterion rows reuse the same .rating-grid-item layout. Kind-aware.
 function moderationRatingGridHTML(r) {
   const avg = criteriaAverage(r);
+  const list = reviewCriteriaList(r);
   return `<div class="feedback-rating-grid">
     <div class="rating-grid-item rating-grid-overall">
       <span class="rating-grid-label">${t('review.overall')}</span>
       <span class="rating-grid-value" style="color:${scoreColor(avg || 0)}">${fmtRatingFloat(avg)}</span>
     </div>
-    ${CRITERIA_CONFIG.map(c => {
+    ${list.map(c => {
       const v = r[c.db_col]; const val = v || 0;
       return `<div class="rating-grid-item">
-        <span class="rating-grid-label">${t(c.label_key)}${criteriaInfoIcon(c.info_key)}</span>
+        <span class="rating-grid-label">${escapeHtml(c.label)}${c.info_key ? criteriaInfoIcon(c.info_key) : ''}</span>
         <span class="rating-grid-value" style="color:${scoreColor(val)}">${v ? v + '/5' : '-'}</span>
       </div>`;
     }).join('')}
@@ -1350,16 +1376,22 @@ async function editMyReview(reviewId) {
   if (!review) return toast(t('review.not_found'), 'error');
   if (review.approved_status === 1) return toast(t('review.cannot_edit_approved'), 'error');
 
-  const tags = await cachedGet('/reviews/tags', CACHE_TTL.long).catch(() => []);
+  const isMentor = review.review_kind === 'mentor';
+  const list = isMentor
+    ? MENTOR_CRITERIA_CONFIG.map(c => ({ slug: c.slug, db_col: c.db_col, label: c.label, info_key: c.info_key }))
+    : CRITERIA_CONFIG.map(c => ({ slug: c.slug, db_col: c.db_col, label: t(c.label_key), info_key: c.info_key }));
+
+  const tags = isMentor ? [] : await cachedGet('/reviews/tags', CACHE_TTL.long).catch(() => []);
   const currentTags = JSON.parse(review.tags || '[]');
 
   openModal(`
-    <div class="modal-header"><h3>${t('review.edit_title', {teacher: review.teacher_name})}</h3><button class="modal-close" onclick="closeModal()">&times;</button></div>
+    <div class="modal-header"><h3>${t('review.edit_title', {teacher: review.teacher_name})}${isMentor ? ' <span style="font-size:0.7rem;background:#eef2ff;color:#4338ca;padding:2px 8px;border-radius:10px;font-weight:600;margin-left:6px;vertical-align:middle">MENTOR</span>' : ''}</h3><button class="modal-close" onclick="closeModal()">&times;</button></div>
     <div class="modal-body">
-      <p style="color:var(--gray-500);font-size:0.85rem;margin-bottom:16px">${review.classroom_subject} &middot; ${review.period_name}</p>
-      ${CRITERIA_CONFIG.map(c => `
+      <p style="color:var(--gray-500);font-size:0.85rem;margin-bottom:16px">${escapeHtml(review.classroom_subject)} &middot; ${escapeHtml(review.period_name)}</p>
+      <input type="hidden" id="edit_review_kind" value="${isMentor ? 'mentor' : 'teacher'}">
+      ${list.map(c => `
         <div class="form-group">
-          <label>${t(c.label_key)}</label>
+          <label>${escapeHtml(c.label)}${c.info_key ? ' ' + criteriaInfoIcon(c.info_key) : ''}</label>
           <select class="form-control" id="edit_${c.slug}">
             ${[1,2,3,4,5].map(v => `<option value="${v}" ${review[c.db_col] == v ? 'selected' : ''}>${v} - ${[t('rating.very_poor'),t('rating.poor'),t('rating.average'),t('rating.good'),t('rating.excellent')][v-1]}</option>`).join('')}
           </select>
@@ -1367,14 +1399,16 @@ async function editMyReview(reviewId) {
       `).join('')}
       <div class="form-group">
         <label>${t('review.written_feedback_label')} <span style="color:var(--gray-400);font-weight:400">${t('forms.optional')}</span></label>
-        <textarea class="form-control" id="edit_feedback" rows="3" placeholder="${t('review.share_thoughts')}">${review.feedback_text || ''}</textarea>
+        <textarea class="form-control" id="edit_feedback" rows="3" placeholder="${t('review.share_thoughts')}">${escapeHtml(review.feedback_text || '')}</textarea>
       </div>
-      <div class="form-group">
-        <label>${t('review.tags_label')}</label>
-        <div style="display:flex;flex-wrap:wrap;gap:8px">
-          ${tags.map(tag => `<label style="display:flex;align-items:center;gap:4px;cursor:pointer"><input type="checkbox" value="${escAttr(tag)}" ${currentTags.includes(tag) ? 'checked' : ''}> ${translateTag(tag)}</label>`).join('')}
+      ${isMentor ? '' : `
+        <div class="form-group">
+          <label>${t('review.tags_label')}</label>
+          <div style="display:flex;flex-wrap:wrap;gap:8px">
+            ${tags.map(tag => `<label style="display:flex;align-items:center;gap:4px;cursor:pointer"><input type="checkbox" value="${escAttr(tag)}" ${currentTags.includes(tag) ? 'checked' : ''}> ${translateTag(tag)}</label>`).join('')}
+          </div>
         </div>
-      </div>
+      `}
     </div>
     <div class="modal-footer">
       <button class="btn btn-outline" onclick="closeModal()">${t('common.cancel')}</button>
@@ -1384,11 +1418,13 @@ async function editMyReview(reviewId) {
 }
 
 async function submitReviewEdit(reviewId) {
+  const isMentor = document.getElementById('edit_review_kind')?.value === 'mentor';
+  const list = isMentor ? MENTOR_CRITERIA_CONFIG : CRITERIA_CONFIG;
   const body = {
     feedback_text: document.getElementById('edit_feedback').value,
-    tags: [...document.querySelectorAll('#modal input[type=checkbox]:checked')].map(cb => cb.value)
+    tags: isMentor ? [] : [...document.querySelectorAll('#modal input[type=checkbox]:checked')].map(cb => cb.value),
   };
-  CRITERIA_CONFIG.forEach(c => {
+  list.forEach(c => {
     body[c.db_col] = parseInt(document.getElementById(`edit_${c.slug}`).value);
   });
   try {

@@ -348,9 +348,16 @@ router.put('/:id', authenticate, authorize('student'), (req, res) => {
 
     const { feedback_text, tags } = req.body;
 
+    // Pick the criteria set based on the existing review's kind so the edit
+    // operates on the right column family. A mentor review keeps its 5
+    // mentor criteria; an academic review keeps its 13 teacher criteria.
+    const isMentorReview = (review.review_kind || 'teacher') === 'mentor';
+    const activeCols = isMentorReview ? MENTOR_CRITERIA_COLS : CRITERIA_COLS;
+    const activeCount = isMentorReview ? MENTOR_CRITERIA_COUNT : CRITERIA_COUNT;
+
     // Validate any provided ratings
-    for (const crit of CRITERIA_CONFIG) {
-      const r = req.body[crit.db_col];
+    for (const col of activeCols) {
+      const r = req.body[col];
       if (r !== undefined && (r < 1 || r > 5)) {
         return res.status(400).json({ error: 'Ratings must be between 1 and 5' });
       }
@@ -358,24 +365,27 @@ router.put('/:id', authenticate, authorize('student'), (req, res) => {
 
     // Get final rating values (use new if provided, otherwise keep existing)
     const finalRatings = {};
-    for (const crit of CRITERIA_CONFIG) {
-      finalRatings[crit.db_col] = req.body[crit.db_col] !== undefined ? req.body[crit.db_col] : review[crit.db_col];
+    for (const col of activeCols) {
+      finalRatings[col] = req.body[col] !== undefined ? req.body[col] : review[col];
     }
 
-    // Auto-calculate overall rating as average of all criteria
-    const finalValues = CRITERIA_COLS.map(col => finalRatings[col] || 0);
-    const overall_rating = Math.round(finalValues.reduce((s, v) => s + v, 0) / CRITERIA_COUNT);
+    // Auto-calculate overall rating as average of the active criteria
+    const finalValues = activeCols.map(col => finalRatings[col] || 0);
+    const overall_rating = Math.round(finalValues.reduce((s, v) => s + v, 0) / activeCount);
 
     const sanitized = feedback_text !== undefined ? sanitizeInput(feedback_text) : review.feedback_text;
     const moderation = feedback_text !== undefined ? moderateText(feedback_text) : { flagged: false };
 
     let validatedTags = JSON.parse(review.tags || '[]');
     if (tags && Array.isArray(tags)) {
-      validatedTags = tags.filter(t => VALID_TAGS.includes(t));
+      // Mentor reviews don't carry tags; ignore any submitted.
+      validatedTags = isMentorReview ? [] : tags.filter(t => VALID_TAGS.includes(t));
+    } else if (isMentorReview) {
+      validatedTags = [];
     }
 
-    const setClauses = CRITERIA_COLS.map(col => `${col} = COALESCE(?, ${col})`).join(',\n        ');
-    const setValues = CRITERIA_COLS.map(col => req.body[col] ?? null);
+    const setClauses = activeCols.map(col => `${col} = COALESCE(?, ${col})`).join(',\n        ');
+    const setValues = activeCols.map(col => req.body[col] ?? null);
 
     db.prepare(`
       UPDATE reviews SET
