@@ -2306,7 +2306,7 @@ tbody tr:last-child td { border-bottom: none; }
   pointer-events: none;
 }
 .exp-orbit-ring--outer { width: 94%; height: 94%; }
-.exp-orbit-ring--inner { width: 44%; height: 44%; }
+.exp-orbit-ring--inner { width: 52%; height: 52%; }
 .exp-orbit-center {
   position: absolute;
   top: 50%; left: 50%;
@@ -2378,7 +2378,10 @@ tbody tr:last-child td { border-bottom: none; }
   color: inherit;
 }
 .exp-orbit-node--outer { width: 20%; aspect-ratio: 1 / 1; }
-.exp-orbit-node--inner { width: 15%; aspect-ratio: 1 / 1; color: #475569; }
+/* Inner is sized so that even when an outer node hovers (scale 1.18) it
+   doesn't overlap. Outer hovered inner-edge ≈ 47 − 11.8 = 35.2%. Inner
+   outer-edge = 26 + 8 = 34% → ~1.2% safe gap. */
+.exp-orbit-node--inner { width: 16%; aspect-ratio: 1 / 1; color: #475569; }
 /* Outer ring text uses the inscribed square inside the circle (≈71% of
    diameter). Text wraps inside that square instead of spilling out, so
    it can be visibly bigger without breaking the orbit's clean silhouette.
@@ -2435,6 +2438,8 @@ tbody tr:last-child td { border-bottom: none; }
   padding: 18px 18px 16px;
   box-shadow: 0 4px 24px rgba(15, 23, 42, 0.05);
   align-self: center;
+  justify-self: end;
+  margin-left: 28px;
   display: flex;
   flex-direction: column;
   height: fit-content;
@@ -2492,6 +2497,7 @@ tbody tr:last-child td { border-bottom: none; }
 @media (max-width: 920px) {
   .exp-orbit-shell { grid-template-columns: 1fr; }
   .exp-orbit-stage { max-width: 480px; }
+  .exp-orbit-panel { margin-left: 0; justify-self: stretch; }
 }
 @media (max-width: 540px) {
   .exp-orbit-node-label { font-size: 0.55rem; width: 140%; margin: 0 -20%; }

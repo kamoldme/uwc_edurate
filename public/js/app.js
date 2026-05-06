@@ -6449,7 +6449,7 @@ function renderExpOrbitPicker(config) {
   </button>`;
 
   const innerNodes = vals.map((v, i) => {
-    const { x, y } = expOrbitPosition(i, vals.length, 22);
+    const { x, y } = expOrbitPosition(i, vals.length, 26);
     const isSelected = _expDraft.values.includes(v);
     return `<button type="button"
       class="exp-orbit-node exp-orbit-node--inner ${isSelected ? 'is-selected' : ''}"
