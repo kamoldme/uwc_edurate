@@ -90,7 +90,7 @@ router.put('/users/:id/mentor', authenticate, authorize('admin'), authorizeOrg, 
 // POST /api/admin/users - create user (any role)
 router.post('/users', authenticate, authorize('admin'), authorizeOrg, async (req, res) => {
   try {
-    const { full_name, email, password, role, grade_or_position, subject, department, experience_years, bio } = req.body;
+    const { full_name, email, password, role, grade_or_position, subject, department, bio } = req.body;
 
     if (!full_name || !email || !password || !role) {
       return res.status(400).json({ error: 'Name, email, password, and role are required' });
@@ -115,9 +115,9 @@ router.post('/users', authenticate, authorize('admin'), authorizeOrg, async (req
     // If teacher, create teacher profile
     if (role === 'teacher') {
       db.prepare(`
-        INSERT INTO teachers (user_id, full_name, subject, department, experience_years, bio, school_id, org_id)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-      `).run(result.lastInsertRowid, sanitizeInput(full_name), subject || null, department || null, experience_years || 0, bio || null, userOrgId || 1, userOrgId);
+        INSERT INTO teachers (user_id, full_name, subject, department, bio, school_id, org_id)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+      `).run(result.lastInsertRowid, sanitizeInput(full_name), subject || null, department || null, bio || null, userOrgId || 1, userOrgId);
     }
 
     const user = db.prepare('SELECT id, full_name, email, role, grade_or_position, org_id, verified_status, created_at FROM users WHERE id = ?')
@@ -1543,19 +1543,18 @@ router.put('/teachers/:id', authenticate, authorize('admin'), authorizeOrg, (req
       return res.status(403).json({ error: 'Teacher does not belong to your organization' });
     }
 
-    const { full_name, subject, department, experience_years, bio } = req.body;
+    const { full_name, subject, department, bio } = req.body;
 
     db.prepare(`
       UPDATE teachers SET
         full_name = COALESCE(?, full_name),
         subject = COALESCE(?, subject),
         department = COALESCE(?, department),
-        experience_years = COALESCE(?, experience_years),
         bio = COALESCE(?, bio)
       WHERE id = ?
     `).run(
       full_name ? sanitizeInput(full_name) : null,
-      subject, department, experience_years, bio, req.params.id
+      subject, department, bio, req.params.id
     );
 
     if (full_name && teacher.user_id) {

@@ -1493,12 +1493,6 @@ async function viewTeacherProfile(teacherId) {
           </div>
         ` : ''}
 
-        ${teacher.experience_years ? `
-          <div style="margin-bottom:20px">
-            <strong>${t('profile.experience')}</strong> ${t('profile.experience_years', {years: teacher.experience_years})}
-          </div>
-        ` : ''}
-
         ${data.reviews.length > 0 ? `
           <div style="margin-bottom:24px">
             <h3>${t('profile.overall_performance')}</h3>
@@ -4826,7 +4820,6 @@ async function showCreateUser() {
       <div id="teacherFields" style="display:none">
         <div class="form-group"><label>${t('account.subject')}</label><input type="text" class="form-control" id="newTeacherSubject"></div>
         <div class="form-group"><label>${t('account.department')}</label><input type="text" class="form-control" id="newTeacherDept"></div>
-        <div class="form-group"><label>${t('admin.years_experience')}</label><input type="number" class="form-control" id="newTeacherExp" min="0"></div>
       </div>
     </div>
     <div class="modal-footer">
@@ -4880,7 +4873,6 @@ async function createUser() {
   if (body.role === 'teacher') {
     body.subject = document.getElementById('newTeacherSubject').value;
     body.department = document.getElementById('newTeacherDept').value;
-    body.experience_years = parseInt(document.getElementById('newTeacherExp').value) || 0;
   }
   if (!body.full_name || !body.email || !body.password) return toast(t('admin.fill_required'), 'error');
   try {
@@ -5853,10 +5845,6 @@ function editTeacher(teacher) {
         <label>${t('common.department')}</label>
         <input type="text" class="form-control" id="editTeacherDept" value="${teacher.department || ''}">
       </div>
-      <div class="form-group">
-        <label>${t('admin.years_of_experience')}</label>
-        <input type="number" class="form-control" id="editTeacherExp" value="${teacher.experience_years || 0}" min="0">
-      </div>
     </div>
     <div class="modal-footer">
       <button class="btn btn-outline" onclick="closeModal()">${t('common.cancel')}</button>
@@ -5869,8 +5857,7 @@ async function saveTeacherEdit(teacherId) {
   const body = {
     full_name: document.getElementById('editTeacherName').value,
     subject: document.getElementById('editTeacherSubject').value,
-    department: document.getElementById('editTeacherDept').value,
-    experience_years: parseInt(document.getElementById('editTeacherExp').value) || 0
+    department: document.getElementById('editTeacherDept').value
   };
   if (!body.full_name) return toast(t('admin.name_required'), 'error');
   try {
@@ -6062,7 +6049,6 @@ async function exportMyPDF() {
       subject: teacherInfo?.subject || '',
       department: teacherInfo?.department || '',
       bio: teacherInfo?.bio || '',
-      experience_years: teacherInfo?.experience_years || null,
       org_name: orgName
     };
     buildAndPrintPDF(tchr, s, reviews);
@@ -6246,7 +6232,6 @@ function buildAndPrintPDF(tchr, s, reviews) {
       <div class="hdr-sub">${[tchr.subject, tchr.department].filter(Boolean).join(' &nbsp;&middot;&nbsp; ') || '&nbsp;'}</div>
       <div class="hdr-pills">
         ${tchr.org_name           ? `<span class="pill">${tchr.org_name}</span>` : ''}
-        ${tchr.experience_years   ? `<span class="pill">${tchr.experience_years} ${t('pdf.years_experience')}</span>` : ''}
         <span class="pill">${s.review_count || 0} ${t('pdf.total_reviews_label').toLowerCase()}</span>
       </div>
     </td>
@@ -6272,11 +6257,6 @@ function buildAndPrintPDF(tchr, s, reviews) {
     <div class="sec">${t('pdf.total_reviews_label')}</div>
     <div class="stat-n">${s.review_count || 0}</div>
     <div class="stat-l">${t('pdf.total_reviews_label')}</div>
-
-    ${tchr.experience_years ? `
-    <div class="sec">${t('pdf.years_experience')}</div>
-    <div class="stat-n">${tchr.experience_years}</div>
-    <div class="stat-l">${t('pdf.years_experience')}</div>` : ''}
 
     ${tchr.bio ? `
     <div class="sec">About</div>
