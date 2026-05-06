@@ -2357,6 +2357,12 @@ tbody tr:last-child td { border-bottom: none; }
   box-shadow: 0 6px 18px rgba(79, 70, 229, 0.18);
   z-index: 2;
 }
+/* Outer ring gets a stronger pop on hover so the label visibly grows; this
+   is the affordance — the orb is what you click, the text leaning out is
+   the cue. */
+.exp-orbit-node--outer:hover {
+  transform: translate(-50%, -50%) scale(1.18);
+}
 .exp-orbit-node-label {
   font-size: 0.6rem;
   font-weight: 700;

@@ -6406,12 +6406,15 @@ function expOrbitPosition(index, total, radiusPct) {
 }
 
 function expGetAllCategories(config, experiences, draft) {
+  // Standard categories plus AT MOST ONE temporary custom slot from the
+  // current draft. The custom slot is per-session: it disappears after
+  // save (draft is reset) and a second "+" replaces it instead of stacking.
   const seen = new Set();
   const out = [];
   const push = (c) => { if (c && !seen.has(c)) { seen.add(c); out.push(c); } };
   (config.categories || []).forEach(push);
-  (experiences || []).forEach(e => push(e.category));
-  ((draft && draft.customCategories) || []).forEach(push);
+  const custom = ((draft && draft.customCategories) || [])[0];
+  if (custom) push(custom);
   return out;
 }
 
@@ -6534,8 +6537,9 @@ window.expSubmitNewCategory = function (e) {
     toast('Custom experience name must be 60 characters or fewer.', 'error');
     return;
   }
-  _expDraft.customCategories = _expDraft.customCategories || [];
-  if (!_expDraft.customCategories.includes(name)) _expDraft.customCategories.push(name);
+  // Single-slot policy: a fresh "+" always replaces the previous custom
+  // circle so we never accumulate ghost rings on the orbit.
+  _expDraft.customCategories = [name];
   _expDraft.category = name;
   closeModal();
   paintStudentExperiences();
