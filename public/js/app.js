@@ -7428,11 +7428,18 @@ function paintHeadExperiences() {
   }
   const catCtx = document.getElementById('headExpByCategory');
   if (catCtx) {
+    // Each category bar gets its own color — same palette as the by-value
+    // chart so the two charts feel like one set rather than two random ones.
     chartInstances.headExpByCategory = new Chart(catCtx, {
       type: 'bar',
       data: {
         labels: by_category.map(c => c.category),
-        datasets: [{ label: 'Reflections', data: by_category.map(c => c.count), backgroundColor: '#059669', borderRadius: 6 }],
+        datasets: [{
+          label: 'Reflections',
+          data: by_category.map(c => c.count),
+          backgroundColor: by_category.map((_, i) => palette[i % palette.length]),
+          borderRadius: 6,
+        }],
       },
       options: {
         responsive: true, maintainAspectRatio: false,
