@@ -2517,7 +2517,16 @@ async function renderTeacherMentorFeedback() {
           <h3 style="color:var(--gray-500)">No mentor feedback yet</h3>
           <p style="color:var(--gray-400);font-size:0.88rem">Mentees will be able to leave feedback once a feedback period is active for your mentor group.</p>
         </div></div></div>`
-      : Object.entries(byGroup).map(([key, g]) => `
+      : Object.entries(byGroup).map(([key, g]) => {
+          // Per-group pager: window._mentorGroupVisible[key] holds the
+          // current visible count (defaults to PAGE_SIZE on first render).
+          const PAGE_SIZE = 5;
+          const written = g.reviews.filter(r => r.feedback_text);
+          window._mentorGroupVisible = window._mentorGroupVisible || {};
+          const visibleCount = window._mentorGroupVisible[key] || PAGE_SIZE;
+          const visible = written.slice(0, visibleCount);
+          const remaining = Math.max(0, written.length - visible.length);
+          return `
           <div class="card" style="margin-bottom:18px">
             <div class="card-header" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
               <h3>${escapeHtml(g.subject)} <span style="font-weight:400;color:var(--gray-500);font-size:0.85rem">${escapeHtml(g.grade)}</span></h3>
@@ -2533,14 +2542,37 @@ async function renderTeacherMentorFeedback() {
                   </div>`;
                 }).join('')}
               </div>
-              ${g.reviews.filter(r => r.feedback_text).slice(0, 5).map(r => `
+              ${visible.map(r => `
                 <div class="review-text" style="margin-bottom:10px">${escapeHtml(r.feedback_text)}</div>
               `).join('')}
+              ${written.length > 0 ? `
+                <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding-top:10px;border-top:1px solid var(--gray-100);font-size:0.82rem;color:var(--gray-500)">
+                  <span>Showing ${visible.length} of ${written.length} written reflection${written.length !== 1 ? 's' : ''}</span>
+                  <span style="display:flex;gap:6px">
+                    ${remaining > 0 ? `<button class="btn btn-sm btn-outline" onclick="mentorGroupShowMore(${JSON.stringify(key)})">Show more (${Math.min(PAGE_SIZE, remaining)})</button>` : ''}
+                    ${visibleCount > PAGE_SIZE ? `<button class="btn btn-sm btn-outline" onclick="mentorGroupShowLess(${JSON.stringify(key)})">Show less</button>` : ''}
+                  </span>
+                </div>
+              ` : ''}
             </div>
           </div>
-        `).join('')}
+        `;
+        }).join('')}
   `;
 }
+
+window.mentorGroupShowMore = function (key) {
+  const PAGE_SIZE = 5;
+  window._mentorGroupVisible = window._mentorGroupVisible || {};
+  window._mentorGroupVisible[key] = (window._mentorGroupVisible[key] || PAGE_SIZE) + PAGE_SIZE;
+  renderTeacherMentorFeedback();
+};
+window.mentorGroupShowLess = function (key) {
+  const PAGE_SIZE = 5;
+  window._mentorGroupVisible = window._mentorGroupVisible || {};
+  window._mentorGroupVisible[key] = PAGE_SIZE;
+  renderTeacherMentorFeedback();
+};
 
 async function renderTeacherAnalytics() {
   const data = await cachedGet('/dashboard/teacher');
