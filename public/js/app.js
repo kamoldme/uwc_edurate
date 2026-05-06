@@ -696,11 +696,19 @@ function confirmWithText(message, requiredText, warningMessage = '') {
 }
 
 function getCriteriaInfo() {
-  return CRITERIA_CONFIG.map(c => ({
+  // Merge teacher + mentor criteria so the info popup resolves keys from
+  // either set. Mentor criteria carry their `desc` inline (no i18n yet).
+  const teacherEntries = CRITERIA_CONFIG.map(c => ({
     name: t(c.label_key),
     key: c.info_key,
-    desc: t(c.desc_key)
+    desc: t(c.desc_key),
   }));
+  const mentorEntries = (window.MENTOR_CRITERIA_CONFIG || []).map(c => ({
+    name: c.label,
+    key: c.info_key,
+    desc: c.desc || '',
+  }));
+  return [...teacherEntries, ...mentorEntries];
 }
 
 function criteriaInfoIcon(name) {
@@ -1082,7 +1090,7 @@ async function renderStudentReview() {
       ${eligible.map(teacher => {
         const isMentor = (teacher.classroom_kind || 'academic') === 'mentor';
         const activeCriteria = isMentor
-          ? MENTOR_CRITERIA_CONFIG.map(c => ({ db_col: c.db_col, label: c.label, hint: c.hint }))
+          ? MENTOR_CRITERIA_CONFIG.map(c => ({ db_col: c.db_col, label: c.label, hint: c.hint, info_key: c.info_key }))
           : CRITERIA_CONFIG.map(c => ({ db_col: c.db_col, label: t(c.label_key), hint: t(c.hint_key), info_key: c.info_key }));
         return `
         <div class="card" style="margin-bottom:16px">
@@ -2446,7 +2454,7 @@ async function renderTeacherMentorFeedback() {
                 ${MENTOR_CRITERIA_CONFIG.map(c => {
                   const v = parseFloat(g[`avg_${c.slug}`]);
                   return `<div style="display:flex;justify-content:space-between;padding:8px 12px;background:var(--gray-50);border-radius:8px">
-                    <span style="font-size:0.86rem">${escapeHtml(c.label)}</span>
+                    <span style="font-size:0.86rem;display:inline-flex;align-items:center;gap:4px">${escapeHtml(c.label)}${criteriaInfoIcon(c.info_key)}</span>
                     <strong style="color:${scoreColor(v)}">${g[`avg_${c.slug}`]}</strong>
                   </div>`;
                 }).join('')}
@@ -5825,7 +5833,7 @@ function renderFeedbackTabPanel(tab) {
   });
 
   const criteriaList = isMentorTab
-    ? MENTOR_CRITERIA_CONFIG.map(c => ({ db_col: c.db_col, label: c.label, info_key: null }))
+    ? MENTOR_CRITERIA_CONFIG.map(c => ({ db_col: c.db_col, label: c.label, info_key: c.info_key }))
     : CRITERIA_CONFIG.map(c => ({ db_col: c.db_col, label: t(c.label_key), info_key: c.info_key }));
 
   return `
