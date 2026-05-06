@@ -17,3 +17,52 @@ window.CRITERIA_CONFIG = [
 
 window.CRITERIA_COUNT = window.CRITERIA_CONFIG.length;
 window.CRITERIA_COLS = window.CRITERIA_CONFIG.map(c => c.db_col);
+
+// Mentor review criteria — labels + descriptions blessed by Kassie. The
+// `desc` powers the inline info button (same pattern as CRITERIA_CONFIG via
+// criteriaInfoIcon). Schema column names (mentor_c{n}_rating) stay stable
+// so existing ratings continue to align with the new labels.
+window.MENTOR_CRITERIA_CONFIG = [
+  {
+    slug: 'mentor_c1',
+    db_col: 'mentor_c1_rating',
+    label: 'Approachability',
+    info_key: 'Mentor Approachability',
+    desc: 'My mentor is easy to talk to about anything, including hard topics. They make themselves available when I ask.',
+    hint: '',
+  },
+  {
+    slug: 'mentor_c2',
+    db_col: 'mentor_c2_rating',
+    label: 'Accountability',
+    info_key: 'Mentor Accountability',
+    desc: 'My mentor holds me accountable for my goals, progress, and attendance.',
+    hint: '',
+  },
+  {
+    slug: 'mentor_c3',
+    db_col: 'mentor_c3_rating',
+    label: 'Academic Support',
+    info_key: 'Mentor Academic Support',
+    desc: 'My mentor helps me navigate aspects of my DP journey when I need it, including CAS.',
+    hint: '',
+  },
+  {
+    slug: 'mentor_c4',
+    db_col: 'mentor_c4_rating',
+    label: 'UWC Experience',
+    info_key: 'Mentor UWC Experience',
+    desc: "My mentor is interested in how I'm developing as a UWC student and encourages me to grow.",
+    hint: '',
+  },
+  {
+    slug: 'mentor_c5',
+    db_col: 'mentor_c5_rating',
+    label: 'Familiarity',
+    info_key: 'Mentor Familiarity',
+    desc: 'My mentor knows me. I feel they care about me.',
+    hint: '',
+  },
+];
+window.MENTOR_CRITERIA_COLS = window.MENTOR_CRITERIA_CONFIG.map(c => c.db_col);
+window.MENTOR_CRITERIA_COUNT = window.MENTOR_CRITERIA_CONFIG.length;

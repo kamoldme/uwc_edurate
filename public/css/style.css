@@ -1085,27 +1085,62 @@ tbody tr:last-child td { border-bottom: none; }
 
 /* Performance Heatmap (Head analytics) — criteria as rows, teachers as cols.
    Scoped scroll instead of page-wide scroll; teacher columns sized so even
-   long subject lines wrap cleanly under each name. */
+   long subject lines wrap cleanly under each name. Sticky first column AND
+   sticky header so the table stays scannable with many teachers (≥30). */
 .heatmap-scroll {
-  overflow-x: auto;
+  overflow: auto;
   -webkit-overflow-scrolling: touch;
   border-radius: 0 0 var(--radius-md) var(--radius-md);
+  max-height: 70vh;
+  position: relative;
+}
+.heatmap-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--gray-100);
+  font-size: 0.78rem;
+  color: var(--gray-500);
+  flex-wrap: wrap;
+}
+.heatmap-toolbar .heatmap-legend {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.heatmap-toolbar .heatmap-legend-swatch {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.heatmap-toolbar .heatmap-legend-swatch i {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
 }
 .heatmap-table {
   width: 100%;
   min-width: 0;
-  border-collapse: collapse;
+  border-collapse: separate;
+  border-spacing: 0;
   font-size: 0.85rem;
 }
 .heatmap-table thead th {
   background: var(--gray-50);
   border-bottom: 2px solid var(--gray-200);
-  padding: 12px 14px;
+  padding: 10px 10px;
   vertical-align: bottom;
+  position: sticky;
+  top: 0;
+  z-index: 2;
 }
 .heatmap-table tbody td {
   border-bottom: 1px solid var(--gray-100);
-  padding: 10px 14px;
+  padding: 10px 12px;
 }
 .heatmap-table .heatmap-row-label {
   position: sticky;
@@ -1117,32 +1152,52 @@ tbody tr:last-child td { border-bottom: none; }
   white-space: nowrap;
   border-right: 1px solid var(--gray-200);
   text-align: left;
-  min-width: 200px;
+  min-width: 180px;
 }
 .heatmap-table thead .heatmap-row-label {
   background: var(--gray-50);
+  z-index: 3;
 }
 .heatmap-teacher-col {
   text-align: center;
-  min-width: 130px;
+  width: var(--heatmap-col-w, 120px);
+  min-width: var(--heatmap-col-w, 120px);
+  max-width: var(--heatmap-col-w, 120px);
   font-weight: 600;
   color: var(--gray-800);
 }
 .heatmap-teacher-name {
-  font-size: 0.9rem;
-  white-space: nowrap;
+  font-size: 0.82rem;
+  line-height: 1.2;
+  word-break: break-word;
+  overflow-wrap: anywhere;
 }
 .heatmap-teacher-sub {
-  font-size: 0.72rem;
+  font-size: 0.7rem;
   font-weight: 400;
   color: var(--gray-500);
   margin-top: 2px;
-  white-space: nowrap;
+  line-height: 1.2;
+  word-break: break-word;
+  overflow-wrap: anywhere;
 }
 .heatmap-cell-td {
   text-align: center;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
+  width: var(--heatmap-col-w, 120px);
+  min-width: var(--heatmap-col-w, 120px);
+}
+.heatmap-width-control {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.78rem;
+  color: var(--gray-500);
+}
+.heatmap-width-control input[type="range"] {
+  width: 120px;
+  accent-color: var(--primary, #059669);
 }
 .heatmap-overall-row td {
   border-top: 2px solid var(--gray-300);
@@ -1156,13 +1211,14 @@ tbody tr:last-child td { border-bottom: none; }
 
 @media (max-width: 768px) {
   .heatmap-table .heatmap-row-label {
-    min-width: 150px;
-    font-size: 0.78rem;
+    min-width: 140px;
+    font-size: 0.76rem;
   }
-  .heatmap-teacher-col { min-width: 110px; }
-  .heatmap-teacher-name { font-size: 0.82rem; }
+  .heatmap-teacher-col,
+  .heatmap-cell-td { min-width: 84px; }
+  .heatmap-teacher-name { font-size: 0.76rem; }
   .heatmap-table tbody td,
-  .heatmap-table thead th { padding: 8px 10px; }
+  .heatmap-table thead th { padding: 7px 8px; }
 }
 
 /* ============ LOADING ============ */
@@ -2140,4 +2196,652 @@ tbody tr:last-child td { border-bottom: none; }
   .top-bar h2 { font-size: 0.95rem; }
   .top-bar-actions .btn { padding: 8px 12px; font-size: 0.82rem; min-height: 38px; }
   .top-bar-actions .btn-icon-only { padding: 8px; min-width: 38px; min-height: 38px; }
+}
+
+/* ============ EXPERIENCE MAP ============ */
+.exp-privacy-notice {
+  background: #f0f9ff;
+  border: 1px solid #bae6fd;
+  color: #0c4a6e;
+  border-radius: 10px;
+  padding: 10px 14px;
+  margin-bottom: 18px;
+  font-size: 0.85rem;
+  line-height: 1.45;
+}
+.exp-hero { text-align: center; margin: 8px 0 56px; }
+.exp-hero-title {
+  font-size: 1.85rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  margin: 0;
+  color: var(--gray-800, #0f172a);
+}
+.exp-hero-sub {
+  color: var(--gray-500);
+  margin: 6px auto 0;
+  font-size: 0.95rem;
+  max-width: 60ch;
+}
+
+.exp-hub {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 18px;
+  max-width: 760px;
+  margin: 0 auto;
+}
+.exp-hub-card {
+  background: #fff;
+  border: 1.5px solid var(--gray-200);
+  border-radius: var(--radius-lg);
+  padding: 32px 28px;
+  cursor: pointer;
+  transition: box-shadow 0.15s, border-color 0.15s, transform 0.1s;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  outline: none;
+  position: relative;
+}
+.exp-hub-card:hover, .exp-hub-card:focus {
+  box-shadow: 0 8px 28px rgba(79, 70, 229, 0.14);
+  border-color: #6366f1;
+  transform: translateY(-2px);
+}
+.exp-hub-icon { color: #4f46e5; line-height: 1; }
+.exp-hub-title {
+  font-size: 1.12rem;
+  font-weight: 700;
+  color: var(--gray-800);
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+.exp-hub-count {
+  background: #eef2ff;
+  color: #4338ca;
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 2px 9px;
+  border-radius: 999px;
+  letter-spacing: 0.02em;
+}
+.exp-hub-desc {
+  font-size: 0.88rem;
+  color: var(--gray-500);
+  line-height: 1.55;
+  flex: 1;
+}
+.exp-hub-arrow {
+  font-size: 1.2rem;
+  color: #4f46e5;
+  font-weight: 700;
+  margin-top: 4px;
+}
+.exp-back-btn { margin-bottom: 16px; }
+
+/* Head Experience Map "Top value" / "Top experience" stat cards. The label
+   sits at the top, then a generous gap, then the category/value as a
+   colorful pill tag with the count number trailing in muted gray. */
+.exp-top-card {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 18px;
+  min-height: 116px;
+}
+.exp-top-tag-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: auto;
+}
+.exp-top-tag {
+  display: inline-block;
+  padding: 7px 14px;
+  border-radius: 999px;
+  font-size: 0.95rem;
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: 0.01em;
+  max-width: 100%;
+  word-break: break-word;
+}
+.exp-top-tag--value {
+  background: linear-gradient(135deg, #ede9fe 0%, #ddd6fe 100%);
+  color: #4338ca;
+  border: 1px solid #c7d2fe;
+}
+.exp-top-tag--experience {
+  background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%);
+  color: #047857;
+  border: 1px solid #86efac;
+}
+.exp-top-count {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--gray-500);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Empty placeholder used inside score cells so the surrounding scoreColor()
+   red/orange doesn't bleed onto a "no data yet" label. !important here is
+   load-bearing — the parent inline style="color: var(--danger)" wins
+   otherwise. Stays compact so a numeric score and the placeholder occupy
+   roughly the same visual footprint. */
+.score-empty {
+  color: var(--gray-400) !important;
+  font-style: italic;
+  font-weight: 500;
+  font-size: 0.85em;
+}
+
+/* Compact segmented control reused for the head's scope toggle (this term /
+   all time). Same visual language as the larger pill controls elsewhere in
+   the platform. */
+.exp-tabs {
+  display: inline-flex;
+  background: #f1f5f9;
+  border-radius: 10px;
+  padding: 3px;
+  gap: 2px;
+}
+.exp-tab {
+  background: transparent;
+  border: none;
+  padding: 7px 14px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--gray-500);
+  cursor: pointer;
+  border-radius: 7px;
+  transition: background 0.12s ease, color 0.12s ease, box-shadow 0.12s ease;
+  font-family: inherit;
+}
+.exp-tab:hover { color: var(--gray-700); }
+.exp-tab.is-active {
+  background: #fff;
+  color: #0f172a;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08);
+}
+
+@media (max-width: 720px) {
+  .exp-hub { grid-template-columns: 1fr; }
+  .exp-hub-card { padding: 24px 22px; }
+}
+
+/* Orbital picker — outer categories ring, inner values ring, center counter,
+   right-side form panel. Math: nodes are absolute-positioned by percentage on
+   a square stage; expOrbitPosition() places index i of N at (50 + r·cosθ,
+   50 + r·sinθ) with θ starting from the top (-90°). The dashed rings are pure
+   CSS circles; selection state is a class swap. */
+.exp-orbit-shell {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(338px, 416px);
+  gap: 56px;
+  align-items: center;
+  justify-content: center;
+  max-width: 1216px;
+  margin: 0 auto 32px;
+}
+.exp-orbit-stage {
+  position: relative;
+  width: 100%;
+  max-width: 720px;
+  aspect-ratio: 1 / 1;
+  margin: 0 auto;
+}
+.exp-orbit-ring {
+  position: absolute;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  border: 1.5px dashed #e2e8f0;
+  border-radius: 50%;
+  pointer-events: none;
+}
+.exp-orbit-ring--outer { width: 94%; height: 94%; }
+.exp-orbit-ring--inner { width: 52%; height: 52%; }
+.exp-orbit-center {
+  /* Just enough room for "N/3" — the center is a counter, not a hero. */
+  position: absolute;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  width: 14%;
+  aspect-ratio: 1 / 1;
+  background: #0f172a;
+  color: #fff;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 8px 22px rgba(15, 23, 42, 0.18);
+}
+.exp-orbit-center-count {
+  font-size: 1.05rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+.exp-orbit-node {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  background: #fff;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 4px;
+  font-family: inherit;
+  transition: transform 0.12s ease, box-shadow 0.12s ease, border-color 0.12s ease, background 0.12s ease, color 0.12s ease;
+  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.05);
+  color: #4f46e5;
+  /* Labels are allowed to extend slightly past the orb when the text is too
+     long. The orb stays a perfect circle visually; the text becomes a
+     centered ribbon that breathes outside the circle when needed. */
+  overflow: visible;
+}
+.exp-orbit-node:hover {
+  transform: translate(-50%, -50%) scale(1.06);
+  border-color: #6366f1;
+  box-shadow: 0 6px 18px rgba(79, 70, 229, 0.18);
+  z-index: 2;
+}
+/* Outer ring gets a stronger pop on hover so the label visibly grows; this
+   is the affordance — the orb is what you click, the text leaning out is
+   the cue. */
+.exp-orbit-node--outer:hover {
+  transform: translate(-50%, -50%) scale(1.18);
+}
+.exp-orbit-node-label {
+  font-size: 0.9rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  line-height: 1.18;
+  word-break: normal;
+  overflow-wrap: anywhere;
+  hyphens: auto;
+  /* Wider than the orb so longer phrases extend beyond the visual circle. */
+  width: 132%;
+  margin: 0 -16%;
+  text-align: center;
+  color: inherit;
+}
+.exp-orbit-node--outer { width: 20%; aspect-ratio: 1 / 1; }
+/* Inner is sized so that even when an outer node hovers (scale 1.18) it
+   doesn't overlap. Outer hovered inner-edge ≈ 47 − 11.8 = 35.2%. Inner
+   outer-edge = 26 + 8 = 34% → ~1.2% safe gap. The inner node lives inside
+   a wrapper so we can pin a small info "i" badge on its top-right corner. */
+.exp-orbit-inner-wrap {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  width: 16%;
+  aspect-ratio: 1 / 1;
+}
+.exp-orbit-node--inner {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  transform: none;
+  aspect-ratio: 1 / 1;
+  color: #475569;
+}
+/* Inner orbs hold their position on hover and selection — only the styling
+   (border, background, shadow) changes. Scaling the orb pushed it visually
+   off the ring and confused readability. Outer ring keeps its scale-on-hover
+   pop because outer is the primary action affordance.
+
+   Specificity bump via the wrapper so this beats the base
+   `.exp-orbit-node.is-selected` rule that appears later in the cascade. */
+.exp-orbit-inner-wrap .exp-orbit-node--inner:hover,
+.exp-orbit-inner-wrap .exp-orbit-node--inner.is-selected {
+  transform: none;
+}
+.exp-orbit-info-btn {
+  /* Position-anchor at (left%, top%) within the wrapper, then translate by
+     -50% so the badge is centered on the anchor. JS sets left/top inline so
+     the badge lands on the orb's inner-facing edge (toward orbit center). */
+  position: absolute;
+  transform: translate(-50%, -50%);
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #fff;
+  border: 1.5px solid #c7d2fe;
+  color: #4f46e5;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 0;
+  z-index: 4;
+  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.08);
+  transition: background 0.12s ease, color 0.12s ease, transform 0.1s ease, border-color 0.12s ease;
+}
+.exp-orbit-info-btn:hover {
+  background: #4f46e5;
+  color: #fff;
+  border-color: #4f46e5;
+  transform: translate(-50%, -50%) scale(1.12);
+}
+.exp-orbit-info-btn svg { width: 12px; height: 12px; }
+@media (max-width: 540px) {
+  .exp-orbit-info-btn { width: 18px; height: 18px; }
+  .exp-orbit-info-btn svg { width: 10px; height: 10px; }
+}
+/* Outer ring text uses the inscribed square inside the circle (≈71% of
+   diameter). Text wraps inside that square instead of spilling out, so
+   it can be visibly bigger without breaking the orbit's clean silhouette.
+   Up to 5 lines, then ellipsis as a last resort. */
+.exp-orbit-node--outer .exp-orbit-node-label {
+  width: 80%;
+  margin: 0;
+  font-size: 0.9rem;
+  line-height: 1.2;
+  letter-spacing: 0.01em;
+  display: -webkit-box;
+  -webkit-line-clamp: 5;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  word-break: normal;
+  overflow-wrap: anywhere;
+  hyphens: auto;
+}
+.exp-orbit-node--inner .exp-orbit-node-label {
+  color: inherit;
+  width: 100%;
+  margin: 0;
+  font-size: 0.9rem;
+  line-height: 1.18;
+}
+.exp-orbit-node.is-selected {
+  background: #4f46e5;
+  border-color: #4f46e5;
+  color: #fff;
+  box-shadow: 0 8px 20px rgba(79, 70, 229, 0.32);
+  transform: translate(-50%, -50%) scale(1.08);
+  z-index: 3;
+}
+.exp-orbit-node.is-selected .exp-orbit-node-label { color: #fff; }
+
+
+.exp-orbit-panel {
+  background: #fff;
+  border: 1px solid var(--gray-100);
+  border-radius: 16px;
+  padding: 18px 18px 16px;
+  box-shadow: 0 4px 24px rgba(15, 23, 42, 0.05);
+  align-self: center;
+  justify-self: end;
+  margin-left: 28px;
+  display: flex;
+  flex-direction: column;
+  height: fit-content;
+}
+.exp-orbit-panel-title {
+  font-size: 0.9rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  margin: 0 0 12px;
+  color: var(--gray-800);
+}
+.exp-orbit-panel-block { margin-bottom: 10px; }
+.exp-orbit-panel-label {
+  font-size: 0.66rem;
+  letter-spacing: 0.08em;
+  font-weight: 700;
+  color: var(--gray-400);
+  text-transform: uppercase;
+  margin-bottom: 5px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.exp-orbit-panel-meta { color: var(--gray-500); font-weight: 600; }
+.exp-orbit-panel-value {
+  background: #eef2ff;
+  border-radius: 8px;
+  padding: 8px 10px;
+  color: #4338ca;
+  font-weight: 600;
+  font-size: 0.86rem;
+}
+.exp-orbit-panel-empty { color: var(--gray-400); font-weight: 400; font-style: italic; }
+.exp-orbit-panel-chips { display: flex; flex-wrap: wrap; gap: 5px; min-height: 24px; align-items: center; }
+.exp-orbit-panel-divider { border-top: 1px solid var(--gray-100); margin: 6px 0 10px; }
+.exp-orbit-input, .exp-orbit-textarea { margin-bottom: 8px; padding: 8px 10px; font-size: 0.86rem; }
+.exp-orbit-textarea { resize: vertical; min-height: 84px; }
+.exp-orbit-counter { font-size: 0.7rem; color: var(--gray-400); text-align: right; margin: -2px 0 10px; }
+.exp-orbit-save {
+  width: 100%;
+  background: #0f172a;
+  color: #fff;
+  border: none;
+  padding: 11px 14px;
+  border-radius: 10px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  font-size: 0.82rem;
+  cursor: pointer;
+  transition: background 0.12s ease, transform 0.06s ease;
+}
+.exp-orbit-save:hover { background: #1e293b; }
+.exp-orbit-save:active { transform: translateY(1px); }
+
+@media (max-width: 920px) {
+  .exp-orbit-shell { grid-template-columns: 1fr; }
+  .exp-orbit-stage { max-width: 480px; }
+  .exp-orbit-panel { margin-left: 0; justify-self: stretch; }
+}
+@media (max-width: 540px) {
+  .exp-orbit-node-label { font-size: 0.55rem; width: 140%; margin: 0 -20%; }
+  .exp-orbit-node--outer { width: 22%; }
+  .exp-orbit-node--inner { width: 17%; }
+  .exp-orbit-node--outer .exp-orbit-node-label { font-size: 0.66rem; width: 80%; margin: 0; }
+  .exp-orbit-center { width: 18%; }
+  .exp-orbit-node-add-icon { font-size: 1.3rem; }
+}
+
+.exp-summary { margin-bottom: 24px; }
+.exp-stat-card {
+  background: #fff;
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow);
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-height: 108px;
+}
+.exp-stat-label {
+  color: var(--gray-500);
+  font-size: 0.8rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+.exp-stat-value { font-size: 2rem; font-weight: 700; color: var(--gray-800); margin-top: 4px; line-height: 1.1; }
+.exp-stat-value-sm { font-size: 0.95rem; font-weight: 600; color: var(--gray-800); margin-top: 4px; line-height: 1.35; }
+.exp-stat-line { font-weight: 600; color: var(--gray-800); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+.exp-stat-meta { color: var(--gray-500); font-size: 0.82rem; font-weight: 400; }
+.exp-stat-empty { color: var(--gray-400); font-style: italic; font-weight: 400; }
+
+.exp-value-chip {
+  --chip-color: #059669;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 500;
+  color: var(--chip-color);
+  background: color-mix(in srgb, var(--chip-color) 12%, white);
+  border: 1px solid color-mix(in srgb, var(--chip-color) 30%, white);
+  line-height: 1.2;
+  white-space: nowrap;
+}
+.exp-value-chip-x {
+  border: none;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  font-size: 1rem;
+  line-height: 1;
+  padding: 0 0 0 2px;
+  opacity: 0.7;
+}
+.exp-value-chip-x:hover { opacity: 1; }
+
+.exp-value-map { margin-bottom: 24px; }
+.exp-value-map-hint { font-size: 0.78rem; color: var(--gray-500); }
+.exp-value-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 10px;
+}
+.exp-value-tile {
+  --chip-color: #059669;
+  background: color-mix(in srgb, var(--chip-color) 6%, white);
+  border: 1px solid color-mix(in srgb, var(--chip-color) 18%, white);
+  border-radius: var(--radius-md);
+  padding: 12px 14px;
+  text-align: left;
+  cursor: pointer;
+  transition: transform 0.06s ease, box-shadow 0.12s ease, border-color 0.12s ease;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.exp-value-tile:hover { border-color: color-mix(in srgb, var(--chip-color) 45%, white); transform: translateY(-1px); box-shadow: 0 4px 14px rgba(0,0,0,0.04); }
+.exp-value-tile--empty { opacity: 0.6; }
+.exp-value-tile-name { font-size: 0.82rem; font-weight: 500; color: var(--gray-700); line-height: 1.25; }
+.exp-value-tile-count { font-size: 1.4rem; font-weight: 700; color: var(--chip-color); }
+.exp-value-tile-bar {
+  height: 4px;
+  background: color-mix(in srgb, var(--chip-color) 12%, white);
+  border-radius: 999px;
+  overflow: hidden;
+}
+.exp-value-tile-fill {
+  height: 100%;
+  background: var(--chip-color);
+  border-radius: 999px;
+  transition: width 0.35s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.exp-filters-card { margin-bottom: 18px; }
+.exp-filters-body { padding: 14px 16px; }
+.exp-filter-row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+.exp-filter-search {
+  flex: 1 1 240px;
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+.exp-filter-search svg {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--gray-400);
+  pointer-events: none;
+}
+.exp-filter-search input { width: 100%; }
+.exp-filter-select { flex: 0 1 200px; min-width: 160px; }
+.exp-filter-summary { font-size: 0.78rem; color: var(--gray-500); margin-top: 8px; }
+
+.exp-card-list { display: flex; flex-direction: column; gap: 16px; }
+.exp-card {
+  background: #fff;
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow);
+  padding: 20px 24px;
+  transition: box-shadow 0.15s ease, transform 0.1s ease;
+  /* min-width:0 so the card respects its parent flex/grid track and long
+     content can shrink rather than overflow horizontally. overflow:hidden
+     is the safety net if a child still tries to escape. */
+  min-width: 0;
+  overflow: hidden;
+}
+.exp-card:hover { box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08); transform: translateY(-1px); }
+.exp-card--readonly:hover { box-shadow: var(--shadow); transform: none; }
+/* Readonly cards (head's per-student modal) aren't wrapped in .exp-card-list,
+   so they don't get gap from the flex container. Add bottom spacing here. */
+.exp-card--readonly { margin-bottom: 14px; }
+.exp-card--readonly:last-child { margin-bottom: 0; }
+.exp-card-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+.exp-card-title { font-size: 1.02rem; margin: 0; color: var(--gray-800); line-height: 1.3; overflow-wrap: anywhere; word-break: break-word; }
+.exp-card-meta { color: var(--gray-500); font-size: 0.78rem; margin-top: 4px; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.exp-card-category { font-weight: 500; }
+.exp-card-dot { color: var(--gray-300); }
+.exp-card-actions { display: flex; gap: 6px; flex-shrink: 0; }
+.exp-card-action-btn { padding: 5px 11px; gap: 6px; }
+.exp-card-action-btn svg { width: 13px; height: 13px; flex-shrink: 0; }
+.exp-card-action-btn--danger:hover {
+  border-color: var(--danger, #ef4444) !important;
+  color: var(--danger, #ef4444) !important;
+}
+.exp-card-values { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+.exp-card-reflection {
+  color: var(--gray-700);
+  font-size: 0.9rem;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  /* Break long unbroken strings (URLs, no-space text) so they don't push
+     past the card edge. anywhere is more aggressive than break-word and
+     handles the worst-case "one really long token" reflection. */
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  max-width: 100%;
+}
+
+.exp-empty-state {
+  text-align: center;
+  padding: 48px 24px;
+  border: 1px dashed var(--gray-200);
+  border-radius: var(--radius-md);
+  background: #fafafa;
+}
+.exp-empty-state h3 { margin: 8px 0 6px; }
+.exp-empty-state p { color: var(--gray-500); max-width: 42ch; margin: 0 auto 16px; }
+.exp-empty-icon { font-size: 2.4rem; margin-bottom: 4px; }
+.exp-empty-state--filtered { padding: 24px; }
+
+.exp-form-row { display: grid; grid-template-columns: 1fr 200px; gap: 14px; }
+.exp-form-hint { color: var(--gray-400); font-weight: 400; font-size: 0.78rem; margin-left: 6px; }
+.exp-values-picker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius-md);
+  padding: 8px;
+  background: #fff;
+  min-height: 42px;
+}
+.exp-values-picker:focus-within { border-color: var(--primary, #059669); outline: 2px solid color-mix(in srgb, var(--primary, #059669) 30%, transparent); }
+.exp-values-select { border: none; background: transparent; flex: 1 1 160px; min-width: 140px; padding: 4px 6px; box-shadow: none; }
+.exp-values-select:focus { outline: none; }
+.exp-form-counter { font-size: 0.75rem; color: var(--gray-400); margin-top: 4px; text-align: right; }
+
+@media (max-width: 640px) {
+  .exp-form-row { grid-template-columns: 1fr; }
+  .exp-summary.grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .exp-stat-value { font-size: 1.4rem; }
+  .exp-value-grid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
 }

@@ -49,7 +49,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     startNotifPolling();
     setTimeout(checkCommsBadge, 500);
     const hashView = window.location.hash.slice(1);
-    const validViews = ['student-home','student-classrooms','student-review','student-my-reviews','student-comms','student-forms','student-announcements','teacher-home','teacher-classrooms','teacher-feedback','teacher-analytics','teacher-comms','teacher-forms','teacher-announcements','head-home','head-teachers','head-classrooms','head-analytics','head-comms','head-forms','head-announcements','admin-home','admin-users','admin-terms','admin-classrooms','admin-teachers','admin-submissions','admin-moderate','admin-flagged','admin-support','admin-audit','admin-comms','admin-forms','admin-announcements','admin-departments','account','help'];
+    const validViews = ['student-home','student-classrooms','student-review','student-my-reviews','student-experiences','student-comms','student-forms','student-announcements','teacher-home','teacher-classrooms','teacher-feedback','teacher-mentor-feedback','teacher-analytics','teacher-comms','teacher-forms','teacher-announcements','head-home','head-teachers','head-mentors','head-classrooms','head-analytics','head-experiences','head-comms','head-forms','head-announcements','admin-home','admin-users','admin-terms','admin-classrooms','admin-teachers','admin-submissions','admin-moderate','admin-flagged','admin-support','admin-audit','admin-comms','admin-forms','admin-announcements','admin-departments','account','help'];
     navigateTo(hashView && validViews.includes(hashView) ? hashView : getDefaultView());
   } catch {
     logout();
@@ -241,14 +241,17 @@ function buildNavigation() {
       { id: 'student-classrooms', label: t('nav.my_classrooms'), icon: 'classroom' },
       { id: 'student-review', label: t('nav.write_review'), icon: 'review' },
       { id: 'student-my-reviews', label: t('nav.my_reviews'), icon: 'chart' },
+      { id: 'student-experiences', label: 'UWC Experience Map', icon: 'review' },
       { id: 'student-comms', label: 'Communication', icon: 'chatBubble' },
       { id: 'help', label: 'Help', icon: 'help' }
     ];
   } else if (role === 'teacher') {
+    const isMentor = !!currentUser?.is_mentor;
     items = [
       { id: 'teacher-home', label: t('nav.dashboard'), icon: 'home' },
       { id: 'teacher-classrooms', label: t('nav.my_classrooms'), icon: 'classroom' },
       { id: 'teacher-feedback', label: t('nav.feedback'), icon: 'review' },
+      ...(isMentor ? [{ id: 'teacher-mentor-feedback', label: 'Mentor feedback', icon: 'review' }] : []),
       { id: 'teacher-analytics', label: t('nav.analytics'), icon: 'chart' },
       { id: 'teacher-comms', label: 'Communication', icon: 'chatBubble' },
       { id: 'help', label: 'Help', icon: 'help' }
@@ -259,6 +262,7 @@ function buildNavigation() {
       { id: 'head-teachers', label: t('nav.teachers'), icon: 'users' },
       { id: 'head-classrooms', label: t('nav.classrooms'), icon: 'classroom' },
       { id: 'head-analytics', label: t('nav.analytics'), icon: 'chart' },
+      { id: 'head-experiences', label: 'UWC Experience Map', icon: 'review' },
       { id: 'admin-departments', label: 'Departments', icon: 'department' },
       { id: 'head-comms', label: 'Communication', icon: 'chatBubble' },
       { id: 'help', label: 'Help', icon: 'help' }
@@ -321,9 +325,12 @@ function navigateTo(view) {
     'student-classrooms': t('title.my_classrooms'),
     'student-review': t('title.write_review'),
     'student-my-reviews': t('title.my_reviews'),
+    'student-experiences': 'UWC Experience Map',
+    'head-experiences': 'UWC Experience Map',
     'teacher-home': t('title.teacher_dashboard'),
     'teacher-classrooms': t('title.my_classrooms'),
     'teacher-feedback': t('title.student_feedback'),
+    'teacher-mentor-feedback': 'Mentor feedback',
     'teacher-analytics': t('title.analytics'),
     'head-home': t('title.school_overview'),
     'head-teachers': t('title.teacher_performance'),
@@ -362,12 +369,15 @@ function navigateTo(view) {
     'student-classrooms': renderStudentClassrooms,
     'student-review': renderStudentReview,
     'student-my-reviews': renderStudentMyReviews,
+    'student-experiences': renderStudentExperiences,
+    'head-experiences': renderHeadExperiences,
     'student-comms': renderStudentComms,
     'student-forms': renderStudentForms,
     'student-announcements': renderStudentAnnouncements,
     'teacher-home': renderTeacherHome,
     'teacher-classrooms': renderTeacherClassrooms,
     'teacher-feedback': renderTeacherFeedback,
+    'teacher-mentor-feedback': renderTeacherMentorFeedback,
     'teacher-analytics': renderTeacherAnalytics,
     'teacher-comms': renderTeacherComms,
     'teacher-forms': renderTeacherForms,
@@ -492,8 +502,32 @@ function ratingText(val) {
 // Compute the true average of the 13 per-criterion ratings on a review.
 // We don't trust server `overall_rating` — that column is rounded to an
 // integer at insert time; for display we want the original float (e.g. 4.62).
+// All rating helpers are kind-aware: a review row carries `review_kind`
+// ('teacher' | 'mentor'). Mentor reviews use the 5 mentor criteria
+// (mentor_c{1..5}_rating), teacher reviews use the 13 academic criteria.
+// Returning the right criteria set here means every surface that renders
+// reviews (moderation queue, audit, admin teacher modal, my reviews,
+// student profile, head feedback view) automatically does the right thing
+// without per-call branching.
+function reviewCriteriaList(r) {
+  const isMentor = r && r.review_kind === 'mentor';
+  if (isMentor) {
+    return (window.MENTOR_CRITERIA_CONFIG || []).map(c => ({
+      db_col: c.db_col,
+      label: c.label,
+      info_key: c.info_key,
+    }));
+  }
+  return CRITERIA_CONFIG.map(c => ({
+    db_col: c.db_col,
+    label: t(c.label_key),
+    info_key: c.info_key,
+  }));
+}
+
 function criteriaAverage(r) {
-  const vals = CRITERIA_COLS.map(col => r[col]).filter(v => v !== null && v !== undefined && v > 0);
+  const cols = reviewCriteriaList(r).map(c => c.db_col);
+  const vals = cols.map(col => r[col]).filter(v => v !== null && v !== undefined && v > 0);
   if (vals.length === 0) return null;
   return vals.reduce((s, v) => s + v, 0) / vals.length;
 }
@@ -503,11 +537,12 @@ function fmtRatingFloat(v) {
 }
 
 function ratingGridHTML(r) {
+  const list = reviewCriteriaList(r);
   return `<div class="rating-grid-responsive">
-    ${CRITERIA_CONFIG.map(c => {
+    ${list.map(c => {
       const v = r[c.db_col]; const val = v || 0;
       return `<div class="rating-grid-item">
-        <span class="rating-grid-label">${t(c.label_key)}${criteriaInfoIcon(c.info_key)}</span>
+        <span class="rating-grid-label">${escapeHtml(c.label)}${c.info_key ? criteriaInfoIcon(c.info_key) : ''}</span>
         <span class="rating-grid-value" style="color:${scoreColor(val)};display:inline-flex;align-items:center;gap:8px">
           ${v ? `<span>${v}/5</span>${starsHTML(v, 'small')}` : '<span style="color:var(--gray-400)">-</span>'}
         </span>
@@ -517,18 +552,19 @@ function ratingGridHTML(r) {
 }
 
 // Moderation/flagged rating grid: single column, overall = float average,
-// per-criterion rows reuse the same .rating-grid-item layout.
+// per-criterion rows reuse the same .rating-grid-item layout. Kind-aware.
 function moderationRatingGridHTML(r) {
   const avg = criteriaAverage(r);
+  const list = reviewCriteriaList(r);
   return `<div class="feedback-rating-grid">
     <div class="rating-grid-item rating-grid-overall">
       <span class="rating-grid-label">${t('review.overall')}</span>
       <span class="rating-grid-value" style="color:${scoreColor(avg || 0)}">${fmtRatingFloat(avg)}</span>
     </div>
-    ${CRITERIA_CONFIG.map(c => {
+    ${list.map(c => {
       const v = r[c.db_col]; const val = v || 0;
       return `<div class="rating-grid-item">
-        <span class="rating-grid-label">${t(c.label_key)}${criteriaInfoIcon(c.info_key)}</span>
+        <span class="rating-grid-label">${escapeHtml(c.label)}${c.info_key ? criteriaInfoIcon(c.info_key) : ''}</span>
         <span class="rating-grid-value" style="color:${scoreColor(val)}">${v ? v + '/5' : '-'}</span>
       </div>`;
     }).join('')}
@@ -545,6 +581,20 @@ function trendArrow(trend) {
   if (trend === 'declining') return '<span class="trend-arrow trend-down">&#9660;</span>';
   return '<span class="trend-arrow trend-stable">&#9654;</span>';
 }
+
+function rankBadge(index) {
+  if (index === 0) return '🥇';
+  if (index === 1) return '🥈';
+  if (index === 2) return '🥉';
+  return String(index + 1);
+}
+
+window.setHeatmapColWidth = function (px) {
+  const scroll = document.querySelector('.heatmap-scroll');
+  if (scroll) scroll.style.setProperty('--heatmap-col-w', px + 'px');
+  const label = document.getElementById('heatmapColWidthLabel');
+  if (label) label.textContent = px + 'px';
+};
 
 function escAttr(str) {
   return String(str || '').replace(/'/g, '&#39;').replace(/"/g, '&quot;');
@@ -672,11 +722,19 @@ function confirmWithText(message, requiredText, warningMessage = '') {
 }
 
 function getCriteriaInfo() {
-  return CRITERIA_CONFIG.map(c => ({
+  // Merge teacher + mentor criteria so the info popup resolves keys from
+  // either set. Mentor criteria carry their `desc` inline (no i18n yet).
+  const teacherEntries = CRITERIA_CONFIG.map(c => ({
     name: t(c.label_key),
     key: c.info_key,
-    desc: t(c.desc_key)
+    desc: t(c.desc_key),
   }));
+  const mentorEntries = (window.MENTOR_CRITERIA_CONFIG || []).map(c => ({
+    name: c.label,
+    key: c.info_key,
+    desc: c.desc || '',
+  }));
+  return [...teacherEntries, ...mentorEntries];
 }
 
 function criteriaInfoIcon(name) {
@@ -733,9 +791,11 @@ function scoreColor(score) {
   return 'var(--danger)';
 }
 
-// Format a score to always show 2 decimal places (e.g. 4 → "4.00", 3.5 → "3.50")
+// Format a score to always show 2 decimal places (e.g. 4 → "4.00", 3.5 → "3.50").
+// When there's no value yet, return a neutral gray placeholder so the surrounding
+// scoreColor() red doesn't bleed onto a "no data" label.
 function fmtScore(val) {
-  if (val === null || val === undefined) return 'N/A';
+  if (val === null || val === undefined) return '<span class="score-empty">N/A</span>';
   return Number(val).toFixed(2);
 }
 
@@ -1053,23 +1113,28 @@ async function renderStudentReview() {
           ? `<div class="card"><div class="card-body"><div class="empty-state"><h3>${t('student.no_teachers_title')}</h3><p>${t('student.no_teachers_desc')}</p></div></div></div>`
           : ''}
 
-      ${eligible.map(teacher => `
+      ${eligible.map(teacher => {
+        const isMentor = (teacher.classroom_kind || 'academic') === 'mentor';
+        const activeCriteria = isMentor
+          ? MENTOR_CRITERIA_CONFIG.map(c => ({ db_col: c.db_col, label: c.label, hint: c.hint, info_key: c.info_key }))
+          : CRITERIA_CONFIG.map(c => ({ db_col: c.db_col, label: t(c.label_key), hint: t(c.hint_key), info_key: c.info_key }));
+        return `
         <div class="card" style="margin-bottom:16px">
           <div class="card-header" style="display:flex;align-items:center;gap:12px">
             ${avatarHTML({ full_name: teacher.teacher_name, avatar_url: teacher.avatar_url, teacher_id: teacher.teacher_id }, 'normal', true)}
             <div style="flex:1">
-              <h3 style="margin:0">${teacher.teacher_name}</h3>
+              <h3 style="margin:0">${teacher.teacher_name}${isMentor ? ' <span style="font-size:0.7rem;background:#eef2ff;color:#4338ca;padding:2px 8px;border-radius:10px;font-weight:600;letter-spacing:0.02em;margin-left:6px;vertical-align:middle">MENTOR</span>' : ''}</h3>
               <span style="color:var(--gray-500);font-size:0.85rem">${teacher.classroom_subject} &middot; ${teacher.grade_level}</span>
             </div>
           </div>
           <div class="card-body">
-            <form onsubmit="submitReview(event, ${teacher.teacher_id}, ${teacher.classroom_id})" data-teacher-id="${teacher.teacher_id}">
+            <form onsubmit="submitReview(event, ${teacher.teacher_id}, ${teacher.classroom_id})" data-teacher-id="${teacher.teacher_id}" data-classroom-id="${teacher.classroom_id}" data-classroom-kind="${isMentor ? 'mentor' : 'academic'}">
               <div class="grid grid-2" style="margin-bottom:20px">
-                ${CRITERIA_CONFIG.map(c => `
+                ${activeCriteria.map(c => `
                   <div class="form-group" style="margin-bottom:12px">
-                    <label style="display:flex;align-items:center;gap:6px">${t(c.label_key)} ${criteriaInfoIcon(c.info_key)}</label>
-                    <div style="color:var(--gray-500);font-size:0.75rem;margin-top:-2px;margin-bottom:4px">${t(c.hint_key)}</div>
-                    <div class="star-rating-input" data-name="${c.db_col}" data-form="review-${teacher.teacher_id}">
+                    <label style="display:flex;align-items:center;gap:6px">${c.label}${c.info_key ? ' ' + criteriaInfoIcon(c.info_key) : ''}</label>
+                    ${c.hint ? `<div style="color:var(--gray-500);font-size:0.75rem;margin-top:-2px;margin-bottom:4px">${c.hint}</div>` : ''}
+                    <div class="star-rating-input" data-name="${c.db_col}" data-form="review-${teacher.classroom_id}">
                       ${[1,2,3,4,5].map(i => `<button type="button" class="star-btn" data-value="${i}" onclick="setRating(this)">\u2606</button>`).join('')}
                     </div>
                   </div>
@@ -1078,17 +1143,19 @@ async function renderStudentReview() {
               <div class="form-group" style="margin-bottom:24px;padding:20px;background:linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);border-radius:12px;border:2px solid #bae6fd">
                 <label style="font-size:1.1rem;font-weight:600;margin-bottom:12px;display:block;color:#0c4a6e">${t('student.overall_rating_label')}</label>
                 <div style="display:flex;align-items:center;gap:16px">
-                  <div id="overall-stars-${teacher.teacher_id}" class="fractional-stars" style="font-size:2.5rem;display:flex;gap:4px"></div>
-                  <div id="overall-value-${teacher.teacher_id}" style="font-size:2rem;font-weight:700;color:#0369a1;min-width:60px">-</div>
+                  <div id="overall-stars-${teacher.classroom_id}" class="fractional-stars" style="font-size:2.5rem;display:flex;gap:4px"></div>
+                  <div id="overall-value-${teacher.classroom_id}" style="font-size:2rem;font-weight:700;color:#0369a1;min-width:60px">-</div>
                 </div>
                 <div style="margin-top:8px;color:#0369a1;font-size:0.85rem;font-style:italic">${t('student.rate_all_criteria')}</div>
               </div>
-              <div class="form-group">
-                <label>${t('student.feedback_tags_label')}</label>
-                <div class="tag-container" id="tags-${teacher.teacher_id}">
-                  ${tags.map(tag => `<div class="tag" onclick="this.classList.toggle('selected')" data-tag="${tag}">${translateTag(tag)}</div>`).join('')}
+              ${isMentor ? '' : `
+                <div class="form-group">
+                  <label>${t('student.feedback_tags_label')}</label>
+                  <div class="tag-container" id="tags-${teacher.classroom_id}">
+                    ${tags.map(tag => `<div class="tag" onclick="this.classList.toggle('selected')" data-tag="${tag}">${translateTag(tag)}</div>`).join('')}
+                  </div>
                 </div>
-              </div>
+              `}
               <div class="form-group">
                 <label>${t('student.written_feedback_label')}</label>
                 <textarea class="form-control" name="feedback_text" placeholder="${t('student.written_feedback_placeholder')}" rows="3"></textarea>
@@ -1097,7 +1164,8 @@ async function renderStudentReview() {
             </form>
           </div>
         </div>
-      `).join('')}
+      `;
+      }).join('')}
 
       ${reviewed.length > 0 ? `
         <div class="card" style="margin-top:24px">
@@ -1154,26 +1222,30 @@ function renderFractionalStars(containerId, rating) {
 }
 
 function updateOverallRating(form) {
-  const teacherId = form.dataset.teacherId;
-  if (!teacherId) return;
+  // IDs are scoped to classroom_id, not teacher_id, so a teacher who has
+  // both an academic classroom and a mentor group renders two cards with
+  // distinct DOM ids — getElementById lookups stay correct.
+  const classroomId = form.dataset.classroomId || form.dataset.teacherId;
+  if (!classroomId) return;
 
-  const ratings = CRITERIA_COLS.map(col => parseInt(form.querySelector(`[data-name="${col}"]`)?.dataset.value || 0));
+  const isMentor = form.dataset.classroomKind === 'mentor';
+  const cols = isMentor ? MENTOR_CRITERIA_COLS : CRITERIA_COLS;
+  const count = cols.length;
+  const ratings = cols.map(col => parseInt(form.querySelector(`[data-name="${col}"]`)?.dataset.value || 0));
   const allRated = ratings.every(r => r > 0);
 
   if (allRated) {
-    const overall = ratings.reduce((s, v) => s + v, 0) / CRITERIA_COUNT;
-    const rounded = Math.round(overall);
+    const overall = ratings.reduce((s, v) => s + v, 0) / count;
+    renderFractionalStars(`overall-stars-${classroomId}`, overall);
 
-    renderFractionalStars(`overall-stars-${teacherId}`, overall);
-
-    const valueEl = document.getElementById(`overall-value-${teacherId}`);
+    const valueEl = document.getElementById(`overall-value-${classroomId}`);
     if (valueEl) {
       valueEl.textContent = overall.toFixed(2);
       valueEl.style.color = overall >= 4 ? '#059669' : overall >= 3 ? '#0369a1' : overall >= 2 ? '#d97706' : '#dc2626';
     }
   } else {
-    const starsEl = document.getElementById(`overall-stars-${teacherId}`);
-    const valueEl = document.getElementById(`overall-value-${teacherId}`);
+    const starsEl = document.getElementById(`overall-stars-${classroomId}`);
+    const valueEl = document.getElementById(`overall-value-${classroomId}`);
     if (starsEl) starsEl.innerHTML = '<span style="color:#e5e7eb">★★★★★</span>';
     if (valueEl) {
       valueEl.textContent = '-';
@@ -1201,13 +1273,16 @@ function setRating(btn) {
 async function submitReview(e, teacherId, classroomId) {
   e.preventDefault();
   const form = e.target;
+  const isMentor = form.dataset.classroomKind === 'mentor';
+  const cols = isMentor ? MENTOR_CRITERIA_COLS : CRITERIA_COLS;
+  const count = cols.length;
   const getRating = (name) => {
     const el = form.closest('.card-body').querySelector(`[data-name="${name}"]`);
     return parseInt(el?.dataset.value || 0);
   };
 
   const ratingValues = {};
-  for (const col of CRITERIA_COLS) {
+  for (const col of cols) {
     ratingValues[col] = getRating(col);
   }
   const allValues = Object.values(ratingValues);
@@ -1215,10 +1290,18 @@ async function submitReview(e, teacherId, classroomId) {
     return toast(t('student.rate_all_categories'), 'error');
   }
 
-  const overall = Math.round(allValues.reduce((s, v) => s + v, 0) / CRITERIA_COUNT);
+  const overall = Math.round(allValues.reduce((s, v) => s + v, 0) / count);
 
-  const tagsContainer = document.getElementById(`tags-${teacherId}`);
-  const selectedTags = [...tagsContainer.querySelectorAll('.tag.selected')].map(el => el.dataset.tag);
+  // Tags are only used on academic reviews; the mentor form doesn't render
+  // them. Look up by classroom_id so two cards for the same teacher don't
+  // collide on getElementById.
+  let selectedTags = [];
+  if (!isMentor) {
+    const tagsContainer = document.getElementById(`tags-${classroomId}`);
+    if (tagsContainer) {
+      selectedTags = [...tagsContainer.querySelectorAll('.tag.selected')].map(el => el.dataset.tag);
+    }
+  }
   const feedbackText = form.querySelector('[name="feedback_text"]').value;
 
   try {
@@ -1238,15 +1321,32 @@ async function submitReview(e, teacherId, classroomId) {
 
 async function renderStudentMyReviews() {
   const reviews = await cachedGet('/reviews/my-reviews', CACHE_TTL.short);
-  const el = document.getElementById('contentArea');
+  // Cache so the pager can re-render the slice without a refetch.
+  window._studentMyReviews = reviews;
+  if (window._studentMyReviewsPage == null) window._studentMyReviewsPage = 1;
+  paintStudentMyReviews();
+}
 
+const STUDENT_MY_REVIEWS_PAGE_SIZE = 5;
+
+function paintStudentMyReviews() {
+  const reviews = window._studentMyReviews || [];
+  const page = window._studentMyReviewsPage || 1;
+  const totalPages = Math.max(1, Math.ceil(reviews.length / STUDENT_MY_REVIEWS_PAGE_SIZE));
+  const safePage = Math.min(Math.max(1, page), totalPages);
+  const start = (safePage - 1) * STUDENT_MY_REVIEWS_PAGE_SIZE;
+  const pageRows = reviews.slice(start, start + STUDENT_MY_REVIEWS_PAGE_SIZE);
+  const from = reviews.length === 0 ? 0 : start + 1;
+  const to = Math.min(reviews.length, start + STUDENT_MY_REVIEWS_PAGE_SIZE);
+
+  const el = document.getElementById('contentArea');
   el.innerHTML = `
     <div class="card">
       <div class="card-header"><h3>${t('student.my_reviews_count', {count: reviews.length})}</h3></div>
       <div class="card-body">
         ${reviews.length === 0
           ? `<div class="empty-state"><h3>${t('student.no_reviews')}</h3><p>${t('student.submit_during_active')}</p></div>`
-          : reviews.map(r => {
+          : pageRows.map(r => {
             const avg = criteriaAverage(r);
             const colorVal = avg !== null ? avg : (r.overall_rating || 0);
             return `
@@ -1282,10 +1382,28 @@ async function renderStudentMyReviews() {
             </div>
           `;
           }).join('')}
+        ${reviews.length > STUDENT_MY_REVIEWS_PAGE_SIZE ? `
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:16px;padding-top:14px;border-top:1px solid var(--gray-100);flex-wrap:wrap">
+            <span style="font-size:0.82rem;color:var(--gray-500)">${from}–${to} of ${reviews.length}</span>
+            <div style="display:flex;gap:6px;align-items:center">
+              <button class="btn btn-sm btn-outline" onclick="studentMyReviewsPage(${safePage - 1})" ${safePage === 1 ? 'disabled' : ''}>← Prev</button>
+              <span style="font-size:0.82rem;color:var(--gray-600)">Page ${safePage} of ${totalPages}</span>
+              <button class="btn btn-sm btn-outline" onclick="studentMyReviewsPage(${safePage + 1})" ${safePage >= totalPages ? 'disabled' : ''}>Next →</button>
+            </div>
+          </div>
+        ` : ''}
       </div>
     </div>
   `;
 }
+
+window.studentMyReviewsPage = function (page) {
+  window._studentMyReviewsPage = page;
+  paintStudentMyReviews();
+  // Scroll to top of the card so the user sees the first row of the new page.
+  const el = document.getElementById('contentArea');
+  if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+};
 
 async function editMyReview(reviewId) {
   const reviews = await API.get('/reviews/my-reviews').catch(() => []);
@@ -1293,16 +1411,22 @@ async function editMyReview(reviewId) {
   if (!review) return toast(t('review.not_found'), 'error');
   if (review.approved_status === 1) return toast(t('review.cannot_edit_approved'), 'error');
 
-  const tags = await cachedGet('/reviews/tags', CACHE_TTL.long).catch(() => []);
+  const isMentor = review.review_kind === 'mentor';
+  const list = isMentor
+    ? MENTOR_CRITERIA_CONFIG.map(c => ({ slug: c.slug, db_col: c.db_col, label: c.label, info_key: c.info_key }))
+    : CRITERIA_CONFIG.map(c => ({ slug: c.slug, db_col: c.db_col, label: t(c.label_key), info_key: c.info_key }));
+
+  const tags = isMentor ? [] : await cachedGet('/reviews/tags', CACHE_TTL.long).catch(() => []);
   const currentTags = JSON.parse(review.tags || '[]');
 
   openModal(`
-    <div class="modal-header"><h3>${t('review.edit_title', {teacher: review.teacher_name})}</h3><button class="modal-close" onclick="closeModal()">&times;</button></div>
+    <div class="modal-header"><h3>${t('review.edit_title', {teacher: review.teacher_name})}${isMentor ? ' <span style="font-size:0.7rem;background:#eef2ff;color:#4338ca;padding:2px 8px;border-radius:10px;font-weight:600;margin-left:6px;vertical-align:middle">MENTOR</span>' : ''}</h3><button class="modal-close" onclick="closeModal()">&times;</button></div>
     <div class="modal-body">
-      <p style="color:var(--gray-500);font-size:0.85rem;margin-bottom:16px">${review.classroom_subject} &middot; ${review.period_name}</p>
-      ${CRITERIA_CONFIG.map(c => `
+      <p style="color:var(--gray-500);font-size:0.85rem;margin-bottom:16px">${escapeHtml(review.classroom_subject)} &middot; ${escapeHtml(review.period_name)}</p>
+      <input type="hidden" id="edit_review_kind" value="${isMentor ? 'mentor' : 'teacher'}">
+      ${list.map(c => `
         <div class="form-group">
-          <label>${t(c.label_key)}</label>
+          <label>${escapeHtml(c.label)}${c.info_key ? ' ' + criteriaInfoIcon(c.info_key) : ''}</label>
           <select class="form-control" id="edit_${c.slug}">
             ${[1,2,3,4,5].map(v => `<option value="${v}" ${review[c.db_col] == v ? 'selected' : ''}>${v} - ${[t('rating.very_poor'),t('rating.poor'),t('rating.average'),t('rating.good'),t('rating.excellent')][v-1]}</option>`).join('')}
           </select>
@@ -1310,14 +1434,16 @@ async function editMyReview(reviewId) {
       `).join('')}
       <div class="form-group">
         <label>${t('review.written_feedback_label')} <span style="color:var(--gray-400);font-weight:400">${t('forms.optional')}</span></label>
-        <textarea class="form-control" id="edit_feedback" rows="3" placeholder="${t('review.share_thoughts')}">${review.feedback_text || ''}</textarea>
+        <textarea class="form-control" id="edit_feedback" rows="3" placeholder="${t('review.share_thoughts')}">${escapeHtml(review.feedback_text || '')}</textarea>
       </div>
-      <div class="form-group">
-        <label>${t('review.tags_label')}</label>
-        <div style="display:flex;flex-wrap:wrap;gap:8px">
-          ${tags.map(tag => `<label style="display:flex;align-items:center;gap:4px;cursor:pointer"><input type="checkbox" value="${escAttr(tag)}" ${currentTags.includes(tag) ? 'checked' : ''}> ${translateTag(tag)}</label>`).join('')}
+      ${isMentor ? '' : `
+        <div class="form-group">
+          <label>${t('review.tags_label')}</label>
+          <div style="display:flex;flex-wrap:wrap;gap:8px">
+            ${tags.map(tag => `<label style="display:flex;align-items:center;gap:4px;cursor:pointer"><input type="checkbox" value="${escAttr(tag)}" ${currentTags.includes(tag) ? 'checked' : ''}> ${translateTag(tag)}</label>`).join('')}
+          </div>
         </div>
-      </div>
+      `}
     </div>
     <div class="modal-footer">
       <button class="btn btn-outline" onclick="closeModal()">${t('common.cancel')}</button>
@@ -1327,11 +1453,13 @@ async function editMyReview(reviewId) {
 }
 
 async function submitReviewEdit(reviewId) {
+  const isMentor = document.getElementById('edit_review_kind')?.value === 'mentor';
+  const list = isMentor ? MENTOR_CRITERIA_CONFIG : CRITERIA_CONFIG;
   const body = {
     feedback_text: document.getElementById('edit_feedback').value,
-    tags: [...document.querySelectorAll('#modal input[type=checkbox]:checked')].map(cb => cb.value)
+    tags: isMentor ? [] : [...document.querySelectorAll('#modal input[type=checkbox]:checked')].map(cb => cb.value),
   };
-  CRITERIA_CONFIG.forEach(c => {
+  list.forEach(c => {
     body[c.db_col] = parseInt(document.getElementById(`edit_${c.slug}`).value);
   });
   try {
@@ -1866,10 +1994,16 @@ async function renderTeacherHome() {
 }
 
 async function renderTeacherClassrooms() {
-  const data = await cachedGet('/dashboard/teacher');
+  const isMentor = !!currentUser?.is_mentor;
+  const [data, menteesRes] = await Promise.all([
+    cachedGet('/dashboard/teacher'),
+    isMentor ? API.get('/experiences/mentor/mentees').catch(() => ({ mentees: [] })) : Promise.resolve({ mentees: [] }),
+  ]);
   window._teacherTerms = data.all_terms || [];
   window._teacherActiveTerm = data.active_term || null;
   const el = document.getElementById('contentArea');
+  const allClassrooms = data.classrooms || [];
+  const mentees = menteesRes.mentees || [];
 
   el.innerHTML = `
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px">
@@ -1877,28 +2011,30 @@ async function renderTeacherClassrooms() {
       <button class="btn btn-primary" onclick="showCreateClassroomTeacher()">${t('teacher.create_classroom')}</button>
     </div>
     ${(() => {
-      const active = data.classrooms.filter(c => c.active_status !== 0);
-      const archived = data.classrooms.filter(c => c.active_status === 0);
+      const active = allClassrooms.filter(c => c.active_status !== 0);
+      const archived = allClassrooms.filter(c => c.active_status === 0);
       if (data.classrooms.length === 0) return `<div class="empty-state" style="margin-top:40px">
           <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="color:var(--gray-300);margin-bottom:12px"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
           <h3 style="color:var(--gray-500);margin-bottom:6px">${t('teacher.no_classrooms_title')}</h3>
           <p style="color:var(--gray-400);font-size:0.875rem">${t('teacher.create_first_classroom')}</p>
         </div>`;
-      const renderCard = (c, isArchived) => `
+      const renderCard = (c, isArchived) => {
+        const isMentorGroup = (c.kind || 'academic') === 'mentor';
+        return `
         <div class="classroom-card" style="${isArchived ? 'opacity:0.65;' : ''}">
-          <div style="display:flex;justify-content:space-between;align-items:start">
+          <div style="display:flex;justify-content:space-between;align-items:start;gap:8px">
             <div>
-              <div class="class-subject">${c.subject}</div>
-              <div class="class-meta">${c.grade_level} &middot; ${c.student_count} ${t('common.students').toLowerCase()}</div>
+              <div class="class-subject">${c.subject}${isMentorGroup ? ' <span style="font-size:0.65rem;background:#eef2ff;color:#4338ca;padding:2px 8px;border-radius:10px;font-weight:600;letter-spacing:0.04em;margin-left:6px;vertical-align:middle">MENTOR</span>' : ''}</div>
+              <div class="class-meta">${c.grade_level} &middot; ${c.student_count} ${isMentorGroup ? 'mentees' : t('common.students').toLowerCase()}</div>
             </div>
             ${isArchived ? `<span style="font-size:0.75rem;background:var(--gray-200);color:var(--gray-600);padding:2px 8px;border-radius:10px;font-weight:500">${t('teacher.archived')}</span>` : ''}
           </div>
-          <div style="margin-top:16px;display:flex;justify-content:space-between;align-items:center">
-            <div>
-              <div style="font-size:0.75rem;color:var(--gray-500);margin-bottom:4px">${t('teacher.join_code')}</div>
+          <div style="margin-top:16px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px">
+            <div style="display:inline-flex;align-items:center;gap:10px">
+              <span style="font-size:0.75rem;color:var(--gray-500)">${t('teacher.join_code')}</span>
               <span class="join-code">${formatJoinCode(c.join_code)}</span>
             </div>
-            <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
               ${!isArchived ? `<button class="btn btn-sm btn-outline" onclick="regenerateCode(${c.id})">${t('teacher.new_code')}</button>` : ''}
               ${!isArchived ? `<button class="btn btn-sm btn-outline" onclick="editClassroomTeacher(${c.id}, '${c.subject.replace(/'/g, "\\'")}', '${c.grade_level.replace(/'/g, "\\'")}')"> ${t('common.edit')}</button>` : ''}
               ${!isArchived
@@ -1909,29 +2045,106 @@ async function renderTeacherClassrooms() {
             </div>
           </div>
         </div>`;
-      return `<div class="grid grid-2">
-        ${active.map(c => renderCard(c, false)).join('')}
-      </div>
-      ${archived.length > 0 ? `
-        <div style="margin-top:32px">
-          <h3 style="color:var(--gray-500);font-size:0.95rem;margin-bottom:12px">${t('teacher.archived')} (${archived.length})</h3>
-          <div class="grid grid-2">${archived.map(c => renderCard(c, true)).join('')}</div>
-        </div>` : ''}`;
+      };
+      const academicActive = active.filter(c => (c.kind || 'academic') !== 'mentor');
+      const mentorActive = active.filter(c => (c.kind || 'academic') === 'mentor');
+      const academicArchived = archived.filter(c => (c.kind || 'academic') !== 'mentor');
+      const mentorArchived = archived.filter(c => (c.kind || 'academic') === 'mentor');
+      return `
+        ${academicActive.length > 0
+          ? `<h3 style="font-size:1rem;margin:0 0 12px;color:var(--gray-700)">My classrooms</h3>
+             <div class="grid grid-2">${academicActive.map(c => renderCard(c, false)).join('')}</div>`
+          : ''}
+        ${academicArchived.length > 0 ? `
+          <div style="margin-top:24px">
+            <h3 style="color:var(--gray-500);font-size:0.95rem;margin-bottom:12px">${t('teacher.archived')} classrooms (${academicArchived.length})</h3>
+            <div class="grid grid-2">${academicArchived.map(c => renderCard(c, true)).join('')}</div>
+          </div>` : ''}
+        ${mentorActive.length > 0 || mentorArchived.length > 0 ? `
+          <div style="margin-top:32px;padding-top:24px;border-top:1px solid var(--gray-200)">
+            <h3 style="font-size:1rem;margin:0 0 12px;color:var(--gray-700)">Mentor group</h3>
+            ${mentorActive.length > 0 ? `<div class="grid grid-2">${mentorActive.map(c => renderCard(c, false)).join('')}</div>` : ''}
+            ${mentorArchived.length > 0 ? `
+              <div style="margin-top:24px">
+                <h4 style="color:var(--gray-500);font-size:0.9rem;margin-bottom:12px">${t('teacher.archived')} mentor group${mentorArchived.length !== 1 ? 's' : ''} (${mentorArchived.length})</h4>
+                <div class="grid grid-2">${mentorArchived.map(c => renderCard(c, true)).join('')}</div>
+              </div>` : ''}
+          </div>` : ''}
+      `;
     })()}
+    ${isMentor && mentees.length > 0 ? `
+      <div class="card" style="margin-top:32px">
+        <div class="card-header" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
+          <div>
+            <h3>My mentees</h3>
+            <p style="color:var(--gray-500);font-size:0.82rem;margin:4px 0 0">Read your mentees' UWC Experience Map reflections.</p>
+          </div>
+          <span style="font-size:0.78rem;color:var(--gray-500)">${mentees.length} mentee${mentees.length !== 1 ? 's' : ''}</span>
+        </div>
+        <div class="table-container">
+          <table>
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Group</th>
+                <th>Cohort</th>
+                <th style="text-align:right">Reflections</th>
+                <th>Last reflection</th>
+                <th style="text-align:right">${t('common.actions')}</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${mentees.map(m => `
+                <tr>
+                  <td><strong>${escapeHtml(m.student_name)}</strong></td>
+                  <td>${escapeHtml(m.group_name)}</td>
+                  <td>${m.grade ? escapeHtml(m.grade) : '<span style="color:var(--gray-400)">N/A</span>'}</td>
+                  <td style="text-align:right;font-weight:600">${m.reflection_count}</td>
+                  <td>${m.last_date ? formatExpDate(m.last_date) : '<span style="color:var(--gray-400)">N/A</span>'}</td>
+                  <td style="text-align:right">
+                    <button class="btn btn-sm ${m.reflection_count > 0 ? 'btn-primary' : 'btn-outline'}" ${m.reflection_count === 0 ? 'disabled' : ''} onclick="viewMenteeExperiences(${m.student_id})">View map</button>
+                  </td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    ` : ''}
   `;
 }
 
-function showCreateClassroomTeacher() {
+async function showCreateClassroomTeacher() {
+  const isMentor = !!currentUser?.is_mentor;
+  // One mentor group per mentor — once created, hide the toggle.
+  let alreadyHasMentorGroup = false;
+  if (isMentor) {
+    try {
+      const data = await cachedGet('/dashboard/teacher');
+      alreadyHasMentorGroup = (data.classrooms || []).some(c => (c.kind || 'academic') === 'mentor');
+    } catch (_) {}
+  }
+  const showMentorToggle = isMentor && !alreadyHasMentorGroup;
   openModal(`
     <div class="modal-header"><h3>${t('teacher.create_classroom_title')}</h3><button class="modal-close" onclick="closeModal()">&times;</button></div>
     <div class="modal-body">
-      <div class="form-group">
+      ${showMentorToggle ? `
+        <div class="form-group" style="background:#f8fafc;border:1px solid var(--gray-100);border-radius:10px;padding:12px 14px">
+          <label style="display:flex;align-items:center;gap:10px;cursor:pointer;margin:0">
+            <input type="checkbox" id="newClassroomIsMentor" onchange="onCreateClassroomKindToggle(this.checked)">
+            <span><strong>This is a mentor group</strong>
+              <span style="display:block;font-weight:400;font-size:0.78rem;color:var(--gray-500);margin-top:2px">Mentees join with the code, feedback uses mentor criteria. One per mentor.</span>
+            </span>
+          </label>
+        </div>
+      ` : ''}
+      <div class="form-group" id="newSubjectWrap">
         <label>${t('common.subject')}</label>
         <input type="text" class="form-control" id="newSubject" placeholder="${t('teacher.subject_placeholder')}">
       </div>
       <div class="form-group">
-        <label>${t('common.grade')}</label>
-        <input type="text" class="form-control" id="newGradeLevel" placeholder="${t('teacher.grade_placeholder')}">
+        <label id="newGradeLabel">Cohort</label>
+        <input type="text" class="form-control" id="newGradeLevel" placeholder="e.g. Class of 2027">
       </div>
     </div>
     <div class="modal-footer">
@@ -1941,18 +2154,42 @@ function showCreateClassroomTeacher() {
   `);
 }
 
+window.onCreateClassroomKindToggle = function (isMentorGroup) {
+  const subjectWrap = document.getElementById('newSubjectWrap');
+  const gradeLabel = document.getElementById('newGradeLabel');
+  if (subjectWrap) subjectWrap.style.display = isMentorGroup ? 'none' : '';
+  if (gradeLabel) gradeLabel.textContent = isMentorGroup ? 'Mentor group name / cohort' : 'Cohort';
+  const gradeInput = document.getElementById('newGradeLevel');
+  if (gradeInput) gradeInput.placeholder = isMentorGroup ? 'e.g. Mentor Group A · Class of 2027' : 'e.g. Class of 2027';
+};
+
 async function createClassroomTeacher() {
-  const subject = document.getElementById('newSubject').value.trim();
+  const isMentorGroup = !!document.getElementById('newClassroomIsMentor')?.checked;
   const grade_level = document.getElementById('newGradeLevel').value.trim();
+  // For mentor groups the cohort line is the only label; subject is fixed to
+  // 'Mentor Group' so existing dashboard/aggregate queries still have a value.
+  const subject = isMentorGroup
+    ? 'Mentor Group'
+    : (document.getElementById('newSubject').value.trim());
   if (!subject || !grade_level) return toast(t('teacher.fill_all_fields'), 'error');
   try {
-    const data = await API.post('/classrooms', { subject, grade_level });
+    const data = await API.post('/classrooms', {
+      subject,
+      grade_level,
+      kind: isMentorGroup ? 'mentor' : 'academic',
+    });
     toast(t('teacher.classroom_created', {code: formatJoinCode(data.join_code)}));
     invalidateCache('/dashboard/teacher', '/classrooms', '/forms');
     closeModal();
     navigateTo('teacher-classrooms');
   } catch (err) { toast(err.message, 'error'); }
 }
+
+// ============ TEACHER: MENTOR GROUPS ============
+// Mentor groups are classrooms with kind='mentor'. UI mirrors the regular
+// classrooms page but every action (create/list) carries the mentor kind so
+// reviews submitted against these classrooms get routed to the mentor review
+// criteria, not the academic ones.
 
 async function archiveClassroomTeacher(id, subject) {
   const confirmed = await confirmDialog(t('teacher.archive_confirm', {name: subject}), t('teacher.archive'), t('common.cancel'));
@@ -2047,9 +2284,11 @@ async function renderTeacherFeedback() {
   const data = await cachedGet('/dashboard/teacher');
   const el = document.getElementById('contentArea');
 
-  // Separate approved and pending reviews
-  const approvedReviews = data.recent_reviews.filter(r => r.approved_status === 1);
-  const pendingReviews = data.recent_reviews.filter(r => r.approved_status === 0);
+  // Filter to academic-only — mentor reviews live on the dedicated
+  // teacher-mentor-feedback view since they use a different criteria set.
+  const academicReviews = (data.recent_reviews || []).filter(r => (r.review_kind || 'teacher') !== 'mentor');
+  const approvedReviews = academicReviews.filter(r => r.approved_status === 1);
+  const pendingReviews = academicReviews.filter(r => r.approved_status === 0);
   window._teacherCompletionRates = data.completion_rates || [];
 
   // Group APPROVED reviews by subject/classroom for averages
@@ -2247,6 +2486,128 @@ function showCompletionRatesModal() {
     <div class="modal-footer"><button class="btn btn-outline" onclick="closeModal()">${t('common.close')}</button></div>
   `);
 }
+
+async function renderTeacherMentorFeedback() {
+  const data = await cachedGet('/dashboard/teacher');
+  const el = document.getElementById('contentArea');
+  const reviews = (data.recent_reviews || []).filter(r => r.review_kind === 'mentor' && r.approved_status === 1);
+
+  // Aggregate across all mentor reviews — powers the "Overall Performance"
+  // card. Same shape as the academic Overall Performance card in the
+  // Teacher Feedback tab, just with the 5 mentor criteria.
+  const n = reviews.length;
+  const overallAvg = n ? reviews.reduce((s, r) => s + (r.overall_rating || 0), 0) / n : 0;
+  const overallPerCriterion = {};
+  MENTOR_CRITERIA_CONFIG.forEach(c => {
+    const vals = reviews.map(r => r[c.db_col]).filter(v => v != null && v > 0);
+    overallPerCriterion[c.slug] = vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : 0;
+  });
+
+  // Per-mentor-group breakdown (same as before, sits below Overall Performance).
+  const byGroup = {};
+  reviews.forEach(r => {
+    const key = `${r.classroom_subject} (${r.grade_level})`;
+    if (!byGroup[key]) byGroup[key] = { reviews: [], subject: r.classroom_subject, grade: r.grade_level };
+    byGroup[key].reviews.push(r);
+  });
+
+  Object.keys(byGroup).forEach(key => {
+    const rs = byGroup[key].reviews;
+    byGroup[key].count = rs.length;
+    byGroup[key].avg_overall = (rs.reduce((s, r) => s + r.overall_rating, 0) / rs.length).toFixed(2);
+    MENTOR_CRITERIA_CONFIG.forEach(c => {
+      byGroup[key][`avg_${c.slug}`] = (rs.reduce((s, r) => s + (r[c.db_col] || 0), 0) / rs.length).toFixed(2);
+    });
+  });
+
+  el.innerHTML = `
+    <div class="card" style="margin-bottom:24px">
+      <div class="card-header"><h3>${t('teacher.overall_performance')}</h3></div>
+      <div class="card-body">
+        <div style="text-align:center;padding:20px 0">
+          <div style="font-size:3rem;font-weight:700;color:${n > 0 ? scoreColor(overallAvg) : 'var(--gray-300)'};margin-bottom:16px">
+            ${n > 0 ? fmtScore(overallAvg) : '0.00'}
+          </div>
+          ${starsHTML(overallAvg, 'large')}
+          <div style="color:var(--gray-500);margin-top:16px;font-size:1rem">${n} mentor review${n !== 1 ? 's' : ''}</div>
+          ${n === 0 ? `<div style="margin-top:8px;font-size:0.8rem;color:var(--gray-400)">No mentor feedback yet — mentees will rate you when a feedback period is active.</div>` : ''}
+        </div>
+        <div style="margin-top:24px">
+          ${MENTOR_CRITERIA_CONFIG.map((c, i) => {
+            const val = overallPerCriterion[c.slug];
+            const border = i < MENTOR_CRITERIA_CONFIG.length - 1 ? 'border-bottom:1px solid var(--gray-100)' : '';
+            return `<div style="display:flex;justify-content:space-between;align-items:center;padding:12px 0;${border}">
+              <span style="display:flex;align-items:center;gap:4px">${escapeHtml(c.label)}${criteriaInfoIcon(c.info_key)}</span>
+              <span style="font-weight:600;color:${n > 0 ? scoreColor(val) : 'var(--gray-300)'}">
+                ${n > 0 ? fmtScore(val) : '0.00'} ${starsHTML(n > 0 ? val : 0)}
+              </span>
+            </div>`;
+          }).join('')}
+        </div>
+      </div>
+    </div>
+
+    ${reviews.length === 0
+      ? `<div class="card"><div class="card-body"><div class="empty-state">
+          <h3 style="color:var(--gray-500)">No mentor feedback yet</h3>
+          <p style="color:var(--gray-400);font-size:0.88rem">Mentees will be able to leave feedback once a feedback period is active for your mentor group.</p>
+        </div></div></div>`
+      : Object.entries(byGroup).map(([key, g]) => {
+          // Per-group pager: window._mentorGroupVisible[key] holds the
+          // current visible count (defaults to PAGE_SIZE on first render).
+          const PAGE_SIZE = 5;
+          const written = g.reviews.filter(r => r.feedback_text);
+          window._mentorGroupVisible = window._mentorGroupVisible || {};
+          const visibleCount = window._mentorGroupVisible[key] || PAGE_SIZE;
+          const visible = written.slice(0, visibleCount);
+          const remaining = Math.max(0, written.length - visible.length);
+          return `
+          <div class="card" style="margin-bottom:18px">
+            <div class="card-header" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
+              <h3>${escapeHtml(g.subject)} <span style="font-weight:400;color:var(--gray-500);font-size:0.85rem">${escapeHtml(g.grade)}</span></h3>
+              <span style="font-size:0.85rem">Overall <strong style="color:${scoreColor(parseFloat(g.avg_overall))};font-size:1rem">${g.avg_overall}</strong> · ${g.count} review${g.count !== 1 ? 's' : ''}</span>
+            </div>
+            <div class="card-body">
+              <div class="grid grid-2" style="gap:10px;margin-bottom:18px">
+                ${MENTOR_CRITERIA_CONFIG.map(c => {
+                  const v = parseFloat(g[`avg_${c.slug}`]);
+                  return `<div style="display:flex;justify-content:space-between;padding:8px 12px;background:var(--gray-50);border-radius:8px">
+                    <span style="font-size:0.86rem;display:inline-flex;align-items:center;gap:4px">${escapeHtml(c.label)}${criteriaInfoIcon(c.info_key)}</span>
+                    <strong style="color:${scoreColor(v)}">${g[`avg_${c.slug}`]}</strong>
+                  </div>`;
+                }).join('')}
+              </div>
+              ${visible.map(r => `
+                <div class="review-text" style="margin-bottom:10px">${escapeHtml(r.feedback_text)}</div>
+              `).join('')}
+              ${written.length > 0 ? `
+                <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding-top:10px;border-top:1px solid var(--gray-100);font-size:0.82rem;color:var(--gray-500)">
+                  <span>Showing ${visible.length} of ${written.length} written reflection${written.length !== 1 ? 's' : ''}</span>
+                  <span style="display:flex;gap:6px">
+                    ${remaining > 0 ? `<button class="btn btn-sm btn-outline" onclick="mentorGroupShowMore(${JSON.stringify(key)})">Show more (${Math.min(PAGE_SIZE, remaining)})</button>` : ''}
+                    ${visibleCount > PAGE_SIZE ? `<button class="btn btn-sm btn-outline" onclick="mentorGroupShowLess(${JSON.stringify(key)})">Show less</button>` : ''}
+                  </span>
+                </div>
+              ` : ''}
+            </div>
+          </div>
+        `;
+        }).join('')}
+  `;
+}
+
+window.mentorGroupShowMore = function (key) {
+  const PAGE_SIZE = 5;
+  window._mentorGroupVisible = window._mentorGroupVisible || {};
+  window._mentorGroupVisible[key] = (window._mentorGroupVisible[key] || PAGE_SIZE) + PAGE_SIZE;
+  renderTeacherMentorFeedback();
+};
+window.mentorGroupShowLess = function (key) {
+  const PAGE_SIZE = 5;
+  window._mentorGroupVisible = window._mentorGroupVisible || {};
+  window._mentorGroupVisible[key] = PAGE_SIZE;
+  renderTeacherMentorFeedback();
+};
 
 async function renderTeacherAnalytics() {
   const data = await cachedGet('/dashboard/teacher');
@@ -2855,13 +3216,20 @@ async function renderHeadHome() {
 
     <div class="grid grid-2" style="margin-bottom:28px">
       <div class="card">
-        <div class="card-header"><h3>${t('head.teacher_rankings')}</h3></div>
-        <div class="card-body">
+        <div class="card-header" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
+          <h3>${t('head.teacher_rankings')}</h3>
+          <span style="font-size:0.78rem;color:var(--gray-500)">Top 5 of ${data.teachers.length}</span>
+        </div>
+        <div class="card-body" style="display:flex;flex-direction:column">
           <table>
-            <thead><tr><th>${t('common.teacher')}</th><th>${t('common.department')}</th><th>${t('chart.score')}</th><th>${t('common.reviews')}</th><th>${t('common.trend')}</th></tr></thead>
+            <thead><tr><th style="width:48px">#</th><th>${t('common.teacher')}</th><th>${t('common.department')}</th><th>${t('chart.score')}</th><th>${t('common.reviews')}</th><th>${t('common.trend')}</th></tr></thead>
             <tbody>
-              ${data.teachers.sort((a, b) => (b.scores.avg_overall || 0) - (a.scores.avg_overall || 0)).map(tchr => `
+              ${data.teachers
+                .sort((a, b) => (b.scores.avg_overall || 0) - (a.scores.avg_overall || 0))
+                .slice(0, 5)
+                .map((tchr, i) => `
                 <tr>
+                  <td style="font-weight:600;text-align:center">${rankBadge(i)}</td>
                   <td><strong>${tchr.full_name}</strong></td>
                   <td>${tchr.department || '-'}</td>
                   <td style="font-weight:600;color:${scoreColor(tchr.scores.avg_overall || 0)}">${fmtScore(tchr.scores.avg_overall)}</td>
@@ -2871,6 +3239,7 @@ async function renderHeadHome() {
               `).join('')}
             </tbody>
           </table>
+          ${data.teachers.length > 5 ? `<div style="margin-top:12px;text-align:center"><button class="btn btn-sm btn-outline" onclick="navigateTo('head-teachers')">Show more →</button></div>` : ''}
         </div>
       </div>
       <div class="card">
@@ -2969,84 +3338,303 @@ async function renderHeadHome() {
 async function renderHeadTeachers() {
   const data = await cachedGet('/dashboard/school-head');
   const el = document.getElementById('contentArea');
+  window._headTeachersAll = data.teachers || [];
+
+  const filter = window._headTeachersFilter || 'all';
+  const visible = filter === 'mentors'
+    ? window._headTeachersAll.filter(t => !!t.is_mentor)
+    : window._headTeachersAll;
+
+  const sorted = [...visible].sort(
+    (a, b) => (b.scores.avg_overall || 0) - (a.scores.avg_overall || 0)
+  );
+
+  const rowsHTML = sorted.map((tchr, i) => `
+    <tr data-search="${escAttr([tchr.full_name, tchr.subject, tchr.department].filter(Boolean).join(' ').toLowerCase())}">
+      <td style="text-align:center;font-weight:600;color:var(--gray-500)">${i + 1}</td>
+      <td>
+        <strong>${escapeHtml(tchr.full_name)}</strong>
+        ${tchr.is_mentor ? '<span style="font-size:0.65rem;background:#eef2ff;color:#4338ca;padding:2px 8px;border-radius:10px;font-weight:600;letter-spacing:0.04em;margin-left:6px;vertical-align:middle">MENTOR</span>' : ''}
+      </td>
+      <td>${tchr.subject || '<span class="score-empty">N/A</span>'}</td>
+      <td>${tchr.department || '<span class="score-empty">N/A</span>'}</td>
+      <td style="font-weight:600;color:${scoreColor(tchr.scores.avg_overall || 0)}">${fmtScore(tchr.scores.avg_overall)}</td>
+      <td>${tchr.scores.review_count}</td>
+      <td>${tchr.trend ? trendArrow(tchr.trend.trend) : '-'}</td>
+      <td style="text-align:right;white-space:nowrap">
+        ${tchr.is_mentor ? `<button class="btn btn-sm btn-outline" style="font-size:0.78rem;padding:5px 10px" onclick="viewMentorMentees(${tchr.id}, ${jsAttr(tchr.full_name)})">View mentees</button>` : ''}
+        <button class="btn btn-sm btn-primary" style="font-size:0.78rem;padding:5px 12px" onclick="viewTeacherFeedback(${tchr.id})">View</button>
+        <button class="btn btn-sm btn-outline" style="font-size:0.78rem;padding:5px 10px" onclick="exportTeacherPDF(${tchr.id})" title="${t('admin.export_pdf')}">PDF</button>
+      </td>
+    </tr>
+  `).join('');
 
   el.innerHTML = `
-    <div class="grid grid-2 head-teacher-cards">
-      ${data.teachers.map(teacher => `
-        <div class="card head-teacher-card" style="margin-bottom:0">
-          <div class="card-header" style="padding:12px 16px">
-            <h3 style="font-size:1rem;margin:0">${teacher.full_name}</h3>
-            <span style="color:var(--gray-500);font-size:0.78rem">${teacher.department || ''}</span>
-          </div>
-          <div class="card-body" style="padding:12px 16px">
-            <div style="display:flex;justify-content:space-between;margin-bottom:12px">
-              <div>
-                <div style="font-size:0.7rem;color:var(--gray-500)">${t('common.subject')}</div>
-                <div style="font-weight:500;font-size:0.85rem">${teacher.subject || '-'}</div>
-              </div>
-              <div style="text-align:center">
-                <div style="font-size:0.7rem;color:var(--gray-500)">${t('head.overall_rating')}</div>
-                <div style="font-size:1.15rem;font-weight:700;color:${scoreColor(teacher.scores.avg_overall || 0)}">${fmtScore(teacher.scores.avg_overall)}</div>
-              </div>
-              <div style="text-align:right">
-                <div style="font-size:0.7rem;color:var(--gray-500)">${t('head.reviews')}</div>
-                <div style="font-weight:500;font-size:0.85rem">${teacher.scores.review_count}</div>
-              </div>
-            </div>
-            <details class="criteria-collapse" style="margin-top:8px;padding-top:8px">
-              <summary>
-                <span>${t('student.criteria_breakdown')}</span>
-                <svg class="caret" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
-              </summary>
-              <div style="margin-top:8px">
-                ${CRITERIA_CONFIG.map(c => {
-                  const val = teacher.scores[`avg_${c.slug}`] || 0;
-                  return `<div style="margin-bottom:6px">
-                    <div style="display:flex;justify-content:space-between;align-items:center;font-size:0.72rem;margin-bottom:2px">
-                      <span style="display:inline-flex;align-items:center;gap:4px">${t(c.label_key)}${criteriaInfoIcon(c.info_key)}</span><span style="font-weight:600">${val}/5</span>
-                    </div>
-                    <div class="progress-bar" style="height:5px"><div class="progress-fill blue" style="width:${(val/5)*100}%"></div></div>
-                  </div>`;
-                }).join('')}
-              </div>
-            </details>
-            ${teacher.trend ? `<div style="margin-top:8px;font-size:0.75rem">Trend: ${trendArrow(teacher.trend.trend)} <span class="trend-${teacher.trend.trend === 'improving' ? 'up' : teacher.trend.trend === 'declining' ? 'down' : 'stable'}">${teacher.trend.trend}</span></div>` : ''}
-            <div style="margin-top:10px;display:flex;gap:6px">
-              <button class="btn btn-sm btn-primary" style="flex:1;font-size:0.78rem;padding:6px 10px" onclick="viewTeacherFeedback(${teacher.id})">${t('admin.view_feedback')}</button>
-              <button class="btn btn-sm btn-outline" style="font-size:0.78rem;padding:6px 10px" onclick="exportTeacherPDF(${teacher.id})" title="${t('admin.export_pdf')}">PDF</button>
-            </div>
-          </div>
-        </div>
-      `).join('')}
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:16px;flex-wrap:wrap">
+      <div style="position:relative;flex:1;min-width:240px;max-width:420px">
+        <input id="headTeachersSearch" type="search" class="form-control" placeholder="Search by name, subject, or department" oninput="filterHeadTeachers(this.value)" autocomplete="off" style="padding-left:36px">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--gray-400);pointer-events:none"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+      </div>
+      <span id="headTeachersCount" style="font-size:0.78rem;color:var(--gray-500)">${visible.length} of ${window._headTeachersAll.length}</span>
     </div>
-  `;
-}
-
-async function renderHeadClassrooms() {
-  const data = await cachedGet('/dashboard/school-head');
-  const el = document.getElementById('contentArea');
-
-  el.innerHTML = `
+    <div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap">
+      <button class="btn btn-sm ${filter === 'all' ? 'btn-primary' : 'btn-outline'}" onclick="setHeadTeachersFilter('all')">All</button>
+      <button class="btn btn-sm ${filter === 'mentors' ? 'btn-primary' : 'btn-outline'}" onclick="setHeadTeachersFilter('mentors')">Mentors only</button>
+    </div>
     <div class="card">
       <div class="table-container">
         <table>
-          <thead><tr><th>${t('common.subject')}</th><th>${t('common.teacher')}</th><th>${t('common.grade')}</th><th>${t('common.students')}</th><th>${t('common.actions')}</th></tr></thead>
-          <tbody>
-            ${data.classrooms.map(c => `
-              <tr>
-                <td><strong>${c.subject}</strong></td>
-                <td>${c.teacher_name}</td>
-                <td>${c.grade_level}</td>
-                <td><a href="#" onclick="event.preventDefault();viewHeadClassroomMembers(${c.id},'${c.subject.replace(/'/g, "\\'")}')" style="color:var(--primary);font-weight:600">${c.student_count || 0}</a></td>
-                <td><button class="btn btn-sm btn-outline" onclick="viewHeadClassroomMembers(${c.id},'${c.subject.replace(/'/g, "\\'")}')">${t('teacher.members')}</button></td>
-              </tr>
-            `).join('')}
+          <thead>
+            <tr>
+              <th style="width:48px">#</th>
+              <th>${t('common.teacher')}</th>
+              <th>${t('common.subject')}</th>
+              <th>${t('common.department')}</th>
+              <th>${t('chart.score')}</th>
+              <th>${t('common.reviews')}</th>
+              <th>${t('common.trend')}</th>
+              <th style="text-align:right">${t('common.actions')}</th>
+            </tr>
+          </thead>
+          <tbody id="headTeachersBody">
+            ${rowsHTML}
+            <tr id="headTeachersEmpty" style="display:none"><td colspan="8" style="text-align:center;padding:32px;color:var(--gray-500);font-size:0.9rem">No teachers match that search.</td></tr>
           </tbody>
         </table>
       </div>
     </div>
   `;
 }
+
+window.setHeadTeachersFilter = function (mode) {
+  window._headTeachersFilter = mode;
+  renderHeadTeachers();
+};
+
+window.filterHeadTeachers = function (raw) {
+  const q = (raw || '').trim().toLowerCase();
+  const rows = document.querySelectorAll('#headTeachersBody tr[data-search]');
+  let visible = 0;
+  rows.forEach(row => {
+    const hay = row.dataset.search || '';
+    const match = !q || hay.includes(q);
+    row.style.display = match ? '' : 'none';
+    if (match) visible++;
+  });
+  const empty = document.getElementById('headTeachersEmpty');
+  if (empty) empty.style.display = visible === 0 ? '' : 'none';
+  const counter = document.getElementById('headTeachersCount');
+  if (counter) {
+    const total = rows.length;
+    counter.textContent = q
+      ? `${visible} of ${total} teacher${total !== 1 ? 's' : ''}`
+      : `${total} teacher${total !== 1 ? 's' : ''}`;
+  }
+};
+
+async function renderHeadMentors() {
+  const data = await cachedGet('/dashboard/school-head/mentors');
+  const el = document.getElementById('contentArea');
+  const mentors = data.mentors || [];
+  const sorted = [...mentors].sort(
+    (a, b) => (b.scores.avg_overall || 0) - (a.scores.avg_overall || 0)
+  );
+
+  // Mirror the Teachers tab columns. Criteria breakdown lives inside the
+  // "View" feedback modal, not as inline columns. The extra column here is
+  // "View Mentees" — opens the same per-mentee timeline a mentor sees.
+  const rowsHTML = sorted.map((m, i) => `
+    <tr data-search="${escapeAttr([m.full_name, m.subject, m.department].filter(Boolean).join(' ').toLowerCase())}">
+      <td style="text-align:center;font-weight:600;color:var(--gray-500)">${i + 1}</td>
+      <td><strong>${escapeHtml(m.full_name)}</strong></td>
+      <td>${m.subject || '<span class="score-empty">N/A</span>'}</td>
+      <td>${m.department || '<span class="score-empty">N/A</span>'}</td>
+      <td style="font-weight:600;color:${scoreColor(m.scores.avg_overall || 0)}">${fmtScore(m.scores.avg_overall)}</td>
+      <td>${m.scores.review_count}</td>
+      <td>${m.group_count}</td>
+      <td style="text-align:right;white-space:nowrap">
+        <button class="btn btn-sm btn-outline" style="font-size:0.78rem;padding:5px 10px" onclick="viewMentorMentees(${m.id}, '${escapeAttr(m.full_name).replace(/'/g, "\\'")}')">View mentees</button>
+        <button class="btn btn-sm btn-primary" style="font-size:0.78rem;padding:5px 12px" onclick="viewTeacherFeedback(${m.id})">View</button>
+        <button class="btn btn-sm btn-outline" style="font-size:0.78rem;padding:5px 10px" onclick="exportTeacherPDF(${m.id})" title="${t('admin.export_pdf')}">PDF</button>
+      </td>
+    </tr>
+  `).join('');
+
+  el.innerHTML = `
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:16px;flex-wrap:wrap">
+      <div style="position:relative;flex:1;min-width:240px;max-width:420px">
+        <input id="headMentorsSearch" type="search" class="form-control" placeholder="Search by name, subject, or department" oninput="filterHeadMentors(this.value)" autocomplete="off" style="padding-left:36px">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--gray-400);pointer-events:none"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+      </div>
+      <span id="headMentorsCount" style="font-size:0.78rem;color:var(--gray-500)">${mentors.length} mentor${mentors.length !== 1 ? 's' : ''}</span>
+    </div>
+    <div class="card">
+      <div class="table-container">
+        <table>
+          <thead>
+            <tr>
+              <th style="width:48px">#</th>
+              <th>Mentor</th>
+              <th>${t('common.subject')}</th>
+              <th>${t('common.department')}</th>
+              <th>${t('chart.score')}</th>
+              <th>${t('common.reviews')}</th>
+              <th>Mentor groups</th>
+              <th style="text-align:right">${t('common.actions')}</th>
+            </tr>
+          </thead>
+          <tbody id="headMentorsBody">
+            ${sorted.length === 0
+              ? `<tr><td colspan="8" style="text-align:center;padding:32px;color:var(--gray-500)">No mentors yet. Grant the mentor role to a teacher from the Admin → Users tab.</td></tr>`
+              : rowsHTML}
+            <tr id="headMentorsEmpty" style="display:none"><td colspan="8" style="text-align:center;padding:32px;color:var(--gray-500);font-size:0.9rem">No mentors match that search.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  `;
+}
+
+// View Mentees modal — head can see who a given mentor's mentees are with
+// a per-student reflection-count summary. Drilldown to a single mentee's
+// timeline goes through the existing head endpoint.
+window.viewMentorMentees = async function (mentorId, mentorName) {
+  try {
+    const res = await API.get(`/dashboard/school-head/mentors/${mentorId}/mentees`);
+    const mentees = res.mentees || [];
+    openModal(`
+      <div class="modal-header">
+        <h3>${escapeHtml(mentorName)}'s mentees</h3>
+        <button class="modal-close" onclick="closeModal()">&times;</button>
+      </div>
+      <div class="modal-body" style="min-width:0">
+        ${mentees.length === 0
+          ? '<p style="color:var(--gray-500);text-align:center;padding:32px">No mentees yet.</p>'
+          : `<div style="overflow-x:auto"><table style="width:100%">
+              <thead><tr><th>${t('common.name')}</th><th>Group</th><th>Cohort</th><th style="text-align:right">Reflections</th><th>Last reflection</th><th style="text-align:right">${t('common.actions')}</th></tr></thead>
+              <tbody>
+                ${mentees.map(m => `
+                  <tr>
+                    <td><strong>${escapeHtml(m.student_name)}</strong></td>
+                    <td>${escapeHtml(m.group_name)}</td>
+                    <td>${m.grade ? escapeHtml(m.grade) : '<span style="color:var(--gray-400)">N/A</span>'}</td>
+                    <td style="text-align:right;font-weight:600">${m.reflection_count}</td>
+                    <td>${m.last_date ? formatExpDate(m.last_date) : '<span style="color:var(--gray-400)">N/A</span>'}</td>
+                    <td style="text-align:right">
+                      <button class="btn btn-sm ${m.reflection_count > 0 ? 'btn-primary' : 'btn-outline'}" ${m.reflection_count === 0 ? 'disabled' : ''} onclick="closeModal();viewStudentExperiencesAsHead(${m.student_id})">View map</button>
+                    </td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table></div>`}
+      </div>
+      <div class="modal-footer"><button class="btn btn-outline" onclick="closeModal()">${t('common.close')}</button></div>
+    `);
+  } catch (err) {
+    toast(err.message || 'Could not load mentees', 'error');
+  }
+};
+
+window.filterHeadMentors = function (raw) {
+  const q = (raw || '').trim().toLowerCase();
+  const rows = document.querySelectorAll('#headMentorsBody tr[data-search]');
+  let visible = 0;
+  rows.forEach(row => {
+    const hay = row.dataset.search || '';
+    const match = !q || hay.includes(q);
+    row.style.display = match ? '' : 'none';
+    if (match) visible++;
+  });
+  const empty = document.getElementById('headMentorsEmpty');
+  if (empty) empty.style.display = visible === 0 ? '' : 'none';
+  const counter = document.getElementById('headMentorsCount');
+  if (counter) {
+    const total = rows.length;
+    counter.textContent = q ? `${visible} of ${total} mentor${total !== 1 ? 's' : ''}` : `${total} mentor${total !== 1 ? 's' : ''}`;
+  }
+};
+
+async function renderHeadClassrooms() {
+  const data = await cachedGet('/dashboard/school-head');
+  window._headClassroomsAll = data.classrooms || [];
+  paintHeadClassrooms();
+}
+
+function paintHeadClassrooms() {
+  const all = window._headClassroomsAll || [];
+  const filter = window._headClassroomFilter || 'all';
+  const visible = filter === 'mentor'
+    ? all.filter(c => (c.kind || 'academic') === 'mentor')
+    : filter === 'academic'
+      ? all.filter(c => (c.kind || 'academic') !== 'mentor')
+      : all;
+  const el = document.getElementById('contentArea');
+
+  el.innerHTML = `
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:16px;flex-wrap:wrap">
+      <div style="position:relative;flex:1;min-width:240px;max-width:420px">
+        <input id="headClassroomsSearch" type="search" class="form-control" placeholder="Search by subject, teacher, or grade" oninput="filterHeadClassrooms(this.value)" autocomplete="off" style="padding-left:36px">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--gray-400);pointer-events:none"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+      </div>
+      <span id="headClassroomsCount" style="font-size:0.78rem;color:var(--gray-500)">${visible.length} of ${all.length} classroom${all.length !== 1 ? 's' : ''}</span>
+    </div>
+    <div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap">
+      <button class="btn btn-sm ${filter === 'all' ? 'btn-primary' : 'btn-outline'}" onclick="setHeadClassroomFilter('all')">All</button>
+      <button class="btn btn-sm ${filter === 'academic' ? 'btn-primary' : 'btn-outline'}" onclick="setHeadClassroomFilter('academic')">Classrooms</button>
+      <button class="btn btn-sm ${filter === 'mentor' ? 'btn-primary' : 'btn-outline'}" onclick="setHeadClassroomFilter('mentor')">Mentor groups</button>
+    </div>
+    <div class="card">
+      <div class="table-container">
+        <table>
+          <thead><tr><th>${t('common.subject')}</th><th>${t('common.teacher')}</th><th>${t('common.grade')}</th><th>${t('common.students')}</th><th>${t('common.actions')}</th></tr></thead>
+          <tbody id="headClassroomsBody">
+            ${visible.length === 0 ? `<tr><td colspan="5" style="text-align:center;color:var(--gray-500);padding:32px">No classrooms in this view.</td></tr>` : ''}
+            ${visible.map(c => {
+              const isMentor = (c.kind || 'academic') === 'mentor';
+              const subjectCell = `<strong>${escapeHtml(c.subject)}</strong>${isMentor ? ' <span style="font-size:0.65rem;background:#eef2ff;color:#4338ca;padding:2px 8px;border-radius:10px;font-weight:600;letter-spacing:0.04em;margin-left:4px;vertical-align:middle">MENTOR</span>' : ''}`;
+              return `
+                <tr data-search="${escAttr([c.subject, c.teacher_name, c.grade_level].filter(Boolean).join(' ').toLowerCase())}">
+                  <td>${subjectCell}</td>
+                  <td>${escapeHtml(c.teacher_name || '')}</td>
+                  <td>${escapeHtml(c.grade_level || '')}</td>
+                  <td><a href="#" onclick="event.preventDefault();viewHeadClassroomMembers(${c.id}, ${jsAttr(c.subject)})" style="color:var(--primary);font-weight:600">${c.student_count || 0}</a></td>
+                  <td><button class="btn btn-sm btn-outline" onclick="viewHeadClassroomMembers(${c.id}, ${jsAttr(c.subject)})">${t('teacher.members')}</button></td>
+                </tr>
+              `;
+            }).join('')}
+            <tr id="headClassroomsEmpty" style="display:none"><td colspan="5" style="text-align:center;padding:32px;color:var(--gray-500);font-size:0.9rem">No classrooms match that search.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  `;
+}
+
+window.setHeadClassroomFilter = function (kind) {
+  window._headClassroomFilter = kind;
+  paintHeadClassrooms();
+};
+
+window.filterHeadClassrooms = function (raw) {
+  const q = (raw || '').trim().toLowerCase();
+  const rows = document.querySelectorAll('#headClassroomsBody tr[data-search]');
+  let visible = 0;
+  rows.forEach(row => {
+    const hay = row.dataset.search || '';
+    const match = !q || hay.includes(q);
+    row.style.display = match ? '' : 'none';
+    if (match) visible++;
+  });
+  const empty = document.getElementById('headClassroomsEmpty');
+  if (empty) empty.style.display = visible === 0 ? '' : 'none';
+  const counter = document.getElementById('headClassroomsCount');
+  if (counter) {
+    const total = rows.length;
+    counter.textContent = q
+      ? `${visible} of ${total} classroom${total !== 1 ? 's' : ''}`
+      : `${total} classroom${total !== 1 ? 's' : ''}`;
+  }
+};
 
 async function viewHeadClassroomMembers(classroomId, subject) {
   try {
@@ -3075,29 +3663,160 @@ async function viewHeadClassroomMembers(classroomId, subject) {
   } catch (err) { toast(err.message, 'error'); }
 }
 
+// ─── Head analytics — supplementary charts ───────────────────────────────────
+// Heatmap is great for "every teacher × every criterion" but loses signal once
+// the cohort exceeds ~20. Two complementary lenses go above it:
+//   (1) Department radar   — where each department is strong/weak across criteria
+//   (2) Score distribution — per-teacher polarisation (every teacher, no top-N)
+function renderHeadAnalyticsExtras(data) {
+  // Distribution chart needs vertical room proportional to the cohort so every
+  // teacher gets a readable row (≥30 teachers = ~22 px per bar).
+  const distHeight = Math.max(320, (data.teachers || []).length * 22 + 80);
+  return `
+    <div class="card" style="margin-bottom:24px">
+      <div class="card-header"><h3>Department comparison</h3></div>
+      <div class="card-body" style="height:520px">
+        <canvas id="headDeptRadar"></canvas>
+      </div>
+    </div>
+    <div class="card" style="margin-bottom:24px">
+      <div class="card-header" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
+        <h3>Score distribution per teacher</h3>
+        <span style="font-size:0.75rem;color:var(--gray-500)">All teachers · stacked 1★ → 5★</span>
+      </div>
+      <div class="card-body" style="height:${distHeight}px">
+        <canvas id="headScoreDist"></canvas>
+      </div>
+    </div>
+  `;
+}
+
+function drawHeadAnalyticsExtras(data) {
+  const teachers = data.teachers || [];
+
+  // (1) Department radar — average per criterion, grouped by department
+  const deptRadarCtx = document.getElementById('headDeptRadar');
+  if (deptRadarCtx && teachers.length) {
+    const byDept = {};
+    teachers.forEach(t => {
+      const d = t.department || 'Unassigned';
+      if (!byDept[d]) byDept[d] = [];
+      byDept[d].push(t);
+    });
+    const palette = ['#059669', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6', '#0ea5e9', '#ec4899', '#84cc16'];
+    const labels = CRITERIA_CONFIG.map(c => t(c.label_key));
+    const datasets = Object.keys(byDept).map((d, i) => {
+      const list = byDept[d];
+      return {
+        label: d,
+        data: CRITERIA_CONFIG.map(c => {
+          const vals = list.map(x => x.scores[`avg_${c.slug}`]).filter(v => v != null);
+          return vals.length ? +(vals.reduce((a, b) => a + b, 0) / vals.length).toFixed(2) : 0;
+        }),
+        backgroundColor: palette[i % palette.length] + '22',
+        borderColor: palette[i % palette.length],
+        borderWidth: 2,
+        pointBackgroundColor: palette[i % palette.length]
+      };
+    });
+    chartInstances.headDeptRadar = new Chart(deptRadarCtx, {
+      type: 'radar',
+      data: { labels, datasets },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        layout: { padding: { right: 16 } },
+        plugins: { legend: { position: 'right', align: 'center', labels: { padding: 14, usePointStyle: true, boxWidth: 10, font: { size: 12 } } } },
+        scales: { r: { suggestedMin: 0, suggestedMax: 5, ticks: { stepSize: 1, font: { size: 11 } }, pointLabels: { font: { size: 11 } } } }
+      }
+    });
+  }
+
+  // (2) Stacked star-distribution per teacher — surfaces polarised feedback
+  // that gets averaged-away in the heatmap.
+  const distCtx = document.getElementById('headScoreDist');
+  if (distCtx && teachers.length) {
+    const sorted = [...teachers].sort(
+      (a, b) => (b.scores.avg_overall || 0) - (a.scores.avg_overall || 0)
+    );
+    const starColors = ['#dc2626', '#f97316', '#f59e0b', '#10b981', '#059669'];
+    const datasets = [1, 2, 3, 4, 5].map((star, i) => ({
+      label: star + '★',
+      data: sorted.map(tc => {
+        const dist = tc.distribution || {};
+        const total = (dist[1] || 0) + (dist[2] || 0) + (dist[3] || 0) + (dist[4] || 0) + (dist[5] || 0);
+        return total ? Math.round((dist[star] || 0) / total * 100) : 0;
+      }),
+      backgroundColor: starColors[i]
+    }));
+    chartInstances.headScoreDist = new Chart(distCtx, {
+      type: 'bar',
+      data: { labels: sorted.map(tc => tc.full_name), datasets },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        indexAxis: 'y',
+        plugins: {
+          legend: { position: 'bottom', labels: { padding: 10, usePointStyle: true, font: { size: 11 } } },
+          tooltip: { callbacks: { label: ctx => `${ctx.dataset.label}: ${ctx.raw}%` } }
+        },
+        scales: {
+          x: { stacked: true, max: 100, ticks: { callback: v => v + '%', font: { size: 10 } } },
+          y: { stacked: true, ticks: { font: { size: 10 } } }
+        }
+      }
+    });
+  }
+
+}
+
 async function renderHeadAnalytics() {
   const data = await cachedGet('/dashboard/school-head');
   const el = document.getElementById('contentArea');
 
   // Heatmap transposed: criteria as rows, teachers as columns. Reads naturally
-  // for the pilot (a few teachers × 13 criteria) and stays scannable when more
-  // teachers are added — horizontal scroll handles wider cohorts.
+  // for the pilot (a few teachers × 13 criteria) and stays scannable when many
+  // teachers are added — sticky header + sticky first column + bounded scroll
+  // box keep the matrix usable up to ~30+ teachers.
   const cell = (val) => {
     const bg = !val ? 'var(--gray-100)' : val >= 4 ? 'var(--success-bg)' : val >= 3 ? 'var(--warning-bg)' : 'var(--danger-bg)';
     const color = !val ? 'var(--gray-400)' : val >= 4 ? '#047857' : val >= 3 ? '#92400e' : '#dc2626';
     return `<td class="heatmap-cell-td" style="background:${bg};color:${color}">${fmtScore(val)}</td>`;
   };
 
+  // Sort teachers by overall score descending so the strongest performers sit
+  // closest to the sticky criteria column (where they're seen without scroll).
+  const sortedTeachers = [...data.teachers].sort(
+    (a, b) => (b.scores.avg_overall || 0) - (a.scores.avg_overall || 0)
+  );
+
   el.innerHTML = `
+    ${renderHeadAnalyticsExtras(data)}
     <div class="card">
-      <div class="card-header"><h3>${t('head.performance_heatmap')}</h3></div>
+      <div class="card-header" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
+        <h3>${t('head.performance_heatmap')}</h3>
+        <span style="font-size:0.78rem;color:var(--gray-500)">${sortedTeachers.length} teacher${sortedTeachers.length !== 1 ? 's' : ''}</span>
+      </div>
       <div class="card-body" style="padding:0">
-        <div class="heatmap-scroll">
+        <div class="heatmap-toolbar">
+          <span class="heatmap-width-control">
+            Column width
+            <input type="range" min="100" max="260" value="160" oninput="setHeatmapColWidth(this.value)" aria-label="Heatmap column width">
+            <span id="heatmapColWidthLabel">160px</span>
+          </span>
+          <span class="heatmap-legend">
+            <span class="heatmap-legend-swatch"><i style="background:var(--success-bg)"></i> ≥ 4</span>
+            <span class="heatmap-legend-swatch"><i style="background:var(--warning-bg)"></i> 3–3.9</span>
+            <span class="heatmap-legend-swatch"><i style="background:var(--danger-bg)"></i> &lt; 3</span>
+            <span class="heatmap-legend-swatch"><i style="background:var(--gray-100)"></i> No data</span>
+          </span>
+        </div>
+        <div class="heatmap-scroll" style="--heatmap-col-w:160px">
           <table class="heatmap-table">
             <thead>
               <tr>
                 <th class="heatmap-row-label">${t('admin.criteria')}</th>
-                ${data.teachers.map(tchr => `<th class="heatmap-teacher-col"><div class="heatmap-teacher-name">${tchr.full_name}</div>${tchr.subject ? `<div class="heatmap-teacher-sub">${tchr.subject}</div>` : ''}</th>`).join('')}
+                ${sortedTeachers.map(tchr => `<th class="heatmap-teacher-col" title="${escAttr(tchr.full_name)}${tchr.subject ? ' — ' + escAttr(tchr.subject) : ''}"><div class="heatmap-teacher-name">${tchr.full_name}</div>${tchr.subject ? `<div class="heatmap-teacher-sub">${tchr.subject}</div>` : ''}</th>`).join('')}
               </tr>
             </thead>
             <tbody>
@@ -3106,12 +3825,12 @@ async function renderHeadAnalytics() {
                   <td class="heatmap-row-label">
                     <span style="display:inline-flex;align-items:center;gap:6px">${t(c.label_key)}${criteriaInfoIcon(c.info_key)}</span>
                   </td>
-                  ${data.teachers.map(tchr => cell(tchr.scores[`avg_${c.slug}`])).join('')}
+                  ${sortedTeachers.map(tchr => cell(tchr.scores[`avg_${c.slug}`])).join('')}
                 </tr>
               `).join('')}
               <tr class="heatmap-overall-row">
                 <td class="heatmap-row-label"><strong>${t('head.final')}</strong></td>
-                ${data.teachers.map(tchr => cell(tchr.scores.avg_overall)).join('')}
+                ${sortedTeachers.map(tchr => cell(tchr.scores.avg_overall)).join('')}
               </tr>
             </tbody>
           </table>
@@ -3119,6 +3838,8 @@ async function renderHeadAnalytics() {
       </div>
     </div>
   `;
+
+  drawHeadAnalyticsExtras(data);
 }
 
 // ============ TEACHER ANNOUNCEMENTS (separate view) ============
@@ -3830,7 +4551,11 @@ function _buildUserRows(users) {
       <td style="width:32px;text-align:center">${checkboxCell}</td>
       <td><strong>${u.full_name}</strong></td>
       <td style="font-size:0.8rem;color:var(--gray-500)">${u.email}</td>
-      <td><span class="badge ${u.role === 'super_admin' ? 'badge-flagged' : u.role === 'admin' ? 'badge-flagged' : u.role === 'teacher' ? 'badge-active' : u.role === 'head' ? 'badge-approved' : (u.role === 'student' && u.is_student_council) ? 'badge-active' : 'badge-pending'}">${(u.role === 'student' && u.is_student_council) ? 'StuCo' : ({student: t('common.student'), teacher: t('common.teacher'), school_head: t('common.school_head'), admin: t('common.admin'), super_admin: t('common.super_admin')}[u.role] || u.role)}</span></td>
+      <td>
+        <span class="badge ${u.role === 'super_admin' ? 'badge-flagged' : u.role === 'admin' ? 'badge-flagged' : u.role === 'teacher' ? 'badge-active' : u.role === 'head' ? 'badge-approved' : 'badge-pending'}">${({student: t('common.student'), teacher: t('common.teacher'), school_head: t('common.school_head'), admin: t('common.admin'), super_admin: t('common.super_admin')}[u.role] || u.role)}</span>
+        ${u.role === 'student' && u.is_student_council ? '<span class="badge badge-active" style="margin-left:4px">StuCo</span>' : ''}
+        ${u.role === 'teacher' && u.is_mentor ? '<span class="badge badge-approved" style="margin-left:4px;background:#eef2ff;color:#4338ca;border-color:#c7d2fe">Mentor</span>' : ''}
+      </td>
       <td>${u.grade_or_position || '-'}</td>
       <td>${u.suspended ? `<span class="badge badge-rejected">${t('common.suspended')}</span>` : `<span class="badge badge-approved">${t('common.active')}</span>`}</td>
       <td>
@@ -3840,6 +4565,7 @@ function _buildUserRows(users) {
             <button class="action-dropdown-item" onclick="closeActionMenus();editUserById(${u.id})">${t('common.edit')}</button>
             <button class="action-dropdown-item" onclick="closeActionMenus();resetPassword(${u.id}, '${safeName}')">${t('admin.reset_password')}</button>
             ${u.role === 'student' ? `<button class="action-dropdown-item" onclick="closeActionMenus();toggleCouncilMember(${u.id}, ${u.is_student_council ? 0 : 1})">${u.is_student_council ? 'Revoke council access' : 'Grant council access'}</button>` : ''}
+            ${u.role === 'teacher' ? `<button class="action-dropdown-item" onclick="closeActionMenus();toggleMentor(${u.id}, ${u.is_mentor ? 0 : 1})">${u.is_mentor ? 'Revoke mentor role' : 'Make mentor'}</button>` : ''}
             ${!isSelf ? `<button class="action-dropdown-item" onclick="closeActionMenus();toggleSuspend(${u.id})">${u.suspended ? t('admin.unsuspend') : t('admin.suspend')}</button>` : ''}
             ${canDelete ? `<button class="action-dropdown-item danger" onclick="closeActionMenus();deleteUser(${u.id}, '${safeName}')">${t('admin.delete_account')}</button>` : ''}
           </div>
@@ -3863,7 +4589,7 @@ function _getSelectableUsers() {
 function _getVisibleSelectableUsers() {
   const search = (window._userSearch || '').toLowerCase();
   return _getSelectableUsers().filter(u => {
-    const roleMatch = !window._userFilter || (window._userFilter === 'admin' ? u.role === 'admin' : u.role === window._userFilter);
+    const roleMatch = _userMatchesFilter(u, window._userFilter);
     const searchMatch = !search || u.full_name.toLowerCase().includes(search) || u.email.toLowerCase().includes(search);
     return roleMatch && searchMatch;
   });
@@ -3992,6 +4718,7 @@ document.addEventListener('click', (e) => {
 function _userMatchesFilter(u, filter) {
   if (!filter) return true;
   if (filter === 'stuco') return u.role === 'student' && !!u.is_student_council;
+  if (filter === 'mentor') return u.role === 'teacher' && !!u.is_mentor;
   return u.role === filter;
 }
 
@@ -4026,7 +4753,7 @@ async function renderAdminUsers(refetch = true) {
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
       <div style="display:flex;gap:8px;flex-wrap:wrap">
         <button class="btn btn-sm ${!window._userFilter ? 'btn-primary' : 'btn-outline'}" onclick="window._userFilter=null;renderAdminUsers()">${t('common.all')}</button>
-        ${[{key: 'student', label: t('common.student')}, {key: 'stuco', label: 'StuCo'}, {key: 'teacher', label: t('common.teacher')}, {key: 'head', label: t('common.school_head')}, {key: 'admin', label: t('common.admin')}].map(r =>
+        ${[{key: 'student', label: t('common.student')}, {key: 'stuco', label: 'StuCo'}, {key: 'teacher', label: t('common.teacher')}, {key: 'mentor', label: 'Mentor'}, {key: 'head', label: t('common.school_head')}, {key: 'admin', label: t('common.admin')}].map(r =>
           `<button class="btn btn-sm ${window._userFilter === r.key ? 'btn-primary' : 'btn-outline'}" onclick="window._userFilter='${r.key}';renderAdminUsers()">${r.label}</button>`
         ).join('')}
       </div>
@@ -4084,11 +4811,19 @@ async function showCreateUser() {
           <option value="student">${t('common.student')}</option>
           <option value="teacher">${t('common.teacher')}</option>
           <option value="head">${t('common.school_head')}</option>
+          <option value="admin">${t('common.admin') || 'Admin'}</option>
         </select>
       </div>
       <div class="form-group" id="gradeFieldWrap">
-        <label>${t('admin.grade_position_label')}</label>
-        <input type="text" class="form-control" id="newUserGrade" placeholder="${t('admin.grade_position_placeholder')}">
+        <label id="newUserGradeLabel">Graduation class</label>
+        <select class="form-control" id="newUserGrade">
+          <option value="">Choose graduation class</option>
+          <option value="Class of 2026">Class of 2026</option>
+          <option value="Class of 2027">Class of 2027</option>
+          <option value="Class of 2028">Class of 2028</option>
+          <option value="Class of 2029">Class of 2029</option>
+        </select>
+        <input type="text" class="form-control" id="newUserGradeText" placeholder="e.g. Senior Teacher" style="display:none;margin-top:8px">
       </div>
       <div id="teacherFields" style="display:none">
         <div class="form-group"><label>${t('account.subject')}</label><input type="text" class="form-control" id="newTeacherSubject"></div>
@@ -4101,27 +4836,48 @@ async function showCreateUser() {
       <button class="btn btn-primary" onclick="createUser()">${t('common.create')}</button>
     </div>
   `);
+  // Default role is student → set the cohort dropdown layout
+  setTimeout(() => onNewUserRoleChange('student'), 0);
 }
 
 function onNewUserRoleChange(role) {
   document.getElementById('teacherFields').style.display = role === 'teacher' ? 'block' : 'none';
-  // Grade/Position only applies to students and teachers
+  // Grade/Position is the cohort dropdown for students, free-text for
+  // teachers (position title), hidden for head/admin.
   const gradeWrap = document.getElementById('gradeFieldWrap');
-  if (gradeWrap) {
-    gradeWrap.style.display = (role === 'student' || role === 'teacher') ? 'block' : 'none';
+  const gradeLabel = document.getElementById('newUserGradeLabel');
+  const gradeSelect = document.getElementById('newUserGrade');
+  const gradeText = document.getElementById('newUserGradeText');
+  if (!gradeWrap) return;
+  if (role === 'student') {
+    gradeWrap.style.display = 'block';
+    if (gradeLabel) gradeLabel.textContent = 'Graduation class';
+    if (gradeSelect) gradeSelect.style.display = '';
+    if (gradeText) gradeText.style.display = 'none';
+  } else if (role === 'teacher') {
+    gradeWrap.style.display = 'block';
+    if (gradeLabel) gradeLabel.textContent = 'Position';
+    if (gradeSelect) gradeSelect.style.display = 'none';
+    if (gradeText) gradeText.style.display = '';
+  } else {
+    gradeWrap.style.display = 'none';
   }
 }
 
 async function createUser() {
   const role = document.getElementById('newUserRole').value;
+  let gradeOrPosition = '';
+  if (role === 'student') {
+    gradeOrPosition = document.getElementById('newUserGrade').value;
+  } else if (role === 'teacher') {
+    gradeOrPosition = document.getElementById('newUserGradeText').value;
+  }
   const body = {
     full_name: document.getElementById('newUserName').value,
     email: document.getElementById('newUserEmail').value,
     password: document.getElementById('newUserPassword').value,
     role: role,
-    grade_or_position: (role === 'student' || role === 'teacher')
-      ? document.getElementById('newUserGrade').value
-      : ''
+    grade_or_position: gradeOrPosition,
   };
   if (body.role === 'teacher') {
     body.subject = document.getElementById('newTeacherSubject').value;
@@ -4171,8 +4927,18 @@ function editUser(user) {
         <input type="email" class="form-control" id="editUserEmail" value="${user.email}">
       </div>
       <div class="form-group" id="editGradeFieldWrap" style="display:${showGrade ? 'block' : 'none'}">
-        <label>${t('admin.grade_position_label')}</label>
-        <input type="text" class="form-control" id="editUserGrade" value="${user.grade_or_position || ''}">
+        <label id="editUserGradeLabel">${user.role === 'student' ? 'Graduation class' : 'Position'}</label>
+        ${user.role === 'student' ? `
+          <select class="form-control" id="editUserGrade">
+            <option value="">Choose graduation class</option>
+            ${['Class of 2026','Class of 2027','Class of 2028','Class of 2029'].map(opt =>
+              `<option value="${opt}" ${user.grade_or_position === opt ? 'selected' : ''}>${opt}</option>`).join('')}
+            ${user.grade_or_position && !['Class of 2026','Class of 2027','Class of 2028','Class of 2029'].includes(user.grade_or_position)
+              ? `<option value="${escapeAttr(user.grade_or_position)}" selected>${escapeHtml(user.grade_or_position)}</option>` : ''}
+          </select>
+        ` : `
+          <input type="text" class="form-control" id="editUserGrade" value="${escapeAttr(user.grade_or_position || '')}">
+        `}
       </div>
       <div class="form-group">
         <label>${t('account.role')}</label>
@@ -4676,35 +5442,50 @@ async function deleteTerm(termId, termName) {
 
 async function renderAdminClassrooms() {
   const classrooms = await API.get('/admin/classrooms');
+  // Cache so editClassroom(id) can look up by id instead of relying on a
+  // JSON-stringified attribute that breaks on apostrophes / quotes.
+  window._adminClassrooms = classrooms;
+  const filter = window._adminClassroomFilter || 'all';
+  const visible = filter === 'all'
+    ? classrooms
+    : classrooms.filter(c => (c.kind || 'academic') === filter);
   const el = document.getElementById('contentArea');
 
   const isSuperAdmin = false;
   const orgColumnHeader = isSuperAdmin ? `<th>${t('admin.organization')}</th>` : '';
 
   el.innerHTML = `
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;flex-wrap:wrap;gap:12px">
       <h2>${t('admin.classroom_management_count', {count: classrooms.length})}</h2>
       <button class="btn btn-primary" onclick="showCreateClassroom()">+ ${t('admin.create_classroom_title')}</button>
+    </div>
+    <div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap">
+      <button class="btn btn-sm ${filter === 'all' ? 'btn-primary' : 'btn-outline'}" onclick="setAdminClassroomFilter('all')">All</button>
+      <button class="btn btn-sm ${filter === 'academic' ? 'btn-primary' : 'btn-outline'}" onclick="setAdminClassroomFilter('academic')">Classrooms</button>
+      <button class="btn btn-sm ${filter === 'mentor' ? 'btn-primary' : 'btn-outline'}" onclick="setAdminClassroomFilter('mentor')">Mentor groups</button>
     </div>
     <div class="card">
       <div class="table-container">
         <table>
           <thead><tr><th>${t('common.subject')}</th>${orgColumnHeader}<th>${t('common.teacher')}</th><th>${t('common.grade')}</th><th>${t('common.students')}</th><th>${t('admin.join_code')}</th><th>${t('common.actions')}</th></tr></thead>
           <tbody>
-            ${classrooms.map(c => {
+            ${visible.length === 0 ? `<tr><td colspan="${6 + (isSuperAdmin ? 1 : 0)}" style="text-align:center;color:var(--gray-500);padding:32px">No classrooms in this view.</td></tr>` : ''}
+            ${visible.map(c => {
               const orgColumn = isSuperAdmin ? `<td>${c.org_name || '-'}</td>` : '';
+              const isMentor = (c.kind || 'academic') === 'mentor';
+              const subjectCell = `<strong>${escapeHtml(c.subject)}</strong>${isMentor ? ' <span style="font-size:0.65rem;background:#eef2ff;color:#4338ca;padding:2px 8px;border-radius:10px;font-weight:600;letter-spacing:0.04em;margin-left:4px;vertical-align:middle">MENTOR</span>' : ''}`;
               return `
               <tr>
-                <td><strong>${c.subject}</strong></td>
+                <td>${subjectCell}</td>
                 ${orgColumn}
-                <td>${c.teacher_name || '-'}</td>
-                <td>${c.grade_level}</td>
-                <td><a href="#" onclick="event.preventDefault();viewClassroomMembers(${c.id}, '${c.subject.replace(/'/g, "\\'")}')" style="color:var(--primary);font-weight:600">${c.student_count || 0}</a></td>
+                <td>${escapeHtml(c.teacher_name || '-')}</td>
+                <td>${escapeHtml(c.grade_level)}</td>
+                <td><a href="#" onclick="event.preventDefault();viewClassroomMembers(${c.id}, ${jsAttr(c.subject)})" style="color:var(--primary);font-weight:600">${c.student_count || 0}</a></td>
                 <td><code style="background:var(--gray-100);padding:2px 8px;border-radius:4px">${formatJoinCode(c.join_code)}</code></td>
                 <td>
-                  <button class="btn btn-sm btn-outline" onclick="viewClassroomMembers(${c.id}, '${c.subject.replace(/'/g, "\\'")}')">${t('teacher.members')}</button>
-                  <button class="btn btn-sm btn-outline" onclick='editClassroom(${JSON.stringify(c)})'>${t('common.edit')}</button>
-                  <button class="btn btn-sm btn-danger" onclick="deleteClassroom(${c.id}, '${c.subject}')">${t('common.delete')}</button>
+                  <button class="btn btn-sm btn-outline" onclick="viewClassroomMembers(${c.id}, ${jsAttr(c.subject)})">${t('teacher.members')}</button>
+                  <button class="btn btn-sm btn-outline" onclick="editClassroom(${c.id})">${t('common.edit')}</button>
+                  <button class="btn btn-sm btn-danger" onclick="deleteClassroom(${c.id}, ${jsAttr(c.subject)})">${t('common.delete')}</button>
                 </td>
               </tr>
               `;
@@ -4715,6 +5496,11 @@ async function renderAdminClassrooms() {
     </div>
   `;
 }
+
+window.setAdminClassroomFilter = function (kind) {
+  window._adminClassroomFilter = kind;
+  renderAdminClassrooms();
+};
 
 function showCreateClassroom() {
   cachedGet('/admin/teachers', CACHE_TTL.medium).then(teachers => {
@@ -4762,40 +5548,58 @@ async function createClassroom() {
   } catch (err) { toast(err.message, 'error'); }
 }
 
-function editClassroom(classroom) {
+function editClassroom(idOrObject) {
+  // Accepts either an id (preferred — looked up from window._adminClassrooms)
+  // or a classroom object (legacy callers). Mentor groups skip the Subject
+  // input and ask for cohort only, since they don't have a subject by design.
+  const classroom = typeof idOrObject === 'number'
+    ? (window._adminClassrooms || []).find(c => c.id === idOrObject)
+    : idOrObject;
+  if (!classroom) {
+    toast('Classroom not found', 'error');
+    return;
+  }
+  const isMentor = (classroom.kind || 'academic') === 'mentor';
   cachedGet('/admin/teachers', CACHE_TTL.medium).then(teachers => {
     openModal(`
-      <div class="modal-header"><h3>${t('admin.edit_classroom_title', {subject: classroom.subject})}</h3><button class="modal-close" onclick="closeModal()">&times;</button></div>
+      <div class="modal-header"><h3>${t('admin.edit_classroom_title', {subject: classroom.subject})}${isMentor ? ' <span style="font-size:0.7rem;background:#eef2ff;color:#4338ca;padding:2px 8px;border-radius:10px;font-weight:600;margin-left:6px;vertical-align:middle">MENTOR</span>' : ''}</h3><button class="modal-close" onclick="closeModal()">&times;</button></div>
       <div class="modal-body">
+        ${isMentor ? '' : `
+          <div class="form-group">
+            <label>${t('common.subject')}</label>
+            <input type="text" class="form-control" id="editClassroomSubject" value="${escapeAttr(classroom.subject)}">
+          </div>
+        `}
         <div class="form-group">
-          <label>${t('common.subject')}</label>
-          <input type="text" class="form-control" id="editClassroomSubject" value="${classroom.subject}">
+          <label>${isMentor ? 'Mentor group name / cohort' : t('admin.grade_level')}</label>
+          <input type="text" class="form-control" id="editClassroomGrade" value="${escapeAttr(classroom.grade_level)}">
         </div>
         <div class="form-group">
-          <label>${t('admin.grade_level')}</label>
-          <input type="text" class="form-control" id="editClassroomGrade" value="${classroom.grade_level}">
-        </div>
-        <div class="form-group">
-          <label>${t('common.teacher')}</label>
+          <label>${isMentor ? 'Mentor' : t('common.teacher')}</label>
           <select class="form-control" id="editClassroomTeacher">
-            ${teachers.map(tchr => `<option value="${tchr.id}" ${tchr.id === classroom.teacher_id ? 'selected' : ''}>${tchr.full_name} - ${tchr.subject || t('admin.no_subject')}</option>`).join('')}
+            ${teachers.filter(tchr => isMentor ? !!tchr.is_mentor : true).map(tchr => `<option value="${tchr.id}" ${tchr.id === classroom.teacher_id ? 'selected' : ''}>${escapeHtml(tchr.full_name)}${tchr.subject ? ' — ' + escapeHtml(tchr.subject) : ''}</option>`).join('')}
           </select>
         </div>
       </div>
       <div class="modal-footer">
         <button class="btn btn-outline" onclick="closeModal()">${t('common.cancel')}</button>
-        <button class="btn btn-primary" onclick="saveClassroomEdit(${classroom.id})">${t('admin.save_changes')}</button>
+        <button class="btn btn-primary" onclick="saveClassroomEdit(${classroom.id}, ${isMentor ? 'true' : 'false'})">${t('admin.save_changes')}</button>
       </div>
     `);
   });
 }
 
-async function saveClassroomEdit(classroomId) {
+async function saveClassroomEdit(classroomId, isMentor = false) {
+  const subjectInput = document.getElementById('editClassroomSubject');
   const body = {
-    subject: document.getElementById('editClassroomSubject').value,
     grade_level: document.getElementById('editClassroomGrade').value,
-    teacher_id: parseInt(document.getElementById('editClassroomTeacher').value)
+    teacher_id: parseInt(document.getElementById('editClassroomTeacher').value),
   };
+  if (isMentor) {
+    body.subject = 'Mentor Group';
+  } else if (subjectInput) {
+    body.subject = subjectInput.value;
+  }
   try {
     await API.put(`/admin/classrooms/${classroomId}`, body);
     toast(t('admin.classroom_updated'));
@@ -5135,66 +5939,129 @@ async function renderAdminTeachers() {
 
 async function viewTeacherFeedback(teacherId) {
   const data = await API.get(`/admin/teacher/${teacherId}/feedback`);
+  const allReviews = data.reviews || [];
+  const academicReviews = allReviews.filter(r => (r.review_kind || 'teacher') !== 'mentor');
+  const mentorReviews = allReviews.filter(r => r.review_kind === 'mentor');
+  const isMentor = !!data.teacher.is_mentor;
+
+  // Cache for tab switching
+  window._feedbackModalState = {
+    teacher: data.teacher,
+    scores: data.scores,
+    academicReviews,
+    mentorReviews,
+    isMentor,
+    tab: 'academic',
+  };
+
   openModal(`
     <div class="modal-header">
-      <h2>${t('admin.feedback_for', {name: data.teacher.full_name})}</h2>
+      <h2>${t('admin.feedback_for', {name: escapeHtml(data.teacher.full_name)})}${isMentor ? ' <span style="font-size:0.7rem;background:#eef2ff;color:#4338ca;padding:2px 8px;border-radius:10px;font-weight:600;margin-left:6px;vertical-align:middle">MENTOR</span>' : ''}</h2>
       <button onclick="closeModal()" style="background:none;border:none;font-size:1.5rem;cursor:pointer">&times;</button>
     </div>
-    <div class="modal-body">
-      <div style="margin-bottom:20px;padding:16px;background:var(--gray-50);border-radius:var(--radius-md)">
-        <div style="display:flex;justify-content:space-around;text-align:center;margin-bottom:20px">
-          <div>
-            <div style="font-size:2rem;font-weight:700;color:${scoreColor(data.scores.avg_overall || 0)}">${fmtScore(data.scores.avg_overall)}</div>
-            <div style="color:var(--gray-500);font-size:0.85rem">${t('profile.overall_rating')}</div>
-          </div>
-          <div>
-            <div style="font-size:2rem;font-weight:700">${data.scores.review_count}</div>
-            <div style="color:var(--gray-500);font-size:0.85rem">${t('profile.total_reviews')}</div>
-          </div>
+    <div class="modal-body" id="feedbackModalBody">
+      ${isMentor ? `
+        <div class="exp-tabs" style="margin-bottom:18px">
+          <button class="exp-tab is-active" id="fbTab-academic" onclick="setFeedbackTab('academic')">Teacher feedback <span class="exp-tab-count">${academicReviews.length}</span></button>
+          <button class="exp-tab" id="fbTab-mentor" onclick="setFeedbackTab('mentor')">Mentor feedback <span class="exp-tab-count">${mentorReviews.length}</span></button>
         </div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;padding-top:16px;border-top:1px solid var(--gray-200)">
-          ${CRITERIA_CONFIG.map(c => {
-            const key = `avg_${c.slug}`;
-            const val = data.scores[key] || 0;
-            return `<div style="text-align:center">
-              <div style="font-size:1.3rem;font-weight:600;color:${scoreColor(val)}">${fmtScore(data.scores[key])}</div>
-              <div style="color:var(--gray-500);font-size:0.85rem;display:flex;align-items:center;justify-content:center;gap:3px">${t(c.label_key)}${criteriaInfoIcon(c.info_key)}</div>
-            </div>`;
-          }).join('')}
+      ` : ''}
+      <div id="feedbackTabPanel">${renderFeedbackTabPanel('academic')}</div>
+    </div>
+  `);
+}
+
+window.setFeedbackTab = function (tab) {
+  if (!window._feedbackModalState) return;
+  window._feedbackModalState.tab = tab;
+  document.getElementById('fbTab-academic')?.classList.toggle('is-active', tab === 'academic');
+  document.getElementById('fbTab-mentor')?.classList.toggle('is-active', tab === 'mentor');
+  const panel = document.getElementById('feedbackTabPanel');
+  if (panel) panel.innerHTML = renderFeedbackTabPanel(tab);
+};
+
+function renderFeedbackTabPanel(tab) {
+  const s = window._feedbackModalState;
+  if (!s) return '';
+  const reviews = tab === 'mentor' ? s.mentorReviews : s.academicReviews;
+  const isMentorTab = tab === 'mentor';
+
+  // Compute aggregates from the active reviews so the headline numbers match
+  // the visible tab. Mentor criteria use the mentor_c{n}_rating columns.
+  const ratingFor = (r, col) => Number(r[col]) || null;
+  const cols = isMentorTab ? MENTOR_CRITERIA_COLS : CRITERIA_COLS;
+  const reviewCount = reviews.length;
+  const avgOverall = reviewCount
+    ? +(reviews.reduce((sum, r) => sum + (Number(r.overall_rating) || 0), 0) / reviewCount).toFixed(2)
+    : null;
+  const avgPerCriterion = {};
+  cols.forEach(col => {
+    const vals = reviews.map(r => ratingFor(r, col)).filter(v => v != null);
+    avgPerCriterion[col] = vals.length ? +(vals.reduce((a, b) => a + b, 0) / vals.length).toFixed(2) : null;
+  });
+
+  const criteriaList = isMentorTab
+    ? MENTOR_CRITERIA_CONFIG.map(c => ({ db_col: c.db_col, label: c.label, info_key: c.info_key }))
+    : CRITERIA_CONFIG.map(c => ({ db_col: c.db_col, label: t(c.label_key), info_key: c.info_key }));
+
+  return `
+    <div style="margin-bottom:20px;padding:16px;background:var(--gray-50);border-radius:var(--radius-md)">
+      <div style="display:flex;justify-content:space-around;text-align:center;margin-bottom:20px">
+        <div>
+          <div style="font-size:2rem;font-weight:700;color:${scoreColor(avgOverall || 0)}">${fmtScore(avgOverall)}</div>
+          <div style="color:var(--gray-500);font-size:0.85rem">${t('profile.overall_rating')}</div>
+        </div>
+        <div>
+          <div style="font-size:2rem;font-weight:700">${reviewCount}</div>
+          <div style="color:var(--gray-500);font-size:0.85rem">${t('profile.total_reviews')}</div>
         </div>
       </div>
-
-      <div style="max-height:400px;overflow-y:auto">
-        ${data.reviews.length === 0 ? `<div class="empty-state"><p>${t('admin.no_approved_reviews')}</p></div>` : data.reviews.map(r => {
-          const avg = criteriaAverage(r);
-          const colorVal = avg !== null ? avg : (r.overall_rating || 0);
-          return `
-          <div class="review-card" style="padding:14px;border:1px solid var(--gray-200);border-radius:var(--radius-md);margin-bottom:12px">
-            <div class="review-header">
-              <div>
-                <div style="font-size:0.85rem;color:var(--gray-500)">${new Date(r.created_at).toLocaleDateString()}</div>
-                <div style="font-size:0.85rem;color:var(--gray-500);margin-top:4px">${r.classroom_subject} (${r.grade_level}) &middot; ${r.term_name} &middot; ${r.period_name}</div>
-              </div>
-              <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
-                <div style="font-weight:700;font-size:1.05rem;color:${scoreColor(colorVal)}">${fmtRatingFloat(avg)}</div>
-                ${starsHTML(avg !== null ? avg : 0, 'small')}
-              </div>
-            </div>
-            <details class="criteria-collapse">
-              <summary>
-                <span>${t('student.criteria_breakdown')}</span>
-                <svg class="caret" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
-              </summary>
-              ${ratingGridHTML(r)}
-            </details>
-            ${r.feedback_text
-              ? `<div class="review-text">${r.feedback_text}</div>`
-              : `<div class="review-text review-text-empty">${t('review.no_written_feedback')}</div>`}
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;padding-top:16px;border-top:1px solid var(--gray-200)">
+        ${criteriaList.map(c => {
+          const val = avgPerCriterion[c.db_col] || 0;
+          return `<div style="text-align:center">
+            <div style="font-size:1.3rem;font-weight:600;color:${scoreColor(val)}">${fmtScore(avgPerCriterion[c.db_col])}</div>
+            <div style="color:var(--gray-500);font-size:0.85rem;display:flex;align-items:center;justify-content:center;gap:3px">${escapeHtml(c.label)}${c.info_key ? criteriaInfoIcon(c.info_key) : ''}</div>
           </div>`;
         }).join('')}
       </div>
     </div>
-  `);
+
+    <div style="max-height:400px;overflow-y:auto">
+      ${reviews.length === 0
+        ? `<div class="empty-state"><p>${t('admin.no_approved_reviews')}</p></div>`
+        : reviews.map(r => {
+            const ratingValues = cols.map(c => Number(r[c]) || 0).filter(v => v > 0);
+            const avg = ratingValues.length ? ratingValues.reduce((a, b) => a + b, 0) / ratingValues.length : null;
+            const colorVal = avg != null ? avg : (r.overall_rating || 0);
+            return `
+            <div class="review-card" style="padding:14px;border:1px solid var(--gray-200);border-radius:var(--radius-md);margin-bottom:12px">
+              <div class="review-header">
+                <div>
+                  <div style="font-size:0.85rem;color:var(--gray-500)">${new Date(r.created_at).toLocaleDateString()}</div>
+                  <div style="font-size:0.85rem;color:var(--gray-500);margin-top:4px">${escapeHtml(r.classroom_subject)} (${escapeHtml(r.grade_level)}) &middot; ${escapeHtml(r.term_name)} &middot; ${escapeHtml(r.period_name)}</div>
+                </div>
+                <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
+                  <div style="font-weight:700;font-size:1.05rem;color:${scoreColor(colorVal)}">${fmtRatingFloat(avg)}</div>
+                  ${starsHTML(avg != null ? avg : 0, 'small')}
+                </div>
+              </div>
+              <details class="criteria-collapse">
+                <summary>
+                  <span>${t('student.criteria_breakdown')}</span>
+                  <svg class="caret" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+                </summary>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:12px 0">
+                  ${criteriaList.map(c => `<div style="display:flex;justify-content:space-between;padding:4px 8px;background:var(--gray-50);border-radius:6px"><span style="font-size:0.82rem">${escapeHtml(c.label)}</span><span style="font-weight:600">${r[c.db_col] || '-'}/5</span></div>`).join('')}
+                </div>
+              </details>
+              ${r.feedback_text
+                ? `<div class="review-text">${escapeHtml(r.feedback_text)}</div>`
+                : `<div class="review-text review-text-empty">${t('review.no_written_feedback')}</div>`}
+            </div>`;
+          }).join('')}
+    </div>
+  `;
 }
 
 async function exportMyPDF() {
@@ -5952,6 +6819,930 @@ async function renderAdminAudit(page = 1) {
   `;
 }
 
+// ============ UWC EXPERIENCE MAP ============
+//
+// Student-authored reflections tied to UWC values. Privacy: Model B — every
+// reflection is visible to the head of school (by name) and to admins (via
+// Users → user → View experiences). Students consent on first visit; the
+// consent is stored server-side. A persistent privacy notice on the page
+// keeps the visibility model honest, not hidden behind a one-time gate.
+
+const EXP_VALUE_PALETTE = [
+  '#059669', '#0ea5e9', '#8b5cf6', '#ec4899', '#f59e0b',
+  '#10b981', '#3b82f6', '#ef4444', '#a16207'
+];
+
+let _expCache = null;       // {experiences, config}
+let _expFilters = { category: '', value: '', q: '' };
+let _expTab = 'hub';        // 'hub' | 'create' | 'my'
+
+const EXP_ICON_EDIT = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>';
+const EXP_ICON_TRASH = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-2 14a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2"/></svg>';
+
+async function loadExperienceConfig() {
+  if (_expCache?.config) return _expCache.config;
+  const config = await API.get('/experiences/config');
+  _expCache = _expCache || {};
+  _expCache.config = config;
+  return config;
+}
+
+function expValueColor(value, config) {
+  const i = config.values.indexOf(value);
+  return EXP_VALUE_PALETTE[(i >= 0 ? i : 0) % EXP_VALUE_PALETTE.length];
+}
+
+function expValueChip(value, config, opts = {}) {
+  const color = expValueColor(value, config);
+  const removable = opts.removable;
+  return `<span class="exp-value-chip" style="--chip-color:${color}">
+    ${value}${removable ? `<button type="button" class="exp-value-chip-x" onclick="expRemoveValueFromForm(this)" aria-label="Remove">×</button>` : ''}
+  </span>`;
+}
+
+async function renderStudentExperiences() {
+  const el = document.getElementById('contentArea');
+  el.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
+
+  const [config, experiences] = await Promise.all([
+    loadExperienceConfig(),
+    API.get('/experiences/mine'),
+  ]);
+  _expCache = { config, experiences };
+  _expDraft = _expDraft || { category: null, values: [] };
+  paintStudentExperiences();
+}
+
+function paintStudentExperiences() {
+  const { config, experiences } = _expCache;
+  const el = document.getElementById('contentArea');
+
+  if (_expTab === 'hub') {
+    el.innerHTML = renderExpHub(experiences.length);
+    return;
+  }
+
+  const backBtn = `<button class="btn btn-outline btn-sm exp-back-btn" onclick="expSetTab('hub')">← Back</button>`;
+  el.innerHTML = `
+    <div class="exp-hero">
+      <h1 class="exp-hero-title">UWC EXPERIENCE MAP</h1>
+      <p class="exp-hero-sub">Every moment is a landmark. Map your journey through our shared values.</p>
+    </div>
+    ${backBtn}
+    ${_expTab === 'create' ? renderExpOrbitPicker(config) : renderExpMyTab(config, experiences)}
+  `;
+}
+
+function renderExpHub(count) {
+  return `
+    <div class="exp-hero">
+      <h1 class="exp-hero-title">UWC EXPERIENCE MAP</h1>
+      <p class="exp-hero-sub">Every moment is a landmark. Map your journey through our shared values.</p>
+    </div>
+    <div class="exp-hub">
+      <div class="exp-hub-card" onclick="expSetTab('create')" tabindex="0" onkeydown="if(event.key==='Enter')expSetTab('create')" role="button" aria-label="Create a UWC Experience Map">
+        <div class="exp-hub-icon">
+          <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="9"/>
+            <circle cx="12" cy="12" r="4"/>
+            <circle cx="12" cy="3" r="1.4" fill="currentColor"/>
+            <circle cx="21" cy="12" r="1.4" fill="currentColor"/>
+            <circle cx="12" cy="21" r="1.4" fill="currentColor"/>
+            <circle cx="3"  cy="12" r="1.4" fill="currentColor"/>
+          </svg>
+        </div>
+        <div class="exp-hub-title">Create a UWC Experience Map</div>
+        <div class="exp-hub-desc">Pick an experience, connect it to UWC values, and capture what it meant to you.</div>
+        <div class="exp-hub-arrow">→</div>
+      </div>
+      <div class="exp-hub-card" onclick="expSetTab('my')" tabindex="0" onkeydown="if(event.key==='Enter')expSetTab('my')" role="button" aria-label="My UWC Experience Maps">
+        <div class="exp-hub-icon">
+          <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M9 4 3 6v14l6-2 6 2 6-2V4l-6 2-6-2z"/>
+            <path d="M9 4v14"/>
+            <path d="M15 6v14"/>
+          </svg>
+        </div>
+        <div class="exp-hub-title">My UWC Experience Maps ${count ? `<span class="exp-hub-count">${count}</span>` : ''}</div>
+        <div class="exp-hub-desc">Browse, search, edit, or delete the moments you've already mapped.</div>
+        <div class="exp-hub-arrow">→</div>
+      </div>
+    </div>
+  `;
+}
+
+function renderExpMyTab(config, experiences) {
+  const q = (_expFilters.q || '').trim().toLowerCase();
+  const filtered = experiences.filter(e => {
+    if (_expFilters.category && e.category !== _expFilters.category) return false;
+    if (_expFilters.value && !(e.values || []).includes(_expFilters.value)) return false;
+    if (q) {
+      const hay = (e.title + ' ' + e.reflection + ' ' + e.category + ' ' + (e.values || []).join(' ')).toLowerCase();
+      if (!hay.includes(q)) return false;
+    }
+    return true;
+  });
+
+  const valueCounts = Object.fromEntries(config.values.map(v => [v, 0]));
+  experiences.forEach(e => (e.values || []).forEach(v => { if (valueCounts[v] !== undefined) valueCounts[v]++; }));
+  const topValue = Object.entries(valueCounts).sort((a, b) => b[1] - a[1]).find(([, c]) => c > 0);
+  const valuesExplored = Object.values(valueCounts).filter(c => c > 0).length;
+
+  return `
+    <div class="grid grid-3 exp-summary">
+      <div class="exp-stat-card">
+        <div class="exp-stat-label">Total reflections</div>
+        <div class="exp-stat-value">${experiences.length}</div>
+      </div>
+      <div class="exp-stat-card">
+        <div class="exp-stat-label">Most connected value</div>
+        <div class="exp-stat-value-sm">${topValue ? `<span class="exp-value-chip" style="--chip-color:${expValueColor(topValue[0], config)}">${topValue[0]}</span> <span class="exp-stat-meta">${topValue[1]}×</span>` : '<span class="exp-stat-empty">—</span>'}</div>
+      </div>
+      <div class="exp-stat-card">
+        <div class="exp-stat-label">Values explored</div>
+        <div class="exp-stat-value">${valuesExplored} <span class="exp-stat-meta">/ ${config.values.length}</span></div>
+      </div>
+    </div>
+
+    <div class="card exp-filters-card">
+      <div class="card-body exp-filters-body">
+        <div class="exp-filter-row">
+          <div class="exp-filter-search">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+            <input id="expSearch" type="search" class="form-control" placeholder="Search title or reflection" value="${escapeAttr(_expFilters.q || '')}" oninput="expSetFilterQ(this.value)" autocomplete="off" style="padding-left:36px">
+          </div>
+          <select id="expCategoryFilter" onchange="expSetFilterCategory(this.value)" class="form-control exp-filter-select">
+            <option value="">All categories</option>
+            ${config.categories.map(c => `<option value="${escapeAttr(c)}" ${_expFilters.category === c ? 'selected' : ''}>${c}</option>`).join('')}
+          </select>
+          <select id="expValueFilter" onchange="expSetFilterValue(this.value)" class="form-control exp-filter-select">
+            <option value="">All values</option>
+            ${config.values.map(v => `<option value="${escapeAttr(v)}" ${_expFilters.value === v ? 'selected' : ''}>${v}</option>`).join('')}
+          </select>
+          ${(_expFilters.category || _expFilters.value || _expFilters.q) ? `<button class="btn btn-sm btn-outline" onclick="expClearFilters()">Clear filters</button>` : ''}
+        </div>
+        <div class="exp-filter-summary">${filtered.length} of ${experiences.length} reflection${experiences.length !== 1 ? 's' : ''}</div>
+      </div>
+    </div>
+
+    <div id="expCardList" class="exp-card-list">
+      ${experiences.length === 0
+        ? `<div class="exp-empty-state">
+            <div class="exp-empty-icon">📍</div>
+            <h3>No reflections yet</h3>
+            <p>Switch to "Create a UWC Experience Map" to capture your first moment.</p>
+            <button class="btn btn-primary" onclick="expSetTab('create')">Create a UWC Experience Map</button>
+          </div>`
+        : filtered.length === 0
+          ? `<div class="exp-empty-state exp-empty-state--filtered">
+              <p>No reflections match these filters.</p>
+              <button class="btn btn-sm btn-outline" onclick="expClearFilters()">Clear filters</button>
+            </div>`
+          : filtered.map(e => expCardHTML(e, config)).join('')
+      }
+    </div>
+  `;
+}
+
+window.expSetTab = function (tab) {
+  _expTab = tab;
+  paintStudentExperiences();
+};
+
+function expCardHTML(e, config) {
+  const preview = (e.reflection || '').slice(0, 240);
+  const truncated = (e.reflection || '').length > 240;
+  return `<article class="exp-card" data-id="${e.id}">
+    <div class="exp-card-head">
+      <div>
+        <h3 class="exp-card-title">${escapeHtml(e.title)}</h3>
+        <div class="exp-card-meta">
+          <span class="exp-card-category">${escapeHtml(e.category)}</span>
+          <span class="exp-card-dot">·</span>
+          <span class="exp-card-date">${formatExpDate(e.date)}</span>
+        </div>
+      </div>
+      <div class="exp-card-actions">
+        <button class="btn btn-sm btn-outline exp-card-action-btn" title="Edit" onclick="openExperienceForm(${e.id})" aria-label="Edit">${EXP_ICON_EDIT}<span>Edit</span></button>
+        <button class="btn btn-sm btn-outline exp-card-action-btn exp-card-action-btn--danger" title="Delete" onclick="confirmDeleteExperience(${e.id})" aria-label="Delete">${EXP_ICON_TRASH}<span>Delete</span></button>
+      </div>
+    </div>
+    <div class="exp-card-values">
+      ${(e.values || []).map(v => expValueChip(v, config)).join('')}
+    </div>
+    <div class="exp-card-reflection">${escapeHtml(preview)}${truncated ? '…' : ''}</div>
+  </article>`;
+}
+
+// ─── Orbital picker ───────────────────────────────────────────────────────────
+// Outer ring = experience categories (10). Inner ring = UWC values (9).
+// Center = live "N/3 VALUES" counter. Right panel = title + date + reflection
+// + save. The picker is the primary "add" surface; editing still uses the
+// modal because re-entering the orbital state for an existing entry is
+// noisier than just opening a focused dialog.
+
+let _expDraft = { category: null, values: [] };
+
+// Outer ring uses the full category names. Inner ring shows a 1-2 word short
+// label inside the circle (so the orb stays compact) plus a small "i" badge
+// that reveals the full UWC value name in a modal. Hover tooltip is also
+// wired via the title attribute as a fallback.
+const EXP_VALUE_SHORT = {
+  'Intercultural understanding': 'Intercultural',
+  'Celebration of difference': 'Diversity',
+  'Personal responsibility and integrity': 'Integrity',
+  'Mutual responsibility and respect': 'Mutual respect',
+  'Compassion and service': 'Compassion',
+  'Respect for the environment': 'Environment',
+  'A sense of idealism': 'Idealism',
+  'Personal challenge': 'Challenge',
+  'Action and personal example': 'Action',
+};
+
+function expOrbitPosition(index, total, radiusPct) {
+  // Place item index on a circle, top of circle = index 0.
+  const angle = ((index / total) * 360 - 90) * Math.PI / 180;
+  const x = 50 + radiusPct * Math.cos(angle);
+  const y = 50 + radiusPct * Math.sin(angle);
+  return { x, y };
+}
+
+function expGetAllCategories(config) {
+  // Outer ring is now a fixed list of UWC categories. Custom "+" was
+  // removed in favour of a permanent "Global Issues Forum (GIFs)" slot.
+  return [...(config.categories || [])];
+}
+
+function renderExpOrbitPicker(config) {
+  const cats = expGetAllCategories(config);
+  const vals = config.values;
+
+  const outerSlots = cats.length;
+  const outerNodes = cats.map((c, i) => {
+    const { x, y } = expOrbitPosition(i, outerSlots, 47);
+    const isSelected = _expDraft.category === c;
+    return `<button type="button"
+      class="exp-orbit-node exp-orbit-node--outer ${isSelected ? 'is-selected' : ''}"
+      style="left:${x}%;top:${y}%"
+      data-category="${escapeAttr(c)}"
+      onclick="expSelectCategory('${escapeAttr(c).replace(/'/g, "\\'")}')"
+      title="${escapeAttr(c)}">
+      <span class="exp-orbit-node-label">${escapeHtml(c)}</span>
+    </button>`;
+  }).join('');
+
+  const innerNodes = vals.map((v, i) => {
+    const { x, y } = expOrbitPosition(i, vals.length, 26);
+    // Place the info badge on the side of the orb that faces the orbit
+    // center: opposite the wrapper's angular position. Math: wrapper sits
+    // at angle θ from orbit center (same as expOrbitPosition); the
+    // center-facing direction is θ+180°. We translate that vector inside
+    // the wrapper's coordinate space (50,50 = wrapper center, 50,100 =
+    // wrapper bottom, etc.).
+    const angleDeg = (i / vals.length) * 360 - 90;
+    const opp = (angleDeg + 180) * Math.PI / 180;
+    const infoX = 50 + 50 * Math.cos(opp);
+    const infoY = 50 + 50 * Math.sin(opp);
+    const isSelected = _expDraft.values.includes(v);
+    const shortLabel = EXP_VALUE_SHORT[v] || v;
+    const safeFull = escapeAttr(v).replace(/'/g, "\\'");
+    return `<div class="exp-orbit-inner-wrap" style="left:${x}%;top:${y}%">
+      <button type="button"
+        class="exp-orbit-node exp-orbit-node--inner ${isSelected ? 'is-selected' : ''}"
+        data-value="${escapeAttr(v)}"
+        onclick="expToggleValue('${safeFull}')"
+        title="${escapeAttr(v)}">
+        <span class="exp-orbit-node-label">${escapeHtml(shortLabel)}</span>
+      </button>
+      <button type="button"
+        class="exp-orbit-info-btn"
+        style="left:${infoX.toFixed(1)}%;top:${infoY.toFixed(1)}%"
+        onclick="expShowValueInfo('${safeFull}')"
+        aria-label="What does ${escapeAttr(v)} mean?"
+        title="View full name">
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+      </button>
+    </div>`;
+  }).join('');
+
+  const valueChips = _expDraft.values.length === 0
+    ? '<span class="exp-orbit-panel-empty">Pick up to 3 values from the inner ring</span>'
+    : _expDraft.values.map(v => `<span class="exp-value-chip" style="--chip-color:${expValueColor(v, config)}">${v}</span>`).join('');
+
+  return `
+    <section class="exp-orbit-shell">
+      <div class="exp-orbit-stage" id="expOrbitStage">
+        <div class="exp-orbit-ring exp-orbit-ring--outer" aria-hidden="true"></div>
+        <div class="exp-orbit-ring exp-orbit-ring--inner" aria-hidden="true"></div>
+        <div class="exp-orbit-center">
+          <div class="exp-orbit-center-count"><span id="expValueCount">${_expDraft.values.length}</span>/3</div>
+        </div>
+        ${outerNodes}
+        ${innerNodes}
+      </div>
+      <aside class="exp-orbit-panel">
+        <h3 class="exp-orbit-panel-title">CAPTURE A MOMENT</h3>
+        <div class="exp-orbit-panel-block">
+          <div class="exp-orbit-panel-label">Selected experience</div>
+          <div class="exp-orbit-panel-value" id="expDraftCategory">${_expDraft.category ? escapeHtml(_expDraft.category) : '<span class="exp-orbit-panel-empty">Click a category on the outer ring</span>'}</div>
+        </div>
+        <div class="exp-orbit-panel-block">
+          <div class="exp-orbit-panel-label">UWC values <span class="exp-orbit-panel-meta"><span id="expValueCountInline">${_expDraft.values.length}</span>/3</span></div>
+          <div class="exp-orbit-panel-chips" id="expDraftValues">${valueChips}</div>
+        </div>
+        <div class="exp-orbit-panel-divider"></div>
+        <form id="expOrbitForm" onsubmit="expSaveOrbital(event)">
+          <input type="text" id="expOrbitTitle" class="form-control exp-orbit-input" placeholder="Title" maxlength="${config.limits.max_title}" required>
+          <textarea id="expOrbitReflection" class="form-control exp-orbit-textarea" rows="5" minlength="${config.limits.min_reflection}" maxlength="${config.limits.max_reflection}" placeholder="How did this experience develop your understanding of the UWC values?" required oninput="document.getElementById('expOrbitCounter').textContent = this.value.length"></textarea>
+          <div class="exp-orbit-counter"><span id="expOrbitCounter">0</span> / ${config.limits.max_reflection} (min ${config.limits.min_reflection})</div>
+          <button type="submit" class="exp-orbit-save">CAPTURE THIS MOMENT</button>
+        </form>
+      </aside>
+    </section>
+  `;
+}
+
+window.expSelectCategory = function (cat) {
+  _expDraft.category = _expDraft.category === cat ? null : cat;
+  expRepaintOrbit();
+};
+
+window.expShowValueInfo = function (fullName) {
+  openModal(`
+    <div class="modal-header">
+      <h3>UWC Value</h3>
+      <button type="button" class="modal-close" onclick="closeModal()">&times;</button>
+    </div>
+    <div class="modal-body" style="text-align:center;padding:32px 24px">
+      <div style="font-size:1.4rem;font-weight:700;color:#0f172a;line-height:1.35">${escapeHtml(fullName)}</div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-primary" onclick="closeModal()">Got it</button>
+    </div>
+  `);
+};
+
+window.expToggleValue = function (v) {
+  const i = _expDraft.values.indexOf(v);
+  if (i >= 0) {
+    _expDraft.values.splice(i, 1);
+  } else {
+    if (_expDraft.values.length >= 3) {
+      toast('You can select up to 3 values for each experience.', 'error');
+      return;
+    }
+    _expDraft.values.push(v);
+  }
+  expRepaintOrbit();
+};
+
+function expRepaintOrbit() {
+  // In-place updates so the form's text/date/reflection inputs keep state.
+  const config = _expCache?.config;
+  if (!config) return;
+
+  // Outer ring selection
+  document.querySelectorAll('.exp-orbit-node--outer').forEach(btn => {
+    btn.classList.toggle('is-selected', btn.dataset.category === _expDraft.category);
+  });
+  // Inner ring selection
+  document.querySelectorAll('.exp-orbit-node--inner').forEach(btn => {
+    btn.classList.toggle('is-selected', _expDraft.values.includes(btn.dataset.value));
+  });
+  // Counters
+  const countEls = [document.getElementById('expValueCount'), document.getElementById('expValueCountInline')];
+  countEls.forEach(e => { if (e) e.textContent = _expDraft.values.length; });
+  // Selected category text
+  const catEl = document.getElementById('expDraftCategory');
+  if (catEl) {
+    catEl.innerHTML = _expDraft.category
+      ? escapeHtml(_expDraft.category)
+      : '<span class="exp-orbit-panel-empty">Click a category on the outer ring</span>';
+  }
+  // Selected values chips
+  const chipsEl = document.getElementById('expDraftValues');
+  if (chipsEl) {
+    chipsEl.innerHTML = _expDraft.values.length === 0
+      ? '<span class="exp-orbit-panel-empty">Pick up to 3 values from the inner ring</span>'
+      : _expDraft.values.map(v => `<span class="exp-value-chip" style="--chip-color:${expValueColor(v, config)}">${v}</span>`).join('');
+  }
+}
+
+window.expSaveOrbital = async function (e) {
+  e.preventDefault();
+  if (!_expDraft.category) return toast('Pick an experience on the outer ring.', 'error');
+  if (_expDraft.values.length < 1) return toast('Pick at least one UWC value.', 'error');
+
+  const title = document.getElementById('expOrbitTitle').value.trim();
+  const reflection = document.getElementById('expOrbitReflection').value.trim();
+
+  const payload = {
+    title,
+    category: _expDraft.category,
+    experience_date: new Date().toISOString().slice(0, 10),
+    reflection,
+    values: _expDraft.values,
+  };
+
+  try {
+    await API.post('/experiences', payload);
+    toast('Your experience has been added to your map.');
+    _expDraft = { category: null, values: [] };
+    _expTab = 'my';
+    _expCache = null;
+    renderStudentExperiences();
+  } catch (err) {
+    toast(err.message || 'Could not save experience', 'error');
+  }
+};
+
+window.expSetFilterCategory = function (v) {
+  _expFilters.category = v || '';
+  paintStudentExperiences();
+};
+window.expSetFilterValue = function (v) {
+  _expFilters.value = v || '';
+  paintStudentExperiences();
+};
+let _expSearchTimer = null;
+window.expSetFilterQ = function (v) {
+  _expFilters.q = v || '';
+  if (_expSearchTimer) clearTimeout(_expSearchTimer);
+  // Debounce repaints; keep input focused
+  _expSearchTimer = setTimeout(() => {
+    const list = document.getElementById('expCardList');
+    if (!list) return paintStudentExperiences();
+    paintStudentExperiences();
+    const search = document.getElementById('expSearch');
+    if (search) {
+      search.focus();
+      const len = search.value.length;
+      try { search.setSelectionRange(len, len); } catch (_) {}
+    }
+  }, 80);
+};
+window.expClearFilters = function () {
+  _expFilters = { category: '', value: '', q: '' };
+  paintStudentExperiences();
+};
+
+window.openExperienceForm = function (id) {
+  const config = _expCache?.config;
+  if (!config) return;
+  const editing = id ? _expCache.experiences.find(e => e.id === id) : null;
+  const today = new Date().toISOString().slice(0, 10);
+  const initialValues = editing ? [...(editing.values || [])] : [];
+
+  openModal(`
+    <form id="experienceForm" onsubmit="submitExperienceForm(event, ${id || 'null'})">
+      <div class="modal-header">
+        <h3>${editing ? 'Edit experience' : 'Add experience'}</h3>
+        <button type="button" class="modal-close" onclick="closeModal()">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label for="expTitle">Title</label>
+          <input id="expTitle" name="title" class="form-control" type="text" maxlength="${config.limits.max_title}" required value="${editing ? escapeAttr(editing.title) : ''}" placeholder="What happened?">
+        </div>
+
+        <div class="exp-form-row">
+          <div class="form-group">
+            <label for="expCategory">Category</label>
+            <select id="expCategory" name="category" class="form-control" required>
+              <option value="">Choose a category</option>
+              ${config.categories.map(c => `<option value="${escapeAttr(c)}" ${editing && editing.category === c ? 'selected' : ''}>${c}</option>`).join('')}
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="expDate">Date</label>
+            <input id="expDate" name="experience_date" class="form-control" type="date" required max="${today}" value="${editing ? editing.date : today}">
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>UWC values <span class="exp-form-hint">Pick 1 to 3</span></label>
+          <div id="expValuesPicker" class="exp-values-picker">
+            ${initialValues.map(v => expValueChip(v, config, { removable: true })).join('')}
+            <select id="expValueSelect" class="form-control exp-values-select" onchange="expAddValueToForm(this)">
+              <option value="">Add a value…</option>
+              ${config.values.map(v => `<option value="${escapeAttr(v)}" ${initialValues.includes(v) ? 'disabled' : ''}>${v}</option>`).join('')}
+            </select>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="expReflection">Reflection</label>
+          <textarea id="expReflection" name="reflection" class="form-control" rows="6" minlength="${config.limits.min_reflection}" maxlength="${config.limits.max_reflection}" required placeholder="What did this experience teach you? Which values did it connect to and why?">${editing ? escapeHtml(editing.reflection) : ''}</textarea>
+          <div class="exp-form-counter"><span id="expReflectionCount">${editing ? editing.reflection.length : 0}</span> / ${config.limits.max_reflection} (min ${config.limits.min_reflection})</div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline" onclick="closeModal()">Cancel</button>
+        <button type="submit" class="btn btn-primary">Save Experience</button>
+      </div>
+    </form>
+  `);
+
+  const ta = document.getElementById('expReflection');
+  if (ta) ta.addEventListener('input', () => {
+    const cnt = document.getElementById('expReflectionCount');
+    if (cnt) cnt.textContent = ta.value.length;
+  });
+};
+
+window.expAddValueToForm = function (select) {
+  const v = select.value;
+  if (!v) return;
+  const picker = document.getElementById('expValuesPicker');
+  const chips = picker.querySelectorAll('.exp-value-chip');
+  if (chips.length >= 3) {
+    toast('You can select up to 3 values for each experience.', 'error');
+    select.value = '';
+    return;
+  }
+  const config = _expCache.config;
+  const chipHTML = expValueChip(v, config, { removable: true });
+  select.insertAdjacentHTML('beforebegin', chipHTML);
+  // Disable that option
+  Array.from(select.options).forEach(o => { if (o.value === v) o.disabled = true; });
+  select.value = '';
+};
+
+window.expRemoveValueFromForm = function (btn) {
+  const chip = btn.closest('.exp-value-chip');
+  const value = chip.textContent.replace('×', '').trim();
+  chip.remove();
+  const select = document.getElementById('expValueSelect');
+  if (select) {
+    Array.from(select.options).forEach(o => { if (o.value === value) o.disabled = false; });
+  }
+};
+
+window.submitExperienceForm = async function (e, id) {
+  e.preventDefault();
+  const form = e.target;
+  const picker = document.getElementById('expValuesPicker');
+  const values = Array.from(picker.querySelectorAll('.exp-value-chip')).map(c =>
+    c.textContent.replace('×', '').trim()
+  );
+  const payload = {
+    title: form.title.value.trim(),
+    category: form.category.value,
+    experience_date: form.experience_date.value,
+    reflection: form.reflection.value.trim(),
+    values,
+  };
+  if (values.length < 1) return toast('Pick at least one UWC value.', 'error');
+  if (values.length > 3) return toast('You can select up to 3 values for each experience.', 'error');
+
+  try {
+    if (id) {
+      await API.patch(`/experiences/${id}`, payload);
+      toast('Experience updated.');
+    } else {
+      await API.post('/experiences', payload);
+      toast('Your experience has been added to your map.');
+    }
+    closeModal();
+    _expCache = null;
+    renderStudentExperiences();
+  } catch (err) {
+    toast(err.message || 'Could not save experience', 'error');
+  }
+};
+
+window.confirmDeleteExperience = async function (id) {
+  const ok = await confirmDialog('Delete this experience? This cannot be undone.', 'Delete', 'Cancel');
+  if (!ok) return;
+  try {
+    await API.delete(`/experiences/${id}`);
+    toast('Experience deleted.');
+    _expCache = null;
+    renderStudentExperiences();
+  } catch (err) {
+    toast(err.message || 'Could not delete experience', 'error');
+  }
+};
+
+function formatExpDate(d) {
+  if (!d) return '';
+  const date = new Date(d);
+  if (isNaN(date.getTime())) return d;
+  return date.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+}
+
+function escapeHtml(str) {
+  return String(str || '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+function escapeAttr(str) {
+  return String(str || '').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
+// Safe interpolation of a string into an inline `onclick="..."` attribute.
+// JSON.stringify produces `"value"` (with double quotes) which would close
+// the surrounding double-quoted attribute. HTML-encoding the inner double
+// quotes yields a payload that the HTML parser converts back to a JS string
+// literal when the onclick is evaluated. Use for any string passed as a JS
+// argument inside an inline event handler.
+function jsAttr(value) {
+  return JSON.stringify(value == null ? '' : String(value)).replace(/"/g, '&quot;');
+}
+
+// ============ HEAD: Experience Map overview ============
+let _headExpData = null;
+let _headExpConfig = null;
+let _headExpStudentsPage = 1;
+let _headExpStudentsQuery = '';
+const HEAD_EXP_PAGE_SIZE = 10;
+
+async function renderHeadExperiences() {
+  const el = document.getElementById('contentArea');
+  el.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
+  const [data, config] = await Promise.all([
+    API.get('/experiences/head/overview'),
+    loadExperienceConfig(),
+  ]);
+  _headExpData = data;
+  _headExpConfig = config;
+  _headExpStudentsPage = 1;
+  _headExpStudentsQuery = '';
+  paintHeadExperiences();
+}
+
+function paintHeadExperiences() {
+  const data = _headExpData;
+  const el = document.getElementById('contentArea');
+  const { totals, by_category, by_value, students } = data;
+  const topValue = by_value[0]?.count ? by_value[0] : null;
+  const topCategory = by_category[0]?.count ? by_category[0] : null;
+
+  el.innerHTML = `
+    <div class="grid grid-3" style="margin-bottom:24px">
+      <div class="stat-card"><div class="stat-label">Total reflections</div><div class="stat-value">${totals.total_experiences}</div></div>
+      <div class="stat-card exp-top-card">
+        <div class="stat-label">Top value</div>
+        <div class="exp-top-tag-row">${topValue
+          ? `<span class="exp-top-tag exp-top-tag--value">${escapeHtml(topValue.value)}</span><span class="exp-top-count">${topValue.count}×</span>`
+          : '<span class="score-empty">N/A</span>'}</div>
+      </div>
+      <div class="stat-card exp-top-card">
+        <div class="stat-label">Top experience</div>
+        <div class="exp-top-tag-row">${topCategory
+          ? `<span class="exp-top-tag exp-top-tag--experience">${escapeHtml(topCategory.category)}</span><span class="exp-top-count">${topCategory.count}×</span>`
+          : '<span class="score-empty">N/A</span>'}</div>
+      </div>
+    </div>
+
+    <div class="grid grid-2" style="margin-bottom:24px">
+      <div class="card">
+        <div class="card-header"><h3>Reflections by UWC value</h3></div>
+        <div class="card-body" style="height:340px">${by_value.some(v => v.count) ? '<canvas id="headExpByValue"></canvas>' : '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--gray-400);font-size:0.9rem">N/A.</div>'}</div>
+      </div>
+      <div class="card">
+        <div class="card-header"><h3>Reflections by category</h3></div>
+        <div class="card-body" style="height:340px">${by_category.length ? '<canvas id="headExpByCategory"></canvas>' : '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--gray-400);font-size:0.9rem">N/A.</div>'}</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
+        <h3>Students</h3>
+        <span style="font-size:0.78rem;color:var(--gray-500)" id="headExpStudentsCount"></span>
+      </div>
+      <div class="card-body" style="padding:0">
+        <div style="padding:12px 16px;border-bottom:1px solid var(--gray-100)">
+          <input id="headExpStudentSearch" type="search" class="form-control" placeholder="Search students by name" value="${escapeAttr(_headExpStudentsQuery)}" oninput="headExpSetStudentQuery(this.value)" autocomplete="off">
+        </div>
+        <div class="table-container">
+          <table>
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Grade</th>
+                <th style="text-align:right">Reflections</th>
+                <th>Last reflection</th>
+                <th style="text-align:right">${t('common.actions')}</th>
+              </tr>
+            </thead>
+            <tbody id="headExpStudentsBody"></tbody>
+          </table>
+        </div>
+        <div id="headExpStudentsPager" style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:12px 16px;border-top:1px solid var(--gray-100);flex-wrap:wrap"></div>
+      </div>
+    </div>
+  `;
+
+  paintHeadExpStudentsTable();
+
+  // Charts
+  const palette = ['#059669', '#0ea5e9', '#8b5cf6', '#ec4899', '#f59e0b', '#10b981', '#3b82f6', '#ef4444', '#a16207'];
+  const valCtx = document.getElementById('headExpByValue');
+  if (valCtx) {
+    chartInstances.headExpByValue = new Chart(valCtx, {
+      type: 'bar',
+      data: {
+        labels: by_value.map(v => v.value),
+        datasets: [{ label: 'Reflections', data: by_value.map(v => v.count), backgroundColor: by_value.map((_, i) => palette[i % palette.length]), borderRadius: 6 }],
+      },
+      options: {
+        indexAxis: 'y', responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: { x: { beginAtZero: true, ticks: { stepSize: 1, precision: 0 } }, y: { ticks: { font: { size: 11 } } } },
+      },
+    });
+  }
+  const catCtx = document.getElementById('headExpByCategory');
+  if (catCtx) {
+    // Each category bar gets its own color — same palette as the by-value
+    // chart so the two charts feel like one set rather than two random ones.
+    chartInstances.headExpByCategory = new Chart(catCtx, {
+      type: 'bar',
+      data: {
+        labels: by_category.map(c => c.category),
+        datasets: [{
+          label: 'Reflections',
+          data: by_category.map(c => c.count),
+          backgroundColor: by_category.map((_, i) => palette[i % palette.length]),
+          borderRadius: 6,
+        }],
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: { y: { beginAtZero: true, ticks: { stepSize: 1, precision: 0 } } },
+      },
+    });
+  }
+}
+
+function paintHeadExpStudentsTable() {
+  const all = _headExpData?.students || [];
+  const q = _headExpStudentsQuery.trim().toLowerCase();
+  const filtered = q
+    ? all.filter(s => (s.student_name || '').toLowerCase().includes(q))
+    : all;
+  const totalPages = Math.max(1, Math.ceil(filtered.length / HEAD_EXP_PAGE_SIZE));
+  if (_headExpStudentsPage > totalPages) _headExpStudentsPage = totalPages;
+  if (_headExpStudentsPage < 1) _headExpStudentsPage = 1;
+  const start = (_headExpStudentsPage - 1) * HEAD_EXP_PAGE_SIZE;
+  const pageRows = filtered.slice(start, start + HEAD_EXP_PAGE_SIZE);
+
+  const body = document.getElementById('headExpStudentsBody');
+  if (!body) return;
+  body.innerHTML = pageRows.length
+    ? pageRows.map(s => `
+        <tr>
+          <td><strong>${escapeHtml(s.student_name || '')}</strong></td>
+          <td>${s.grade ? escapeHtml(s.grade) : '<span style="color:var(--gray-400)">N/A</span>'}</td>
+          <td style="text-align:right;font-weight:600">${s.count}</td>
+          <td>${s.last_date ? formatExpDate(s.last_date) : '<span style="color:var(--gray-400)">N/A</span>'}</td>
+          <td style="text-align:right">
+            <button class="btn btn-sm ${s.count > 0 ? 'btn-primary' : 'btn-outline'}" ${s.count === 0 ? 'disabled' : ''} onclick="viewStudentExperiencesAsHead(${s.student_id})">View</button>
+          </td>
+        </tr>
+      `).join('')
+    : `<tr><td colspan="5" style="text-align:center;padding:24px;color:var(--gray-500)">No students match.</td></tr>`;
+
+  const counter = document.getElementById('headExpStudentsCount');
+  if (counter) {
+    counter.textContent = q
+      ? `${filtered.length} of ${all.length} student${all.length !== 1 ? 's' : ''}`
+      : `${all.length} student${all.length !== 1 ? 's' : ''}`;
+  }
+
+  const pager = document.getElementById('headExpStudentsPager');
+  if (pager) {
+    if (filtered.length <= HEAD_EXP_PAGE_SIZE) {
+      pager.innerHTML = '';
+    } else {
+      const from = filtered.length === 0 ? 0 : start + 1;
+      const to = Math.min(filtered.length, start + HEAD_EXP_PAGE_SIZE);
+      pager.innerHTML = `
+        <span style="font-size:0.82rem;color:var(--gray-500)">${from}–${to} of ${filtered.length}</span>
+        <div style="display:flex;gap:6px;align-items:center">
+          <button class="btn btn-sm btn-outline" onclick="headExpStudentsPage(${_headExpStudentsPage - 1})" ${_headExpStudentsPage === 1 ? 'disabled' : ''}>← Prev</button>
+          <span style="font-size:0.82rem;color:var(--gray-600)">Page ${_headExpStudentsPage} of ${totalPages}</span>
+          <button class="btn btn-sm btn-outline" onclick="headExpStudentsPage(${_headExpStudentsPage + 1})" ${_headExpStudentsPage >= totalPages ? 'disabled' : ''}>Next →</button>
+        </div>
+      `;
+    }
+  }
+}
+
+let _headExpStudentsTimer = null;
+window.headExpSetStudentQuery = function (v) {
+  _headExpStudentsQuery = v || '';
+  _headExpStudentsPage = 1;
+  if (_headExpStudentsTimer) clearTimeout(_headExpStudentsTimer);
+  _headExpStudentsTimer = setTimeout(() => {
+    paintHeadExpStudentsTable();
+    const input = document.getElementById('headExpStudentSearch');
+    if (input) {
+      input.focus();
+      const len = input.value.length;
+      try { input.setSelectionRange(len, len); } catch (_) {}
+    }
+  }, 80);
+};
+
+window.headExpStudentsPage = function (page) {
+  _headExpStudentsPage = page;
+  paintHeadExpStudentsTable();
+};
+
+// Reflection drilldown — the modal HTML is shared between head and mentor.
+// Endpoints differ (head can read any student; mentor only their mentees) so
+// the calling site picks the right URL.
+function renderStudentExperiencesModalHTML(data, config) {
+  const { student, experiences } = data;
+
+  // Same four headline stats as the student's own "My UWC Experience Maps"
+  // page. Computed from the student's reflections so the head sees exactly
+  // what the student would see on their own dashboard, plus the timeline below.
+  const valueCounts = Object.fromEntries((config.values || []).map(v => [v, 0]));
+  experiences.forEach(e => (e.values || []).forEach(v => {
+    if (valueCounts[v] !== undefined) valueCounts[v]++;
+  }));
+  const topValueEntry = Object.entries(valueCounts).sort((a, b) => b[1] - a[1]).find(([, c]) => c > 0);
+  const valuesExplored = Object.values(valueCounts).filter(c => c > 0).length;
+
+  const statsHTML = `
+    <div class="grid grid-3 exp-summary" style="margin-bottom:20px">
+      <div class="exp-stat-card">
+        <div class="exp-stat-label">Total reflections</div>
+        <div class="exp-stat-value">${experiences.length}</div>
+      </div>
+      <div class="exp-stat-card">
+        <div class="exp-stat-label">Most connected value</div>
+        <div class="exp-stat-value-sm">${topValueEntry
+          ? `<span class="exp-value-chip" style="--chip-color:${expValueColor(topValueEntry[0], config)}">${escapeHtml(topValueEntry[0])}</span> <span class="exp-stat-meta">${topValueEntry[1]}×</span>`
+          : '<span class="exp-stat-empty">—</span>'}</div>
+      </div>
+      <div class="exp-stat-card">
+        <div class="exp-stat-label">Values explored</div>
+        <div class="exp-stat-value">${valuesExplored} <span class="exp-stat-meta">/ ${(config.values || []).length}</span></div>
+      </div>
+    </div>
+  `;
+
+  return `
+    <div class="modal-header">
+      <h3>${escapeHtml(student.full_name)}'s UWC Experience Map</h3>
+      <button class="modal-close" onclick="closeModal()">&times;</button>
+    </div>
+    <div class="modal-body" style="min-width:0">
+      <div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:16px;font-size:0.85rem;color:var(--gray-600)">
+        <span>${escapeHtml(student.email)}${student.grade_or_position ? ' · ' + escapeHtml(student.grade_or_position) : ''}</span>
+        <span>${experiences.length} reflection${experiences.length !== 1 ? 's' : ''}</span>
+      </div>
+      ${experiences.length === 0
+        ? `${statsHTML}<p style="color:var(--gray-500);text-align:center;padding:32px">No reflections yet.</p>`
+        : `${statsHTML}${experiences.map(e => `
+          <article class="exp-card exp-card--readonly">
+            <div class="exp-card-head">
+              <div>
+                <h3 class="exp-card-title">${escapeHtml(e.title)}</h3>
+                <div class="exp-card-meta">
+                  <span class="exp-card-category">${escapeHtml(e.category)}</span>
+                  <span class="exp-card-dot">·</span>
+                  <span class="exp-card-date">${formatExpDate(e.date)}</span>
+                </div>
+              </div>
+            </div>
+            <div class="exp-card-values">${(e.values || []).map(v => expValueChip(v, config)).join('')}</div>
+            <div class="exp-card-reflection">${escapeHtml(e.reflection)}</div>
+          </article>
+        `).join('')}`}
+    </div>
+    <div class="modal-footer"><button class="btn btn-outline" onclick="closeModal()">Close</button></div>
+  `;
+}
+
+window.viewStudentExperiencesAsHead = async function (studentId) {
+  try {
+    const [data, config] = await Promise.all([
+      API.get(`/experiences/head/student/${studentId}`),
+      loadExperienceConfig(),
+    ]);
+    openModal(renderStudentExperiencesModalHTML(data, config));
+  } catch (err) {
+    toast(err.message || 'Could not load student', 'error');
+  }
+};
+
+window.viewMenteeExperiences = async function (studentId) {
+  try {
+    const [data, config] = await Promise.all([
+      API.get(`/experiences/mentor/student/${studentId}`),
+      loadExperienceConfig(),
+    ]);
+    openModal(renderStudentExperiencesModalHTML(data, config));
+  } catch (err) {
+    toast(err.message || 'Could not load mentee', 'error');
+  }
+};
+
+
 // ============ ACCOUNT DETAILS ============
 async function renderAccount() {
   const data = await API.get('/auth/me');
@@ -6345,7 +8136,7 @@ function editOrganization(orgIndex) {
 
 function copySuperInviteCode() {
   const code = document.getElementById('superInviteCode')?.textContent;
-  if (!code || code === 'N/A' || code === 'Loading...' || code === 'Error' || code === '—') return;
+  if (!code || code === 'N/A' || code === 'N/A' || code === 'Loading...' || code === 'Error' || code === '—') return;
   navigator.clipboard.writeText(code).then(() => toast(t('org.code_copied'), 'success')).catch(() => toast(t('org.copy_failed'), 'error'));
 }
 
@@ -6927,6 +8718,18 @@ async function toggleCouncilMember(userId, makeCouncil) {
     toast(err.message || 'Failed to update', 'error');
   }
 }
+
+async function toggleMentor(userId, makeMentor) {
+  try {
+    await API.put(`/admin/users/${userId}/mentor`, { is_mentor: makeMentor ? 1 : 0 });
+    toast(makeMentor ? 'Granted mentor role' : 'Revoked mentor role');
+    invalidateCache('/admin/users');
+    renderAdminUsers();
+  } catch (err) {
+    toast(err.message || 'Failed to update', 'error');
+  }
+}
+window.toggleMentor = toggleMentor;
 
 // Expose council functions to inline onclick handlers.
 window.openCouncilPublishChooser = openCouncilPublishChooser;

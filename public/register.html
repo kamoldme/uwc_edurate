@@ -38,56 +38,16 @@
     .pilot-warn strong { color: #7f1d1d; }
     .pilot-warn code { background: #fee2e2; padding: 1px 6px; border-radius: 4px; font-size: 0.9em; }
 
-    /* DP1/DP2 segmented toggle. Two buttons, one active at a time, with a
-       sliding indicator pill underneath. */
+    /* Graduation-class dropdown — replaces the prior DP1/DP2 segmented
+       toggle. The cohort label is durable across years (a "Class of 2027"
+       student is still Class of 2027 next year, so no rollover hack). */
     .grade-label {
       display: block; text-align: center;
       font-size: 0.85rem; font-weight: 500; color: #334155;
       margin-bottom: 8px;
     }
-    .grade-toggle {
-      position: relative;
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      background: #f1f5f9;
-      border: 1px solid #e2e8f0;
-      border-radius: 999px;
-      padding: 4px;
-      margin-bottom: 18px;
-    }
-    .grade-toggle-indicator {
-      position: absolute;
-      top: 4px; bottom: 4px;
-      width: calc(50% - 4px);
-      background: var(--blue);
-      border-radius: 999px;
-      box-shadow: 0 2px 8px rgba(0,105,170,0.25);
-      transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-      transform: translateX(0);
-      pointer-events: none;
-      z-index: 1;
-    }
-    .grade-toggle.is-dp2 .grade-toggle-indicator {
-      transform: translateX(100%);
-    }
-    .grade-toggle.unselected .grade-toggle-indicator { opacity: 0; }
-    .grade-toggle button {
-      position: relative;
-      z-index: 2;
-      background: transparent;
-      border: none;
-      padding: 10px 0;
-      font-family: inherit;
-      font-size: 0.95rem;
-      font-weight: 600;
-      color: #64748b;
-      cursor: pointer;
-      transition: color 0.2s;
-    }
-    .grade-toggle button.active { color: #fff; }
-    .grade-toggle.unselected button { color: #475569; }
     .grade-hint {
-      font-size: 0.75rem; color: #94a3b8; text-align: center; margin-top: -10px; margin-bottom: 14px;
+      font-size: 0.75rem; color: #94a3b8; text-align: center; margin-top: 8px; margin-bottom: 14px;
     }
     .google-wrap { display: flex; justify-content: center; margin: 8px 0 4px; min-height: 44px; }
     .status-msg { text-align: center; color: #64748b; font-size: 0.85rem; padding: 12px 0; display:none; }
@@ -129,13 +89,15 @@
         Accounts created with personal emails will be removed without warning.
       </div>
 
-      <div class="grade-label">Which year are you in?</div>
-      <div class="grade-toggle unselected" id="gradeToggle" role="tablist" aria-label="Select your grade">
-        <span class="grade-toggle-indicator" aria-hidden="true"></span>
-        <button type="button" data-grade="DP1" role="tab" aria-selected="false" onclick="selectGrade('DP1')">DP1</button>
-        <button type="button" data-grade="DP2" role="tab" aria-selected="false" onclick="selectGrade('DP2')">DP2</button>
-      </div>
-      <div class="grade-hint" id="gradeHint">Pick your year, then sign in with Google.</div>
+      <div class="grade-label">Your graduation class</div>
+      <select id="gradeSelect" class="form-control" onchange="selectGrade(this.value)" style="width:100%;padding:12px 14px;border:2px solid #e2e8f0;border-radius:10px;font-size:0.95rem;font-family:inherit;background:#fff;color:#0f172a">
+        <option value="">Choose your graduation class</option>
+        <option value="Class of 2026">Class of 2026</option>
+        <option value="Class of 2027">Class of 2027</option>
+        <option value="Class of 2028">Class of 2028</option>
+        <option value="Class of 2029">Class of 2029</option>
+      </select>
+      <div class="grade-hint" id="gradeHint">Pick your graduation class, then sign in with Google.</div>
 
       <div id="error" class="error-msg"></div>
       <div class="google-wrap" id="googleBtnWrap"></div>
@@ -156,24 +118,17 @@
 
     let selectedGrade = null;
     function selectGrade(grade) {
-      selectedGrade = grade;
-      const toggle = document.getElementById('gradeToggle');
-      toggle.classList.remove('unselected');
-      toggle.classList.toggle('is-dp2', grade === 'DP2');
-      toggle.querySelectorAll('button').forEach(b => {
-        const active = b.dataset.grade === grade;
-        b.classList.toggle('active', active);
-        b.setAttribute('aria-selected', active ? 'true' : 'false');
-      });
+      selectedGrade = grade || null;
       const hint = document.getElementById('gradeHint');
-      if (hint) hint.textContent = `Selected: ${grade}. Now sign in with Google.`;
-      // Clear any prior 'select your year' error
+      if (hint) hint.textContent = selectedGrade
+        ? `Selected: ${selectedGrade}. Now sign in with Google.`
+        : 'Pick your graduation class, then sign in with Google.';
       errEl.className = 'error-msg';
     }
 
     async function handleCred(response) {
       if (!selectedGrade) {
-        showError('Please choose your year (DP1 or DP2) before signing in.');
+        showError('Please choose your graduation class before signing in.');
         return;
       }
       try {
