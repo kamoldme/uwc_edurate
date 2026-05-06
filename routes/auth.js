@@ -53,8 +53,11 @@ router.post('/google', async (req, res) => {
     if (!['login', 'student', 'teacher'].includes(intent)) {
       return res.status(400).json({ error: 'Invalid intent' });
     }
-    if (intent === 'student' && grade_or_position && !['DP1', 'DP2'].includes(grade_or_position)) {
-      return res.status(400).json({ error: 'Invalid grade. Must be DP1 or DP2.' });
+    // Cohort labels are free-form text up to 60 chars (e.g. "Class of 2027").
+    // Avoiding a hard whitelist so admins can roll new cohorts forward without
+    // server changes; the registration form still presents a fixed dropdown.
+    if (intent === 'student' && grade_or_position && (typeof grade_or_position !== 'string' || grade_or_position.length > 60)) {
+      return res.status(400).json({ error: 'Invalid graduation class.' });
     }
 
     // Verify the ID token with Google. This checks signature, audience, and expiry.

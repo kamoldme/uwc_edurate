@@ -467,6 +467,35 @@ router.get('/school-head/mentors', authenticate, authorize('head', 'admin'), aut
   }
 });
 
+// GET /api/dashboard/school-head/mentors/:id/mentees — heads can list a
+// mentor's mentees plus per-student reflection counts. Drilldown into a
+// student's reflection content goes through /experiences/head/student/:id.
+router.get('/school-head/mentors/:id/mentees', authenticate, authorize('head', 'admin'), authorizeOrg, (req, res) => {
+  try {
+    const mentorId = parseInt(req.params.id, 10);
+    const teacher = db.prepare('SELECT id, org_id, is_mentor FROM teachers WHERE id = ?').get(mentorId);
+    if (!teacher || teacher.org_id !== req.orgId) return res.status(404).json({ error: 'Mentor not found' });
+    if (!teacher.is_mentor) return res.status(400).json({ error: 'This teacher is not a mentor.' });
+
+    const rows = db.prepare(`
+      SELECT u.id as student_id, u.full_name as student_name, u.grade_or_position as grade,
+        c.id as group_id, c.subject as group_name,
+        (SELECT COUNT(*) FROM experiences e WHERE e.student_id = u.id) as reflection_count,
+        (SELECT MAX(experience_date) FROM experiences e WHERE e.student_id = u.id) as last_date
+      FROM classroom_members cm
+      JOIN classrooms c ON c.id = cm.classroom_id
+      JOIN users u ON u.id = cm.student_id
+      WHERE c.teacher_id = ? AND c.kind = 'mentor' AND u.role = 'student'
+      ORDER BY u.full_name ASC
+    `).all(mentorId);
+
+    res.json({ mentees: rows });
+  } catch (err) {
+    console.error('Head mentor mentees error:', err);
+    res.status(500).json({ error: 'Failed to load mentees' });
+  }
+});
+
 // GET /api/dashboard/school-head/teacher/:id - detailed teacher view
 router.get('/school-head/teacher/:id', authenticate, authorize('head', 'admin'), (req, res) => {
   try {

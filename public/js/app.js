@@ -49,7 +49,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     startNotifPolling();
     setTimeout(checkCommsBadge, 500);
     const hashView = window.location.hash.slice(1);
-    const validViews = ['student-home','student-classrooms','student-review','student-my-reviews','student-experiences','student-comms','student-forms','student-announcements','teacher-home','teacher-classrooms','teacher-mentor-groups','teacher-feedback','teacher-mentor-feedback','teacher-analytics','teacher-comms','teacher-forms','teacher-announcements','head-home','head-teachers','head-mentors','head-classrooms','head-analytics','head-experiences','head-comms','head-forms','head-announcements','admin-home','admin-users','admin-terms','admin-classrooms','admin-teachers','admin-submissions','admin-moderate','admin-flagged','admin-support','admin-audit','admin-comms','admin-forms','admin-announcements','admin-departments','account','help'];
+    const validViews = ['student-home','student-classrooms','student-review','student-my-reviews','student-experiences','student-comms','student-forms','student-announcements','teacher-home','teacher-classrooms','teacher-feedback','teacher-mentor-feedback','teacher-analytics','teacher-comms','teacher-forms','teacher-announcements','head-home','head-teachers','head-mentors','head-classrooms','head-analytics','head-experiences','head-comms','head-forms','head-announcements','admin-home','admin-users','admin-terms','admin-classrooms','admin-teachers','admin-submissions','admin-moderate','admin-flagged','admin-support','admin-audit','admin-comms','admin-forms','admin-announcements','admin-departments','account','help'];
     navigateTo(hashView && validViews.includes(hashView) ? hashView : getDefaultView());
   } catch {
     logout();
@@ -250,7 +250,6 @@ function buildNavigation() {
     items = [
       { id: 'teacher-home', label: t('nav.dashboard'), icon: 'home' },
       { id: 'teacher-classrooms', label: t('nav.my_classrooms'), icon: 'classroom' },
-      ...(isMentor ? [{ id: 'teacher-mentor-groups', label: 'My mentor groups', icon: 'users' }] : []),
       { id: 'teacher-feedback', label: t('nav.feedback'), icon: 'review' },
       ...(isMentor ? [{ id: 'teacher-mentor-feedback', label: 'Mentor feedback', icon: 'review' }] : []),
       { id: 'teacher-analytics', label: t('nav.analytics'), icon: 'chart' },
@@ -331,7 +330,6 @@ function navigateTo(view) {
     'head-experiences': 'UWC Experience Map',
     'teacher-home': t('title.teacher_dashboard'),
     'teacher-classrooms': t('title.my_classrooms'),
-    'teacher-mentor-groups': 'My mentor groups',
     'teacher-feedback': t('title.student_feedback'),
     'teacher-mentor-feedback': 'Mentor feedback',
     'teacher-analytics': t('title.analytics'),
@@ -380,7 +378,6 @@ function navigateTo(view) {
     'student-announcements': renderStudentAnnouncements,
     'teacher-home': renderTeacherHome,
     'teacher-classrooms': renderTeacherClassrooms,
-    'teacher-mentor-groups': renderTeacherMentorGroups,
     'teacher-feedback': renderTeacherFeedback,
     'teacher-mentor-feedback': renderTeacherMentorFeedback,
     'teacher-analytics': renderTeacherAnalytics,
@@ -1910,11 +1907,16 @@ async function renderTeacherHome() {
 }
 
 async function renderTeacherClassrooms() {
-  const data = await cachedGet('/dashboard/teacher');
+  const isMentor = !!currentUser?.is_mentor;
+  const [data, menteesRes] = await Promise.all([
+    cachedGet('/dashboard/teacher'),
+    isMentor ? API.get('/experiences/mentor/mentees').catch(() => ({ mentees: [] })) : Promise.resolve({ mentees: [] }),
+  ]);
   window._teacherTerms = data.all_terms || [];
   window._teacherActiveTerm = data.active_term || null;
   const el = document.getElementById('contentArea');
-  const academic = (data.classrooms || []).filter(c => (c.kind || 'academic') !== 'mentor');
+  const allClassrooms = data.classrooms || [];
+  const mentees = menteesRes.mentees || [];
 
   el.innerHTML = `
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px">
@@ -1922,19 +1924,21 @@ async function renderTeacherClassrooms() {
       <button class="btn btn-primary" onclick="showCreateClassroomTeacher()">${t('teacher.create_classroom')}</button>
     </div>
     ${(() => {
-      const active = academic.filter(c => c.active_status !== 0);
-      const archived = academic.filter(c => c.active_status === 0);
+      const active = allClassrooms.filter(c => c.active_status !== 0);
+      const archived = allClassrooms.filter(c => c.active_status === 0);
       if (data.classrooms.length === 0) return `<div class="empty-state" style="margin-top:40px">
           <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="color:var(--gray-300);margin-bottom:12px"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
           <h3 style="color:var(--gray-500);margin-bottom:6px">${t('teacher.no_classrooms_title')}</h3>
           <p style="color:var(--gray-400);font-size:0.875rem">${t('teacher.create_first_classroom')}</p>
         </div>`;
-      const renderCard = (c, isArchived) => `
+      const renderCard = (c, isArchived) => {
+        const isMentorGroup = (c.kind || 'academic') === 'mentor';
+        return `
         <div class="classroom-card" style="${isArchived ? 'opacity:0.65;' : ''}">
-          <div style="display:flex;justify-content:space-between;align-items:start">
+          <div style="display:flex;justify-content:space-between;align-items:start;gap:8px">
             <div>
-              <div class="class-subject">${c.subject}</div>
-              <div class="class-meta">${c.grade_level} &middot; ${c.student_count} ${t('common.students').toLowerCase()}</div>
+              <div class="class-subject">${c.subject}${isMentorGroup ? ' <span style="font-size:0.65rem;background:#eef2ff;color:#4338ca;padding:2px 8px;border-radius:10px;font-weight:600;letter-spacing:0.04em;margin-left:6px;vertical-align:middle">MENTOR</span>' : ''}</div>
+              <div class="class-meta">${c.grade_level} &middot; ${c.student_count} ${isMentorGroup ? 'mentees' : t('common.students').toLowerCase()}</div>
             </div>
             ${isArchived ? `<span style="font-size:0.75rem;background:var(--gray-200);color:var(--gray-600);padding:2px 8px;border-radius:10px;font-weight:500">${t('teacher.archived')}</span>` : ''}
           </div>
@@ -1954,6 +1958,7 @@ async function renderTeacherClassrooms() {
             </div>
           </div>
         </div>`;
+      };
       return `<div class="grid grid-2">
         ${active.map(c => renderCard(c, false)).join('')}
       </div>
@@ -1963,92 +1968,7 @@ async function renderTeacherClassrooms() {
           <div class="grid grid-2">${archived.map(c => renderCard(c, true)).join('')}</div>
         </div>` : ''}`;
     })()}
-  `;
-}
-
-function showCreateClassroomTeacher() {
-  openModal(`
-    <div class="modal-header"><h3>${t('teacher.create_classroom_title')}</h3><button class="modal-close" onclick="closeModal()">&times;</button></div>
-    <div class="modal-body">
-      <div class="form-group">
-        <label>${t('common.subject')}</label>
-        <input type="text" class="form-control" id="newSubject" placeholder="${t('teacher.subject_placeholder')}">
-      </div>
-      <div class="form-group">
-        <label>${t('common.grade')}</label>
-        <input type="text" class="form-control" id="newGradeLevel" placeholder="${t('teacher.grade_placeholder')}">
-      </div>
-    </div>
-    <div class="modal-footer">
-      <button class="btn btn-outline" onclick="closeModal()">${t('common.cancel')}</button>
-      <button class="btn btn-primary" onclick="createClassroomTeacher()">${t('common.create')}</button>
-    </div>
-  `);
-}
-
-async function createClassroomTeacher() {
-  const subject = document.getElementById('newSubject').value.trim();
-  const grade_level = document.getElementById('newGradeLevel').value.trim();
-  if (!subject || !grade_level) return toast(t('teacher.fill_all_fields'), 'error');
-  try {
-    const data = await API.post('/classrooms', { subject, grade_level });
-    toast(t('teacher.classroom_created', {code: formatJoinCode(data.join_code)}));
-    invalidateCache('/dashboard/teacher', '/classrooms', '/forms');
-    closeModal();
-    navigateTo('teacher-classrooms');
-  } catch (err) { toast(err.message, 'error'); }
-}
-
-// ============ TEACHER: MENTOR GROUPS ============
-// Mentor groups are classrooms with kind='mentor'. UI mirrors the regular
-// classrooms page but every action (create/list) carries the mentor kind so
-// reviews submitted against these classrooms get routed to the mentor review
-// criteria, not the academic ones.
-async function renderTeacherMentorGroups() {
-  const [data, menteesRes] = await Promise.all([
-    cachedGet('/dashboard/teacher'),
-    API.get('/experiences/mentor/mentees').catch(() => ({ mentees: [] })),
-  ]);
-  const el = document.getElementById('contentArea');
-  const groups = (data.classrooms || []).filter(c => (c.kind || 'academic') === 'mentor');
-  const mentees = menteesRes.mentees || [];
-
-  const renderCard = (c, isArchived) => `
-    <div class="classroom-card" style="${isArchived ? 'opacity:0.65;' : ''}">
-      <div style="display:flex;justify-content:space-between;align-items:start">
-        <div>
-          <div class="class-subject">${c.subject}</div>
-          <div class="class-meta">${c.grade_level} &middot; ${c.student_count} ${t('common.students').toLowerCase()}</div>
-        </div>
-        <span style="font-size:0.7rem;background:#eef2ff;color:#4338ca;padding:3px 9px;border-radius:10px;font-weight:600;letter-spacing:0.02em">MENTOR</span>
-      </div>
-      <div style="margin-top:16px;display:flex;justify-content:space-between;align-items:center">
-        <div>
-          <div style="font-size:0.75rem;color:var(--gray-500);margin-bottom:4px">${t('teacher.join_code')}</div>
-          <span class="join-code">${formatJoinCode(c.join_code)}</span>
-        </div>
-        <div style="display:flex;gap:8px;flex-wrap:wrap">
-          ${!isArchived ? `<button class="btn btn-sm btn-outline" onclick="regenerateCode(${c.id})">${t('teacher.new_code')}</button>` : ''}
-          ${!isArchived ? `<button class="btn btn-sm btn-outline" onclick="editClassroomTeacher(${c.id}, '${c.subject.replace(/'/g, "\\'")}', '${c.grade_level.replace(/'/g, "\\'")}')"> ${t('common.edit')}</button>` : ''}
-          <button class="btn btn-sm btn-danger" onclick="deleteClassroomTeacher(${c.id}, '${c.subject.replace(/'/g, "\\'")}')"> ${t('common.delete')}</button>
-          <button class="btn btn-sm btn-primary" onclick="viewClassroomMembers(${c.id}, '${c.subject}')">${t('teacher.members')}</button>
-        </div>
-      </div>
-    </div>`;
-
-  el.innerHTML = `
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;flex-wrap:wrap;gap:10px">
-      <p style="color:var(--gray-500);margin:0">Manage your mentor groups. Mentees join with the group's code.</p>
-      <button class="btn btn-primary" onclick="showCreateMentorGroup()">+ Create mentor group</button>
-    </div>
-    ${groups.length === 0
-      ? `<div class="empty-state" style="margin-top:40px">
-          <h3 style="color:var(--gray-500);margin-bottom:6px">No mentor groups yet</h3>
-          <p style="color:var(--gray-400);font-size:0.875rem">Create your first mentor group and share the join code with your mentees.</p>
-        </div>`
-      : `<div class="grid grid-2">${groups.filter(c => c.active_status !== 0).map(c => renderCard(c, false)).join('')}</div>`}
-
-    ${mentees.length > 0 ? `
+    ${isMentor && mentees.length > 0 ? `
       <div class="card" style="margin-top:32px">
         <div class="card-header" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
           <div>
@@ -2063,7 +1983,7 @@ async function renderTeacherMentorGroups() {
               <tr>
                 <th>Name</th>
                 <th>Group</th>
-                <th>Grade</th>
+                <th>Cohort</th>
                 <th style="text-align:right">Reflections</th>
                 <th>Last reflection</th>
                 <th style="text-align:right">${t('common.actions')}</th>
@@ -2090,40 +2010,73 @@ async function renderTeacherMentorGroups() {
   `;
 }
 
-function showCreateMentorGroup() {
+function showCreateClassroomTeacher() {
+  const isMentor = !!currentUser?.is_mentor;
   openModal(`
-    <div class="modal-header"><h3>Create a mentor group</h3><button class="modal-close" onclick="closeModal()">&times;</button></div>
+    <div class="modal-header"><h3>${t('teacher.create_classroom_title')}</h3><button class="modal-close" onclick="closeModal()">&times;</button></div>
     <div class="modal-body">
-      <div class="form-group">
-        <label>Group name</label>
-        <input type="text" class="form-control" id="newMentorGroupName" placeholder="e.g. DP1 Mentor Group A" maxlength="80">
+      ${isMentor ? `
+        <div class="form-group" style="background:#f8fafc;border:1px solid var(--gray-100);border-radius:10px;padding:12px 14px">
+          <label style="display:flex;align-items:center;gap:10px;cursor:pointer;margin:0">
+            <input type="checkbox" id="newClassroomIsMentor" onchange="onCreateClassroomKindToggle(this.checked)">
+            <span><strong>This is a mentor group</strong>
+              <span style="display:block;font-weight:400;font-size:0.78rem;color:var(--gray-500);margin-top:2px">Mentees join with the code, feedback uses mentor criteria.</span>
+            </span>
+          </label>
+        </div>
+      ` : ''}
+      <div class="form-group" id="newSubjectWrap">
+        <label>${t('common.subject')}</label>
+        <input type="text" class="form-control" id="newSubject" placeholder="${t('teacher.subject_placeholder')}">
       </div>
       <div class="form-group">
-        <label>Year / Cohort</label>
-        <input type="text" class="form-control" id="newMentorGroupGrade" placeholder="e.g. DP1 2025-2027" maxlength="40">
+        <label id="newGradeLabel">Cohort</label>
+        <input type="text" class="form-control" id="newGradeLevel" placeholder="e.g. Class of 2027">
       </div>
     </div>
     <div class="modal-footer">
       <button class="btn btn-outline" onclick="closeModal()">${t('common.cancel')}</button>
-      <button class="btn btn-primary" onclick="createMentorGroup()">${t('common.create')}</button>
+      <button class="btn btn-primary" onclick="createClassroomTeacher()">${t('common.create')}</button>
     </div>
   `);
 }
 
-async function createMentorGroup() {
-  const subject = document.getElementById('newMentorGroupName').value.trim();
-  const grade_level = document.getElementById('newMentorGroupGrade').value.trim();
-  if (!subject || !grade_level) return toast('Fill in group name and cohort.', 'error');
+window.onCreateClassroomKindToggle = function (isMentorGroup) {
+  const subjectWrap = document.getElementById('newSubjectWrap');
+  const gradeLabel = document.getElementById('newGradeLabel');
+  if (subjectWrap) subjectWrap.style.display = isMentorGroup ? 'none' : '';
+  if (gradeLabel) gradeLabel.textContent = isMentorGroup ? 'Mentor group name / cohort' : 'Cohort';
+  const gradeInput = document.getElementById('newGradeLevel');
+  if (gradeInput) gradeInput.placeholder = isMentorGroup ? 'e.g. Mentor Group A · Class of 2027' : 'e.g. Class of 2027';
+};
+
+async function createClassroomTeacher() {
+  const isMentorGroup = !!document.getElementById('newClassroomIsMentor')?.checked;
+  const grade_level = document.getElementById('newGradeLevel').value.trim();
+  // For mentor groups the cohort line is the only label; subject is fixed to
+  // 'Mentor Group' so existing dashboard/aggregate queries still have a value.
+  const subject = isMentorGroup
+    ? 'Mentor Group'
+    : (document.getElementById('newSubject').value.trim());
+  if (!subject || !grade_level) return toast(t('teacher.fill_all_fields'), 'error');
   try {
-    const data = await API.post('/classrooms', { subject, grade_level, kind: 'mentor' });
-    toast(`Mentor group created. Join code: ${formatJoinCode(data.join_code)}`);
-    invalidateCache('/dashboard/teacher', '/classrooms');
+    const data = await API.post('/classrooms', {
+      subject,
+      grade_level,
+      kind: isMentorGroup ? 'mentor' : 'academic',
+    });
+    toast(t('teacher.classroom_created', {code: formatJoinCode(data.join_code)}));
+    invalidateCache('/dashboard/teacher', '/classrooms', '/forms');
     closeModal();
-    navigateTo('teacher-mentor-groups');
+    navigateTo('teacher-classrooms');
   } catch (err) { toast(err.message, 'error'); }
 }
-window.showCreateMentorGroup = showCreateMentorGroup;
-window.createMentorGroup = createMentorGroup;
+
+// ============ TEACHER: MENTOR GROUPS ============
+// Mentor groups are classrooms with kind='mentor'. UI mirrors the regular
+// classrooms page but every action (create/list) carries the mentor kind so
+// reviews submitted against these classrooms get routed to the mentor review
+// criteria, not the academic ones.
 
 async function archiveClassroomTeacher(id, subject) {
   const confirmed = await confirmDialog(t('teacher.archive_confirm', {name: subject}), t('teacher.archive'), t('common.cancel'));
@@ -3296,6 +3249,26 @@ async function renderHeadMentors() {
     (a, b) => (b.scores.avg_overall || 0) - (a.scores.avg_overall || 0)
   );
 
+  // Mirror the Teachers tab columns. Criteria breakdown lives inside the
+  // "View" feedback modal, not as inline columns. The extra column here is
+  // "View Mentees" — opens the same per-mentee timeline a mentor sees.
+  const rowsHTML = sorted.map((m, i) => `
+    <tr data-search="${escapeAttr([m.full_name, m.subject, m.department].filter(Boolean).join(' ').toLowerCase())}">
+      <td style="text-align:center;font-weight:600;color:var(--gray-500)">${i + 1}</td>
+      <td><strong>${escapeHtml(m.full_name)}</strong></td>
+      <td>${m.subject || '<span class="score-empty">Not yet available</span>'}</td>
+      <td>${m.department || '<span class="score-empty">Not yet available</span>'}</td>
+      <td style="font-weight:600;color:${scoreColor(m.scores.avg_overall || 0)}">${fmtScore(m.scores.avg_overall)}</td>
+      <td>${m.scores.review_count}</td>
+      <td>${m.group_count}</td>
+      <td style="text-align:right;white-space:nowrap">
+        <button class="btn btn-sm btn-outline" style="font-size:0.78rem;padding:5px 10px" onclick="viewMentorMentees(${m.id}, '${escapeAttr(m.full_name).replace(/'/g, "\\'")}')">View mentees</button>
+        <button class="btn btn-sm btn-primary" style="font-size:0.78rem;padding:5px 12px" onclick="viewTeacherFeedback(${m.id})">View</button>
+        <button class="btn btn-sm btn-outline" style="font-size:0.78rem;padding:5px 10px" onclick="exportTeacherPDF(${m.id})" title="${t('admin.export_pdf')}">PDF</button>
+      </td>
+    </tr>
+  `).join('');
+
   el.innerHTML = `
     <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:16px;flex-wrap:wrap">
       <div style="position:relative;flex:1;min-width:240px;max-width:420px">
@@ -3311,36 +3284,65 @@ async function renderHeadMentors() {
             <tr>
               <th style="width:48px">#</th>
               <th>Mentor</th>
-              <th>Department</th>
-              <th>Groups</th>
+              <th>${t('common.subject')}</th>
+              <th>${t('common.department')}</th>
               <th>${t('chart.score')}</th>
               <th>${t('common.reviews')}</th>
-              ${MENTOR_CRITERIA_CONFIG.map(c => `<th style="text-align:right">${c.label}</th>`).join('')}
+              <th>Mentor groups</th>
+              <th style="text-align:right">${t('common.actions')}</th>
             </tr>
           </thead>
           <tbody id="headMentorsBody">
             ${sorted.length === 0
-              ? `<tr><td colspan="${6 + MENTOR_CRITERIA_CONFIG.length}" style="text-align:center;padding:32px;color:var(--gray-500)">No mentors yet. Grant the mentor role to a teacher from the Admin → Users tab.</td></tr>`
-              : sorted.map((m, i) => `
-                <tr data-search="${escapeAttr([m.full_name, m.subject, m.department].filter(Boolean).join(' ').toLowerCase())}">
-                  <td style="text-align:center;font-weight:600;color:var(--gray-500)">${i + 1}</td>
-                  <td><strong>${escapeHtml(m.full_name)}</strong></td>
-                  <td>${m.department || '<span class="score-empty">Not yet available</span>'}</td>
-                  <td>${m.group_count}</td>
-                  <td style="font-weight:600;color:${scoreColor(m.scores.avg_overall || 0)}">${fmtScore(m.scores.avg_overall)}</td>
-                  <td>${m.scores.review_count}</td>
-                  ${['avg_c1','avg_c2','avg_c3','avg_c4','avg_c5'].map(k => `
-                    <td style="text-align:right;color:${scoreColor(m.scores[k] || 0)}">${fmtScore(m.scores[k])}</td>
-                  `).join('')}
-                </tr>
-              `).join('')}
-            <tr id="headMentorsEmpty" style="display:none"><td colspan="${6 + MENTOR_CRITERIA_CONFIG.length}" style="text-align:center;padding:32px;color:var(--gray-500);font-size:0.9rem">No mentors match that search.</td></tr>
+              ? `<tr><td colspan="8" style="text-align:center;padding:32px;color:var(--gray-500)">No mentors yet. Grant the mentor role to a teacher from the Admin → Users tab.</td></tr>`
+              : rowsHTML}
+            <tr id="headMentorsEmpty" style="display:none"><td colspan="8" style="text-align:center;padding:32px;color:var(--gray-500);font-size:0.9rem">No mentors match that search.</td></tr>
           </tbody>
         </table>
       </div>
     </div>
   `;
 }
+
+// View Mentees modal — head can see who a given mentor's mentees are with
+// a per-student reflection-count summary. Drilldown to a single mentee's
+// timeline goes through the existing head endpoint.
+window.viewMentorMentees = async function (mentorId, mentorName) {
+  try {
+    const res = await API.get(`/dashboard/school-head/mentors/${mentorId}/mentees`);
+    const mentees = res.mentees || [];
+    openModal(`
+      <div class="modal-header">
+        <h3>${escapeHtml(mentorName)}'s mentees</h3>
+        <button class="modal-close" onclick="closeModal()">&times;</button>
+      </div>
+      <div class="modal-body" style="min-width:0">
+        ${mentees.length === 0
+          ? '<p style="color:var(--gray-500);text-align:center;padding:32px">No mentees yet.</p>'
+          : `<div style="overflow-x:auto"><table style="width:100%">
+              <thead><tr><th>${t('common.name')}</th><th>Group</th><th>Cohort</th><th style="text-align:right">Reflections</th><th>Last reflection</th><th style="text-align:right">${t('common.actions')}</th></tr></thead>
+              <tbody>
+                ${mentees.map(m => `
+                  <tr>
+                    <td><strong>${escapeHtml(m.student_name)}</strong></td>
+                    <td>${escapeHtml(m.group_name)}</td>
+                    <td>${m.grade ? escapeHtml(m.grade) : '<span style="color:var(--gray-400)">Not yet available</span>'}</td>
+                    <td style="text-align:right;font-weight:600">${m.reflection_count}</td>
+                    <td>${m.last_date ? formatExpDate(m.last_date) : '<span style="color:var(--gray-400)">Not yet available</span>'}</td>
+                    <td style="text-align:right">
+                      <button class="btn btn-sm ${m.reflection_count > 0 ? 'btn-primary' : 'btn-outline'}" ${m.reflection_count === 0 ? 'disabled' : ''} onclick="closeModal();viewStudentExperiencesAsHead(${m.student_id})">View map</button>
+                    </td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table></div>`}
+      </div>
+      <div class="modal-footer"><button class="btn btn-outline" onclick="closeModal()">${t('common.close')}</button></div>
+    `);
+  } catch (err) {
+    toast(err.message || 'Could not load mentees', 'error');
+  }
+};
 
 window.filterHeadMentors = function (raw) {
   const q = (raw || '').trim().toLowerCase();
@@ -4331,7 +4333,10 @@ function _buildUserRows(users) {
       <td style="width:32px;text-align:center">${checkboxCell}</td>
       <td><strong>${u.full_name}</strong></td>
       <td style="font-size:0.8rem;color:var(--gray-500)">${u.email}</td>
-      <td><span class="badge ${u.role === 'super_admin' ? 'badge-flagged' : u.role === 'admin' ? 'badge-flagged' : u.role === 'teacher' ? 'badge-active' : u.role === 'head' ? 'badge-approved' : (u.role === 'student' && u.is_student_council) ? 'badge-active' : 'badge-pending'}">${(u.role === 'student' && u.is_student_council) ? 'StuCo' : ({student: t('common.student'), teacher: t('common.teacher'), school_head: t('common.school_head'), admin: t('common.admin'), super_admin: t('common.super_admin')}[u.role] || u.role)}</span></td>
+      <td>
+        <span class="badge ${u.role === 'super_admin' ? 'badge-flagged' : u.role === 'admin' ? 'badge-flagged' : u.role === 'teacher' ? 'badge-active' : u.role === 'head' ? 'badge-approved' : (u.role === 'student' && u.is_student_council) ? 'badge-active' : 'badge-pending'}">${(u.role === 'student' && u.is_student_council) ? 'StuCo' : ({student: t('common.student'), teacher: t('common.teacher'), school_head: t('common.school_head'), admin: t('common.admin'), super_admin: t('common.super_admin')}[u.role] || u.role)}</span>
+        ${u.role === 'teacher' && u.is_mentor ? '<span class="badge badge-approved" style="margin-left:4px;background:#eef2ff;color:#4338ca;border-color:#c7d2fe">Mentor</span>' : ''}
+      </td>
       <td>${u.grade_or_position || '-'}</td>
       <td>${u.suspended ? `<span class="badge badge-rejected">${t('common.suspended')}</span>` : `<span class="badge badge-approved">${t('common.active')}</span>`}</td>
       <td>
@@ -4591,8 +4596,15 @@ async function showCreateUser() {
         </select>
       </div>
       <div class="form-group" id="gradeFieldWrap">
-        <label>${t('admin.grade_position_label')}</label>
-        <input type="text" class="form-control" id="newUserGrade" placeholder="${t('admin.grade_position_placeholder')}">
+        <label id="newUserGradeLabel">Graduation class</label>
+        <select class="form-control" id="newUserGrade">
+          <option value="">Choose graduation class</option>
+          <option value="Class of 2026">Class of 2026</option>
+          <option value="Class of 2027">Class of 2027</option>
+          <option value="Class of 2028">Class of 2028</option>
+          <option value="Class of 2029">Class of 2029</option>
+        </select>
+        <input type="text" class="form-control" id="newUserGradeText" placeholder="e.g. Senior Teacher" style="display:none;margin-top:8px">
       </div>
       <div id="teacherFields" style="display:none">
         <div class="form-group"><label>${t('account.subject')}</label><input type="text" class="form-control" id="newTeacherSubject"></div>
@@ -4605,27 +4617,48 @@ async function showCreateUser() {
       <button class="btn btn-primary" onclick="createUser()">${t('common.create')}</button>
     </div>
   `);
+  // Default role is student → set the cohort dropdown layout
+  setTimeout(() => onNewUserRoleChange('student'), 0);
 }
 
 function onNewUserRoleChange(role) {
   document.getElementById('teacherFields').style.display = role === 'teacher' ? 'block' : 'none';
-  // Grade/Position only applies to students and teachers
+  // Grade/Position is the cohort dropdown for students, free-text for
+  // teachers (position title), hidden for head/admin.
   const gradeWrap = document.getElementById('gradeFieldWrap');
-  if (gradeWrap) {
-    gradeWrap.style.display = (role === 'student' || role === 'teacher') ? 'block' : 'none';
+  const gradeLabel = document.getElementById('newUserGradeLabel');
+  const gradeSelect = document.getElementById('newUserGrade');
+  const gradeText = document.getElementById('newUserGradeText');
+  if (!gradeWrap) return;
+  if (role === 'student') {
+    gradeWrap.style.display = 'block';
+    if (gradeLabel) gradeLabel.textContent = 'Graduation class';
+    if (gradeSelect) gradeSelect.style.display = '';
+    if (gradeText) gradeText.style.display = 'none';
+  } else if (role === 'teacher') {
+    gradeWrap.style.display = 'block';
+    if (gradeLabel) gradeLabel.textContent = 'Position';
+    if (gradeSelect) gradeSelect.style.display = 'none';
+    if (gradeText) gradeText.style.display = '';
+  } else {
+    gradeWrap.style.display = 'none';
   }
 }
 
 async function createUser() {
   const role = document.getElementById('newUserRole').value;
+  let gradeOrPosition = '';
+  if (role === 'student') {
+    gradeOrPosition = document.getElementById('newUserGrade').value;
+  } else if (role === 'teacher') {
+    gradeOrPosition = document.getElementById('newUserGradeText').value;
+  }
   const body = {
     full_name: document.getElementById('newUserName').value,
     email: document.getElementById('newUserEmail').value,
     password: document.getElementById('newUserPassword').value,
     role: role,
-    grade_or_position: (role === 'student' || role === 'teacher')
-      ? document.getElementById('newUserGrade').value
-      : ''
+    grade_or_position: gradeOrPosition,
   };
   if (body.role === 'teacher') {
     body.subject = document.getElementById('newTeacherSubject').value;
@@ -4675,8 +4708,18 @@ function editUser(user) {
         <input type="email" class="form-control" id="editUserEmail" value="${user.email}">
       </div>
       <div class="form-group" id="editGradeFieldWrap" style="display:${showGrade ? 'block' : 'none'}">
-        <label>${t('admin.grade_position_label')}</label>
-        <input type="text" class="form-control" id="editUserGrade" value="${user.grade_or_position || ''}">
+        <label id="editUserGradeLabel">${user.role === 'student' ? 'Graduation class' : 'Position'}</label>
+        ${user.role === 'student' ? `
+          <select class="form-control" id="editUserGrade">
+            <option value="">Choose graduation class</option>
+            ${['Class of 2026','Class of 2027','Class of 2028','Class of 2029'].map(opt =>
+              `<option value="${opt}" ${user.grade_or_position === opt ? 'selected' : ''}>${opt}</option>`).join('')}
+            ${user.grade_or_position && !['Class of 2026','Class of 2027','Class of 2028','Class of 2029'].includes(user.grade_or_position)
+              ? `<option value="${escapeAttr(user.grade_or_position)}" selected>${escapeHtml(user.grade_or_position)}</option>` : ''}
+          </select>
+        ` : `
+          <input type="text" class="form-control" id="editUserGrade" value="${escapeAttr(user.grade_or_position || '')}">
+        `}
       </div>
       <div class="form-group">
         <label>${t('account.role')}</label>
@@ -7074,7 +7117,6 @@ function escapeAttr(str) {
 }
 
 // ============ HEAD: Experience Map overview ============
-let _headExpScope = 'term';   // 'term' | 'all'
 let _headExpData = null;
 let _headExpConfig = null;
 let _headExpStudentsPage = 1;
@@ -7085,7 +7127,7 @@ async function renderHeadExperiences() {
   const el = document.getElementById('contentArea');
   el.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
   const [data, config] = await Promise.all([
-    API.get(`/experiences/head/overview?scope=${_headExpScope}`),
+    API.get('/experiences/head/overview'),
     loadExperienceConfig(),
   ]);
   _headExpData = data;
@@ -7098,28 +7140,25 @@ async function renderHeadExperiences() {
 function paintHeadExperiences() {
   const data = _headExpData;
   const el = document.getElementById('contentArea');
-  const { totals, by_category, by_value, students, scope } = data;
-  const scopeLabel = scope.mode === 'term' && scope.term ? scope.term.name : 'All time';
-  const participationLabel = scope.mode === 'term' && scope.term
-    ? `${scope.term.name} participation`
-    : 'All-time participation';
+  const { totals, by_category, by_value, students } = data;
+  const topValue = by_value[0]?.count ? by_value[0] : null;
+  const topCategory = by_category[0]?.count ? by_category[0] : null;
 
   el.innerHTML = `
-    <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:16px;flex-wrap:wrap">
-      <div style="font-size:0.9rem;color:var(--gray-600)">
-        Showing <strong>${escapeHtml(scopeLabel)}</strong>${scope.mode === 'term' && scope.term ? ` <span style="color:var(--gray-400)">(${scope.term.start_date} → ${scope.term.end_date})</span>` : ''}
-      </div>
-      <div class="exp-tabs" style="margin:0">
-        <button class="exp-tab ${scope.mode === 'term' ? 'is-active' : ''}" onclick="headExpSetScope('term')">This term</button>
-        <button class="exp-tab ${scope.mode === 'all' ? 'is-active' : ''}" onclick="headExpSetScope('all')">All time</button>
-      </div>
-    </div>
-
-    <div class="grid grid-4" style="margin-bottom:24px">
+    <div class="grid grid-3" style="margin-bottom:24px">
       <div class="stat-card"><div class="stat-label">Total reflections</div><div class="stat-value">${totals.total_experiences}</div></div>
-      <div class="stat-card"><div class="stat-label">Students engaged</div><div class="stat-value">${totals.students_engaged} <span class="exp-stat-meta">/ ${totals.students_total}</span></div></div>
-      <div class="stat-card"><div class="stat-label">${escapeHtml(participationLabel)}</div><div class="stat-value">${totals.participation_pct}%</div></div>
-      <div class="stat-card"><div class="stat-label">Top value</div><div class="stat-value-sm">${by_value[0]?.count ? by_value[0].value : '<span class="exp-stat-empty">Not yet available</span>'}</div></div>
+      <div class="stat-card">
+        <div class="stat-label">Top value</div>
+        <div class="stat-value-sm">${topValue
+          ? `<span style="font-weight:600">${escapeHtml(topValue.value)}</span> <span class="exp-stat-meta">${topValue.count}×</span>`
+          : '<span class="score-empty">Not yet available</span>'}</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Top experience</div>
+        <div class="stat-value-sm">${topCategory
+          ? `<span style="font-weight:600">${escapeHtml(topCategory.category)}</span> <span class="exp-stat-meta">${topCategory.count}×</span>`
+          : '<span class="score-empty">Not yet available</span>'}</div>
+      </div>
     </div>
 
     <div class="grid grid-2" style="margin-bottom:24px">
@@ -7250,13 +7289,6 @@ function paintHeadExpStudentsTable() {
     }
   }
 }
-
-window.headExpSetScope = function (mode) {
-  if (_headExpScope === mode) return;
-  _headExpScope = mode;
-  destroyCharts();
-  renderHeadExperiences();
-};
 
 let _headExpStudentsTimer = null;
 window.headExpSetStudentQuery = function (v) {

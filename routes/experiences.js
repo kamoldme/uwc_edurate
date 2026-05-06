@@ -204,41 +204,18 @@ router.delete('/:id', authenticate, authorize('student'), (req, res) => {
 // counts of how many reflections were submitted, broken down by value /
 // category / month, plus a per-student count for engagement tracking.
 
-// GET /api/experiences/head/overview — aggregates + per-student counts.
-// Scope: ?scope=term (default) limits aggregates to the active term's date
-// range so participation reflects "this cycle". ?scope=all = lifetime.
-// The students_total denominator is always currently-enrolled students,
-// regardless of scope, so participation reads as "X% of current students
-// reflected during {term}".
+// GET /api/experiences/head/overview — aggregate counts across all reflections.
+// No time scoping: students reflect whenever they want, the head just sees
+// the rolling total. Returns headline stats (total, top value, top category)
+// plus the by-value/by-category breakdowns and the per-student count table.
 router.get('/head/overview', authenticate, authorize('head', 'admin'), authorizeOrg, (req, res) => {
-  const scope = req.query.scope === 'all' ? 'all' : 'term';
-
-  let activeTerm = null;
-  let scopeFilter = '';
-  let scopeArgs = [];
-  if (scope === 'term') {
-    activeTerm = db.prepare(`
-      SELECT id, name, start_date, end_date FROM terms
-      WHERE active_status = 1 AND COALESCE(school_id, 1) = 1
-      ORDER BY id DESC LIMIT 1
-    `).get();
-    if (activeTerm && activeTerm.start_date && activeTerm.end_date) {
-      scopeFilter = ' AND date(e.experience_date) BETWEEN date(?) AND date(?)';
-      scopeArgs = [activeTerm.start_date, activeTerm.end_date];
-    }
-  }
-
-  const baseFilter = `WHERE e.org_id = ?${scopeFilter}`;
-  const baseArgs = [req.orgId, ...scopeArgs];
+  const baseFilter = 'WHERE e.org_id = ?';
+  const baseArgs = [req.orgId];
 
   const totals = db.prepare(`
-    SELECT COUNT(*) as total_experiences, COUNT(DISTINCT e.student_id) as students_engaged
+    SELECT COUNT(*) as total_experiences
     FROM experiences e ${baseFilter}
   `).get(...baseArgs);
-
-  const totalStudents = db.prepare(`
-    SELECT COUNT(*) as n FROM users WHERE role = 'student' AND COALESCE(org_id, 1) = ?
-  `).get(req.orgId).n;
 
   const byCategory = db.prepare(`
     SELECT category, COUNT(*) as count
@@ -246,9 +223,7 @@ router.get('/head/overview', authenticate, authorize('head', 'admin'), authorize
     GROUP BY category ORDER BY count DESC
   `).all(...baseArgs);
 
-  const allRows = db.prepare(`
-    SELECT values_json FROM experiences e ${baseFilter}
-  `).all(...baseArgs);
+  const allRows = db.prepare(`SELECT values_json FROM experiences e ${baseFilter}`).all(...baseArgs);
   const valueCounts = Object.fromEntries(VALUES.map(v => [v, 0]));
   allRows.forEach(r => {
     try {
@@ -260,8 +235,6 @@ router.get('/head/overview', authenticate, authorize('head', 'admin'), authorize
   const byValue = VALUES.map(v => ({ value: v, count: valueCounts[v] }))
     .sort((a, b) => b.count - a.count);
 
-  // Per-student counts. Counts respect the scope; the row list is every
-  // currently-enrolled student so the head sees who hasn't engaged yet.
   const perStudentRows = db.prepare(`
     SELECT u.id as student_id, u.full_name as student_name, u.grade_or_position as grade
     FROM users u
@@ -285,13 +258,7 @@ router.get('/head/overview', authenticate, authorize('head', 'admin'), authorize
   })).sort((a, b) => b.count - a.count || a.student_name.localeCompare(b.student_name));
 
   res.json({
-    scope: { mode: scope, term: activeTerm },
-    totals: {
-      total_experiences: totals.total_experiences,
-      students_engaged: totals.students_engaged,
-      students_total: totalStudents,
-      participation_pct: totalStudents ? Math.round((totals.students_engaged / totalStudents) * 100) : 0,
-    },
+    totals: { total_experiences: totals.total_experiences },
     by_category: byCategory,
     by_value: byValue,
     students: perStudent,
