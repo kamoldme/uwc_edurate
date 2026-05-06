@@ -2087,7 +2087,7 @@ async function renderTeacherClassrooms() {
               <tr>
                 <th>Name</th>
                 <th>Group</th>
-                <th>Cohort</th>
+                <th>Cohort / Year</th>
                 <th style="text-align:right">Reflections</th>
                 <th>Last reflection</th>
                 <th style="text-align:right">${t('common.actions')}</th>
@@ -2143,7 +2143,7 @@ async function showCreateClassroomTeacher() {
         <input type="text" class="form-control" id="newSubject" placeholder="${t('teacher.subject_placeholder')}">
       </div>
       <div class="form-group">
-        <label id="newGradeLabel">Cohort</label>
+        <label id="newGradeLabel">Cohort / Year</label>
         <input type="text" class="form-control" id="newGradeLevel" placeholder="e.g. Class of 2027">
       </div>
     </div>
@@ -2158,7 +2158,7 @@ window.onCreateClassroomKindToggle = function (isMentorGroup) {
   const subjectWrap = document.getElementById('newSubjectWrap');
   const gradeLabel = document.getElementById('newGradeLabel');
   if (subjectWrap) subjectWrap.style.display = isMentorGroup ? 'none' : '';
-  if (gradeLabel) gradeLabel.textContent = isMentorGroup ? 'Mentor group name / cohort' : 'Cohort';
+  if (gradeLabel) gradeLabel.textContent = isMentorGroup ? 'Mentor group name / cohort' : 'Cohort / Year';
   const gradeInput = document.getElementById('newGradeLevel');
   if (gradeInput) gradeInput.placeholder = isMentorGroup ? 'e.g. Mentor Group A · Class of 2027' : 'e.g. Class of 2027';
 };
@@ -3511,7 +3511,7 @@ window.viewMentorMentees = async function (mentorId, mentorName) {
         ${mentees.length === 0
           ? '<p style="color:var(--gray-500);text-align:center;padding:32px">No mentees yet.</p>'
           : `<div style="overflow-x:auto"><table style="width:100%">
-              <thead><tr><th>${t('common.name')}</th><th>Group</th><th>Cohort</th><th style="text-align:right">Reflections</th><th>Last reflection</th><th style="text-align:right">${t('common.actions')}</th></tr></thead>
+              <thead><tr><th>${t('common.name')}</th><th>Group</th><th>Cohort / Year</th><th style="text-align:right">Reflections</th><th>Last reflection</th><th style="text-align:right">${t('common.actions')}</th></tr></thead>
               <tbody>
                 ${mentees.map(m => `
                   <tr>
@@ -7560,7 +7560,7 @@ function paintHeadExperiences() {
             <thead>
               <tr>
                 <th>Name</th>
-                <th>Grade</th>
+                <th>Cohort / Year</th>
                 <th style="text-align:right">Reflections</th>
                 <th>Last reflection</th>
                 <th style="text-align:right">${t('common.actions')}</th>
