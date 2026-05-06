@@ -1972,11 +1972,11 @@ async function renderTeacherClassrooms() {
           </div>` : ''}
         ${mentorActive.length > 0 || mentorArchived.length > 0 ? `
           <div style="margin-top:32px;padding-top:24px;border-top:1px solid var(--gray-200)">
-            <h3 style="font-size:1rem;margin:0 0 12px;color:var(--gray-700)">My mentor groups</h3>
+            <h3 style="font-size:1rem;margin:0 0 12px;color:var(--gray-700)">Mentor group</h3>
             ${mentorActive.length > 0 ? `<div class="grid grid-2">${mentorActive.map(c => renderCard(c, false)).join('')}</div>` : ''}
             ${mentorArchived.length > 0 ? `
               <div style="margin-top:24px">
-                <h4 style="color:var(--gray-500);font-size:0.9rem;margin-bottom:12px">${t('teacher.archived')} mentor groups (${mentorArchived.length})</h4>
+                <h4 style="color:var(--gray-500);font-size:0.9rem;margin-bottom:12px">${t('teacher.archived')} mentor group${mentorArchived.length !== 1 ? 's' : ''} (${mentorArchived.length})</h4>
                 <div class="grid grid-2">${mentorArchived.map(c => renderCard(c, true)).join('')}</div>
               </div>` : ''}
           </div>` : ''}
