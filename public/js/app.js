@@ -5504,22 +5504,39 @@ window.setAdminClassroomFilter = function (kind) {
 
 function showCreateClassroom() {
   cachedGet('/admin/teachers', CACHE_TTL.medium).then(teachers => {
+    // Mentor toggle: only mentor-capable teachers (is_mentor=1) without an
+    // existing active mentor group are eligible. Server enforces the same.
+    const mentorEligible = teachers.filter(t => !!t.is_mentor);
     openModal(`
       <div class="modal-header"><h3>${t('admin.create_classroom_title')}</h3><button class="modal-close" onclick="closeModal()">&times;</button></div>
       <div class="modal-body">
-        <div class="form-group">
+        ${mentorEligible.length > 0 ? `
+          <div class="form-group" style="background:#f8fafc;border:1px solid var(--gray-100);border-radius:10px;padding:12px 14px">
+            <label style="display:flex;align-items:center;gap:10px;cursor:pointer;margin:0">
+              <input type="checkbox" id="newClassroomIsMentorAdmin" onchange="onAdminCreateClassroomKindToggle(this.checked)">
+              <span><strong>This is a mentor group</strong>
+                <span style="display:block;font-weight:400;font-size:0.78rem;color:var(--gray-500);margin-top:2px">Mentees join with the code, feedback uses mentor criteria. One per mentor.</span>
+              </span>
+            </label>
+          </div>
+        ` : `
+          <div class="form-group" style="background:#f8fafc;border:1px solid var(--gray-100);border-radius:10px;padding:12px 14px;color:var(--gray-500);font-size:0.82rem">
+            No mentor-eligible teachers yet. Grant the mentor role from <strong>Users → ⋮ → Make mentor</strong> first.
+          </div>
+        `}
+        <div class="form-group" id="newClassroomSubjectWrap">
           <label>${t('admin.subject_required')}</label>
           <input type="text" class="form-control" id="newClassroomSubject" placeholder="${t('admin.subject_placeholder')}">
         </div>
         <div class="form-group">
-          <label>${t('admin.grade_required')}</label>
+          <label id="newClassroomGradeLabel">${t('admin.grade_required')}</label>
           <input type="text" class="form-control" id="newClassroomGrade" placeholder="${t('admin.grade_placeholder')}">
         </div>
         <div class="form-group">
-          <label>${t('admin.teacher_required')}</label>
-          <select class="form-control" id="newClassroomTeacher">
+          <label id="newClassroomTeacherLabel">${t('admin.teacher_required')}</label>
+          <select class="form-control" id="newClassroomTeacher" data-all="${escapeAttr(JSON.stringify(teachers.map(t => ({id: t.id, full_name: t.full_name, subject: t.subject || '', is_mentor: !!t.is_mentor}))))}">
             <option value="">${t('admin.select_teacher')}</option>
-            ${teachers.map(tchr => `<option value="${tchr.id}">${tchr.full_name} - ${tchr.subject || t('admin.no_subject')}</option>`).join('')}
+            ${teachers.map(tchr => `<option value="${tchr.id}" data-is-mentor="${tchr.is_mentor ? 1 : 0}">${tchr.full_name} - ${tchr.subject || t('admin.no_subject')}</option>`).join('')}
           </select>
         </div>
       </div>
@@ -5531,11 +5548,38 @@ function showCreateClassroom() {
   });
 }
 
+window.onAdminCreateClassroomKindToggle = function (isMentorGroup) {
+  const subjectWrap = document.getElementById('newClassroomSubjectWrap');
+  const gradeLabel = document.getElementById('newClassroomGradeLabel');
+  const gradeInput = document.getElementById('newClassroomGrade');
+  const teacherLabel = document.getElementById('newClassroomTeacherLabel');
+  const teacherSelect = document.getElementById('newClassroomTeacher');
+  if (subjectWrap) subjectWrap.style.display = isMentorGroup ? 'none' : '';
+  if (gradeLabel) gradeLabel.textContent = isMentorGroup ? 'Mentor group name / cohort' : t('admin.grade_required');
+  if (gradeInput) gradeInput.placeholder = isMentorGroup ? 'e.g. Mentor Group A · Class of 2027' : t('admin.grade_placeholder');
+  if (teacherLabel) teacherLabel.textContent = isMentorGroup ? 'Mentor' : t('admin.teacher_required');
+  // Filter the teacher dropdown to mentor-eligible only when the toggle is on.
+  if (teacherSelect) {
+    [...teacherSelect.options].forEach(opt => {
+      if (!opt.value) return; // keep the placeholder
+      const isMentor = opt.dataset.isMentor === '1';
+      opt.hidden = isMentorGroup && !isMentor;
+      if (opt.hidden && opt.selected) teacherSelect.value = '';
+    });
+  }
+};
+
 async function createClassroom() {
+  const isMentorGroup = !!document.getElementById('newClassroomIsMentorAdmin')?.checked;
+  const subjectInput = document.getElementById('newClassroomSubject');
+  const grade_level = document.getElementById('newClassroomGrade').value;
+  const teacher_id = parseInt(document.getElementById('newClassroomTeacher').value);
+  const subject = isMentorGroup ? 'Mentor Group' : (subjectInput?.value || '');
   const body = {
-    subject: document.getElementById('newClassroomSubject').value,
-    grade_level: document.getElementById('newClassroomGrade').value,
-    teacher_id: parseInt(document.getElementById('newClassroomTeacher').value)
+    subject,
+    grade_level,
+    teacher_id,
+    kind: isMentorGroup ? 'mentor' : 'academic',
   };
   if (!body.subject || !body.grade_level || !body.teacher_id) {
     return toast(t('admin.all_fields_required'), 'error');
@@ -7305,19 +7349,17 @@ window.openExperienceForm = function (id) {
           <input id="expTitle" name="title" class="form-control" type="text" maxlength="${config.limits.max_title}" required value="${editing ? escapeAttr(editing.title) : ''}" placeholder="What happened?">
         </div>
 
-        <div class="exp-form-row">
-          <div class="form-group">
-            <label for="expCategory">Category</label>
-            <select id="expCategory" name="category" class="form-control" required>
-              <option value="">Choose a category</option>
-              ${config.categories.map(c => `<option value="${escapeAttr(c)}" ${editing && editing.category === c ? 'selected' : ''}>${c}</option>`).join('')}
-            </select>
-          </div>
-          <div class="form-group">
-            <label for="expDate">Date</label>
-            <input id="expDate" name="experience_date" class="form-control" type="date" required max="${today}" value="${editing ? editing.date : today}">
-          </div>
+        <div class="form-group">
+          <label for="expCategory">Category</label>
+          <select id="expCategory" name="category" class="form-control" required>
+            <option value="">Choose a category</option>
+            ${config.categories.map(c => `<option value="${escapeAttr(c)}" ${editing && editing.category === c ? 'selected' : ''}>${c}</option>`).join('')}
+          </select>
         </div>
+        <!-- Date is set automatically and never editable: created reflections
+             stamp today, edits keep their original date. The hidden input
+             carries the value to the submit handler. -->
+        <input type="hidden" id="expDate" name="experience_date" value="${editing ? editing.date : today}">
 
         <div class="form-group">
           <label>UWC values <span class="exp-form-hint">Pick 1 to 3</span></label>

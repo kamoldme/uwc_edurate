@@ -160,11 +160,14 @@ router.patch('/:id', authenticate, authorize('student'), authorizeOrg, (req, res
   const { errors, clean } = validatePayload(req.body);
   if (errors.length) return res.status(400).json({ error: errors[0], errors });
 
+  // experience_date is immutable after creation. The client-side form hides
+  // the field; the server enforces it by always reusing the existing row's
+  // date, ignoring whatever the client submits.
   db.prepare(`
     UPDATE experiences
-    SET title = ?, category = ?, experience_date = ?, values_json = ?, reflection = ?, updated_at = CURRENT_TIMESTAMP
+    SET title = ?, category = ?, values_json = ?, reflection = ?, updated_at = CURRENT_TIMESTAMP
     WHERE id = ?
-  `).run(clean.title, clean.category, clean.date, JSON.stringify(clean.values), clean.reflection, id);
+  `).run(clean.title, clean.category, JSON.stringify(clean.values), clean.reflection, id);
 
   logAuditEvent({
     userId: req.user.id, userRole: req.user.role, userName: req.user.full_name,
