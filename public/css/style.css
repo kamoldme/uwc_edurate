@@ -2379,11 +2379,11 @@ tbody tr:last-child td { border-bottom: none; }
    CSS circles; selection state is a class swap. */
 .exp-orbit-shell {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(260px, 320px);
+  grid-template-columns: minmax(0, 1fr) minmax(338px, 416px);
   gap: 56px;
   align-items: center;
   justify-content: center;
-  max-width: 1120px;
+  max-width: 1216px;
   margin: 0 auto 32px;
 }
 .exp-orbit-stage {
