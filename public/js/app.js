@@ -49,7 +49,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     startNotifPolling();
     setTimeout(checkCommsBadge, 500);
     const hashView = window.location.hash.slice(1);
-    const validViews = ['student-home','student-classrooms','student-review','student-my-reviews','student-experiences','student-comms','student-forms','student-announcements','teacher-home','teacher-classrooms','teacher-feedback','teacher-analytics','teacher-comms','teacher-forms','teacher-announcements','head-home','head-teachers','head-mentors','head-classrooms','head-analytics','head-experiences','head-comms','head-forms','head-announcements','admin-home','admin-users','admin-terms','admin-classrooms','admin-teachers','admin-submissions','admin-moderate','admin-flagged','admin-support','admin-audit','admin-comms','admin-forms','admin-announcements','admin-departments','account','help'];
+    const validViews = ['student-home','student-classrooms','student-review','student-my-reviews','student-experiences','student-comms','student-forms','student-announcements','teacher-home','teacher-classrooms','teacher-feedback','teacher-mentor-feedback','teacher-analytics','teacher-comms','teacher-forms','teacher-announcements','head-home','head-teachers','head-mentors','head-classrooms','head-analytics','head-experiences','head-comms','head-forms','head-announcements','admin-home','admin-users','admin-terms','admin-classrooms','admin-teachers','admin-submissions','admin-moderate','admin-flagged','admin-support','admin-audit','admin-comms','admin-forms','admin-announcements','admin-departments','account','help'];
     navigateTo(hashView && validViews.includes(hashView) ? hashView : getDefaultView());
   } catch {
     logout();
@@ -246,10 +246,12 @@ function buildNavigation() {
       { id: 'help', label: 'Help', icon: 'help' }
     ];
   } else if (role === 'teacher') {
+    const isMentor = !!currentUser?.is_mentor;
     items = [
       { id: 'teacher-home', label: t('nav.dashboard'), icon: 'home' },
       { id: 'teacher-classrooms', label: t('nav.my_classrooms'), icon: 'classroom' },
       { id: 'teacher-feedback', label: t('nav.feedback'), icon: 'review' },
+      ...(isMentor ? [{ id: 'teacher-mentor-feedback', label: 'Mentor feedback', icon: 'review' }] : []),
       { id: 'teacher-analytics', label: t('nav.analytics'), icon: 'chart' },
       { id: 'teacher-comms', label: 'Communication', icon: 'chatBubble' },
       { id: 'help', label: 'Help', icon: 'help' }
@@ -328,6 +330,7 @@ function navigateTo(view) {
     'teacher-home': t('title.teacher_dashboard'),
     'teacher-classrooms': t('title.my_classrooms'),
     'teacher-feedback': t('title.student_feedback'),
+    'teacher-mentor-feedback': 'Mentor feedback',
     'teacher-analytics': t('title.analytics'),
     'head-home': t('title.school_overview'),
     'head-teachers': t('title.teacher_performance'),
@@ -374,6 +377,7 @@ function navigateTo(view) {
     'teacher-home': renderTeacherHome,
     'teacher-classrooms': renderTeacherClassrooms,
     'teacher-feedback': renderTeacherFeedback,
+    'teacher-mentor-feedback': renderTeacherMentorFeedback,
     'teacher-analytics': renderTeacherAnalytics,
     'teacher-comms': renderTeacherComms,
     'teacher-forms': renderTeacherForms,
