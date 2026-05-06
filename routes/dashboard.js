@@ -114,14 +114,19 @@ router.get('/teacher', authenticate, authorize('teacher'), (req, res) => {
     // Department comparison (within same org)
     const deptAvg = teacher.department ? getDepartmentAverage(teacher.department, activeTerm?.id, teacher.org_id) : null;
 
-    // Approved reviews only — teachers must not see pending/flagged moderation status
+    // Approved reviews only — teachers must not see pending/flagged moderation status.
+    // Returns both teacher-criteria and mentor-criteria columns; the frontend
+    // splits by review_kind so the teacher dashboard shows academic reviews
+    // and the mentor dashboard shows mentor reviews.
     const critCols = CRITERIA_COLS.map(c => `r.${c}`).join(', ');
+    const mentorCritCols = ['r.mentor_c1_rating', 'r.mentor_c2_rating', 'r.mentor_c3_rating', 'r.mentor_c4_rating', 'r.mentor_c5_rating'].join(', ');
     const recentReviews = db.prepare(`
-      SELECT r.overall_rating, ${critCols},
+      SELECT r.overall_rating, ${critCols}, ${mentorCritCols},
+        COALESCE(r.review_kind, 'teacher') as review_kind,
         r.feedback_text, r.tags, r.approved_status,
         r.created_at,
         fp.name as period_name, t.name as term_name, c.subject as classroom_subject,
-        c.grade_level
+        c.grade_level, COALESCE(c.kind, 'academic') as classroom_kind
       FROM reviews r
       JOIN feedback_periods fp ON r.feedback_period_id = fp.id
       JOIN terms t ON r.term_id = t.id
@@ -391,6 +396,74 @@ router.get('/school-head', authenticate, authorize('head', 'admin'), authorizeOr
   } catch (err) {
     console.error('School head dashboard error:', err);
     res.status(500).json({ error: 'Failed to load dashboard' });
+  }
+});
+
+// GET /api/dashboard/school-head/mentors — mentor-scoped aggregates for the
+// Head's Mentors tab. Returns one row per teacher with is_mentor=1,
+// including their mentor review averages across the 5 mentor criteria.
+router.get('/school-head/mentors', authenticate, authorize('head', 'admin'), authorizeOrg, (req, res) => {
+  try {
+    const orgId = req.orgId;
+    const activeTerm = db.prepare(`SELECT * FROM terms WHERE active_status = 1 AND org_id = ? LIMIT 1`).get(orgId);
+
+    const mentors = db.prepare(`
+      SELECT id, user_id, full_name, subject, department, avatar_url
+      FROM teachers
+      WHERE org_id = ? AND is_mentor = 1
+      ORDER BY full_name ASC
+    `).all(orgId);
+
+    if (mentors.length === 0) {
+      return res.json({ active_term: activeTerm, mentors: [] });
+    }
+
+    const mentorIds = mentors.map(m => m.id);
+    const placeholders = mentorIds.map(() => '?').join(',');
+    const termFilter = activeTerm ? 'AND r.term_id = ?' : '';
+    const params = activeTerm ? [...mentorIds, activeTerm.id, orgId] : [...mentorIds, orgId];
+
+    const scores = db.prepare(`
+      SELECT
+        teacher_id,
+        COUNT(*) as review_count,
+        ROUND(AVG(overall_rating), 2) as avg_overall,
+        ROUND(AVG(mentor_c1_rating), 2) as avg_c1,
+        ROUND(AVG(mentor_c2_rating), 2) as avg_c2,
+        ROUND(AVG(mentor_c3_rating), 2) as avg_c3,
+        ROUND(AVG(mentor_c4_rating), 2) as avg_c4,
+        ROUND(AVG(mentor_c5_rating), 2) as avg_c5
+      FROM reviews r
+      WHERE r.review_kind = 'mentor'
+        AND r.approved_status = 1
+        AND r.teacher_id IN (${placeholders})
+        ${termFilter}
+        AND r.org_id = ?
+      GROUP BY teacher_id
+    `).all(...params);
+    const scoresMap = Object.fromEntries(scores.map(s => [s.teacher_id, s]));
+
+    const mentorGroups = db.prepare(`
+      SELECT teacher_id, COUNT(*) as group_count
+      FROM classrooms
+      WHERE org_id = ? AND kind = 'mentor' AND teacher_id IN (${placeholders})
+      GROUP BY teacher_id
+    `).all(orgId, ...mentorIds);
+    const groupsMap = Object.fromEntries(mentorGroups.map(g => [g.teacher_id, g.group_count]));
+
+    const enriched = mentors.map(m => ({
+      ...m,
+      group_count: groupsMap[m.id] || 0,
+      scores: scoresMap[m.id] || {
+        review_count: 0, avg_overall: null,
+        avg_c1: null, avg_c2: null, avg_c3: null, avg_c4: null, avg_c5: null,
+      },
+    }));
+
+    res.json({ active_term: activeTerm, mentors: enriched });
+  } catch (err) {
+    console.error('Head mentors dashboard error:', err);
+    res.status(500).json({ error: 'Failed to load mentors' });
   }
 });
 

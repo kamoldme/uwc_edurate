@@ -1066,6 +1066,49 @@ try {
   console.error('Migration error (experiences):', err.message);
 }
 
+// Migration: mentor capability + mentor groups.
+// - teachers.is_mentor: a teacher can ALSO be a mentor (capability flag, not
+//   a separate role). Almost every teacher will have this set in practice.
+// - classrooms.kind: 'academic' (existing classes) or 'mentor' (mentor group).
+//   Mentor groups behave like classrooms (members, join codes, feedback periods)
+//   but reviews fill mentor-specific criteria instead of teacher criteria.
+// - reviews mentor criteria: 5 nullable rating columns. Teacher reviews leave
+//   them NULL; mentor reviews leave the teacher criteria NULL. Aggregation
+//   queries already AVG over the relevant columns so this slots in cleanly.
+try {
+  const teacherCols = db.prepare("PRAGMA table_info(teachers)").all().map(c => c.name);
+  if (!teacherCols.includes('is_mentor')) {
+    db.exec(`ALTER TABLE teachers ADD COLUMN is_mentor INTEGER DEFAULT 0`);
+    db.exec(`CREATE INDEX IF NOT EXISTS idx_teachers_is_mentor ON teachers(is_mentor)`);
+  }
+  const classroomCols = db.prepare("PRAGMA table_info(classrooms)").all().map(c => c.name);
+  if (!classroomCols.includes('kind')) {
+    db.exec(`ALTER TABLE classrooms ADD COLUMN kind TEXT DEFAULT 'academic'`);
+    db.exec(`UPDATE classrooms SET kind = 'academic' WHERE kind IS NULL`);
+    db.exec(`CREATE INDEX IF NOT EXISTS idx_classrooms_kind ON classrooms(kind)`);
+  }
+  const reviewCols = db.prepare("PRAGMA table_info(reviews)").all().map(c => c.name);
+  const mentorCriteriaCols = [
+    'mentor_c1_rating',
+    'mentor_c2_rating',
+    'mentor_c3_rating',
+    'mentor_c4_rating',
+    'mentor_c5_rating',
+  ];
+  mentorCriteriaCols.forEach(col => {
+    if (!reviewCols.includes(col)) {
+      db.exec(`ALTER TABLE reviews ADD COLUMN ${col} INTEGER`);
+    }
+  });
+  if (!reviewCols.includes('review_kind')) {
+    db.exec(`ALTER TABLE reviews ADD COLUMN review_kind TEXT DEFAULT 'teacher'`);
+    db.exec(`UPDATE reviews SET review_kind = 'teacher' WHERE review_kind IS NULL`);
+    db.exec(`CREATE INDEX IF NOT EXISTS idx_reviews_kind ON reviews(review_kind)`);
+  }
+} catch (err) {
+  console.error('Migration error (mentor model):', err.message);
+}
+
 // Migration: extend in_app_notifications.type CHECK to include petition events.
 // SQLite can't ALTER a CHECK constraint — must rebuild the table. Detection
 // works by try-inserting a row with the new type and seeing if SQLite throws.

@@ -49,7 +49,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     startNotifPolling();
     setTimeout(checkCommsBadge, 500);
     const hashView = window.location.hash.slice(1);
-    const validViews = ['student-home','student-classrooms','student-review','student-my-reviews','student-experiences','student-comms','student-forms','student-announcements','teacher-home','teacher-classrooms','teacher-feedback','teacher-analytics','teacher-comms','teacher-forms','teacher-announcements','head-home','head-teachers','head-classrooms','head-analytics','head-experiences','head-comms','head-forms','head-announcements','admin-home','admin-users','admin-terms','admin-classrooms','admin-teachers','admin-submissions','admin-moderate','admin-flagged','admin-support','admin-audit','admin-comms','admin-forms','admin-announcements','admin-departments','account','help'];
+    const validViews = ['student-home','student-classrooms','student-review','student-my-reviews','student-experiences','student-comms','student-forms','student-announcements','teacher-home','teacher-classrooms','teacher-mentor-groups','teacher-feedback','teacher-mentor-feedback','teacher-analytics','teacher-comms','teacher-forms','teacher-announcements','head-home','head-teachers','head-mentors','head-classrooms','head-analytics','head-experiences','head-comms','head-forms','head-announcements','admin-home','admin-users','admin-terms','admin-classrooms','admin-teachers','admin-submissions','admin-moderate','admin-flagged','admin-support','admin-audit','admin-comms','admin-forms','admin-announcements','admin-departments','account','help'];
     navigateTo(hashView && validViews.includes(hashView) ? hashView : getDefaultView());
   } catch {
     logout();
@@ -246,10 +246,13 @@ function buildNavigation() {
       { id: 'help', label: 'Help', icon: 'help' }
     ];
   } else if (role === 'teacher') {
+    const isMentor = !!currentUser?.is_mentor;
     items = [
       { id: 'teacher-home', label: t('nav.dashboard'), icon: 'home' },
       { id: 'teacher-classrooms', label: t('nav.my_classrooms'), icon: 'classroom' },
+      ...(isMentor ? [{ id: 'teacher-mentor-groups', label: 'My mentor groups', icon: 'users' }] : []),
       { id: 'teacher-feedback', label: t('nav.feedback'), icon: 'review' },
+      ...(isMentor ? [{ id: 'teacher-mentor-feedback', label: 'Mentor feedback', icon: 'review' }] : []),
       { id: 'teacher-analytics', label: t('nav.analytics'), icon: 'chart' },
       { id: 'teacher-comms', label: 'Communication', icon: 'chatBubble' },
       { id: 'help', label: 'Help', icon: 'help' }
@@ -258,6 +261,7 @@ function buildNavigation() {
     items = [
       { id: 'head-home', label: t('nav.dashboard'), icon: 'home' },
       { id: 'head-teachers', label: t('nav.teachers'), icon: 'users' },
+      { id: 'head-mentors', label: 'Mentors', icon: 'users' },
       { id: 'head-classrooms', label: t('nav.classrooms'), icon: 'classroom' },
       { id: 'head-analytics', label: t('nav.analytics'), icon: 'chart' },
       { id: 'head-experiences', label: 'UWC Experience Map', icon: 'review' },
@@ -327,10 +331,13 @@ function navigateTo(view) {
     'head-experiences': 'UWC Experience Map',
     'teacher-home': t('title.teacher_dashboard'),
     'teacher-classrooms': t('title.my_classrooms'),
+    'teacher-mentor-groups': 'My mentor groups',
     'teacher-feedback': t('title.student_feedback'),
+    'teacher-mentor-feedback': 'Mentor feedback',
     'teacher-analytics': t('title.analytics'),
     'head-home': t('title.school_overview'),
     'head-teachers': t('title.teacher_performance'),
+    'head-mentors': 'Mentors',
     'head-classrooms': t('title.all_classrooms'),
     'head-analytics': t('title.analytics'),
     'admin-home': t('title.admin_dashboard'),
@@ -373,13 +380,16 @@ function navigateTo(view) {
     'student-announcements': renderStudentAnnouncements,
     'teacher-home': renderTeacherHome,
     'teacher-classrooms': renderTeacherClassrooms,
+    'teacher-mentor-groups': renderTeacherMentorGroups,
     'teacher-feedback': renderTeacherFeedback,
+    'teacher-mentor-feedback': renderTeacherMentorFeedback,
     'teacher-analytics': renderTeacherAnalytics,
     'teacher-comms': renderTeacherComms,
     'teacher-forms': renderTeacherForms,
     'teacher-announcements': renderTeacherAnnouncements,
     'head-home': renderHeadHome,
     'head-teachers': renderHeadTeachers,
+    'head-mentors': renderHeadMentors,
     'head-classrooms': renderHeadClassrooms,
     'head-analytics': renderHeadAnalytics,
     'admin-home': renderAdminHome,
@@ -1075,22 +1085,27 @@ async function renderStudentReview() {
           ? `<div class="card"><div class="card-body"><div class="empty-state"><h3>${t('student.no_teachers_title')}</h3><p>${t('student.no_teachers_desc')}</p></div></div></div>`
           : ''}
 
-      ${eligible.map(teacher => `
+      ${eligible.map(teacher => {
+        const isMentor = (teacher.classroom_kind || 'academic') === 'mentor';
+        const activeCriteria = isMentor
+          ? MENTOR_CRITERIA_CONFIG.map(c => ({ db_col: c.db_col, label: c.label, hint: c.hint }))
+          : CRITERIA_CONFIG.map(c => ({ db_col: c.db_col, label: t(c.label_key), hint: t(c.hint_key), info_key: c.info_key }));
+        return `
         <div class="card" style="margin-bottom:16px">
           <div class="card-header" style="display:flex;align-items:center;gap:12px">
             ${avatarHTML({ full_name: teacher.teacher_name, avatar_url: teacher.avatar_url, teacher_id: teacher.teacher_id }, 'normal', true)}
             <div style="flex:1">
-              <h3 style="margin:0">${teacher.teacher_name}</h3>
+              <h3 style="margin:0">${teacher.teacher_name}${isMentor ? ' <span style="font-size:0.7rem;background:#eef2ff;color:#4338ca;padding:2px 8px;border-radius:10px;font-weight:600;letter-spacing:0.02em;margin-left:6px;vertical-align:middle">MENTOR</span>' : ''}</h3>
               <span style="color:var(--gray-500);font-size:0.85rem">${teacher.classroom_subject} &middot; ${teacher.grade_level}</span>
             </div>
           </div>
           <div class="card-body">
-            <form onsubmit="submitReview(event, ${teacher.teacher_id}, ${teacher.classroom_id})" data-teacher-id="${teacher.teacher_id}">
+            <form onsubmit="submitReview(event, ${teacher.teacher_id}, ${teacher.classroom_id})" data-teacher-id="${teacher.teacher_id}" data-classroom-kind="${isMentor ? 'mentor' : 'academic'}">
               <div class="grid grid-2" style="margin-bottom:20px">
-                ${CRITERIA_CONFIG.map(c => `
+                ${activeCriteria.map(c => `
                   <div class="form-group" style="margin-bottom:12px">
-                    <label style="display:flex;align-items:center;gap:6px">${t(c.label_key)} ${criteriaInfoIcon(c.info_key)}</label>
-                    <div style="color:var(--gray-500);font-size:0.75rem;margin-top:-2px;margin-bottom:4px">${t(c.hint_key)}</div>
+                    <label style="display:flex;align-items:center;gap:6px">${c.label}${c.info_key ? ' ' + criteriaInfoIcon(c.info_key) : ''}</label>
+                    ${c.hint ? `<div style="color:var(--gray-500);font-size:0.75rem;margin-top:-2px;margin-bottom:4px">${c.hint}</div>` : ''}
                     <div class="star-rating-input" data-name="${c.db_col}" data-form="review-${teacher.teacher_id}">
                       ${[1,2,3,4,5].map(i => `<button type="button" class="star-btn" data-value="${i}" onclick="setRating(this)">\u2606</button>`).join('')}
                     </div>
@@ -1119,7 +1134,8 @@ async function renderStudentReview() {
             </form>
           </div>
         </div>
-      `).join('')}
+      `;
+      }).join('')}
 
       ${reviewed.length > 0 ? `
         <div class="card" style="margin-top:24px">
@@ -1179,11 +1195,14 @@ function updateOverallRating(form) {
   const teacherId = form.dataset.teacherId;
   if (!teacherId) return;
 
-  const ratings = CRITERIA_COLS.map(col => parseInt(form.querySelector(`[data-name="${col}"]`)?.dataset.value || 0));
+  const isMentor = form.dataset.classroomKind === 'mentor';
+  const cols = isMentor ? MENTOR_CRITERIA_COLS : CRITERIA_COLS;
+  const count = cols.length;
+  const ratings = cols.map(col => parseInt(form.querySelector(`[data-name="${col}"]`)?.dataset.value || 0));
   const allRated = ratings.every(r => r > 0);
 
   if (allRated) {
-    const overall = ratings.reduce((s, v) => s + v, 0) / CRITERIA_COUNT;
+    const overall = ratings.reduce((s, v) => s + v, 0) / count;
     const rounded = Math.round(overall);
 
     renderFractionalStars(`overall-stars-${teacherId}`, overall);
@@ -1223,13 +1242,16 @@ function setRating(btn) {
 async function submitReview(e, teacherId, classroomId) {
   e.preventDefault();
   const form = e.target;
+  const isMentor = form.dataset.classroomKind === 'mentor';
+  const cols = isMentor ? MENTOR_CRITERIA_COLS : CRITERIA_COLS;
+  const count = cols.length;
   const getRating = (name) => {
     const el = form.closest('.card-body').querySelector(`[data-name="${name}"]`);
     return parseInt(el?.dataset.value || 0);
   };
 
   const ratingValues = {};
-  for (const col of CRITERIA_COLS) {
+  for (const col of cols) {
     ratingValues[col] = getRating(col);
   }
   const allValues = Object.values(ratingValues);
@@ -1237,7 +1259,7 @@ async function submitReview(e, teacherId, classroomId) {
     return toast(t('student.rate_all_categories'), 'error');
   }
 
-  const overall = Math.round(allValues.reduce((s, v) => s + v, 0) / CRITERIA_COUNT);
+  const overall = Math.round(allValues.reduce((s, v) => s + v, 0) / count);
 
   const tagsContainer = document.getElementById(`tags-${teacherId}`);
   const selectedTags = [...tagsContainer.querySelectorAll('.tag.selected')].map(el => el.dataset.tag);
@@ -1892,6 +1914,7 @@ async function renderTeacherClassrooms() {
   window._teacherTerms = data.all_terms || [];
   window._teacherActiveTerm = data.active_term || null;
   const el = document.getElementById('contentArea');
+  const academic = (data.classrooms || []).filter(c => (c.kind || 'academic') !== 'mentor');
 
   el.innerHTML = `
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px">
@@ -1899,8 +1922,8 @@ async function renderTeacherClassrooms() {
       <button class="btn btn-primary" onclick="showCreateClassroomTeacher()">${t('teacher.create_classroom')}</button>
     </div>
     ${(() => {
-      const active = data.classrooms.filter(c => c.active_status !== 0);
-      const archived = data.classrooms.filter(c => c.active_status === 0);
+      const active = academic.filter(c => c.active_status !== 0);
+      const archived = academic.filter(c => c.active_status === 0);
       if (data.classrooms.length === 0) return `<div class="empty-state" style="margin-top:40px">
           <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="color:var(--gray-300);margin-bottom:12px"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
           <h3 style="color:var(--gray-500);margin-bottom:6px">${t('teacher.no_classrooms_title')}</h3>
@@ -1975,6 +1998,132 @@ async function createClassroomTeacher() {
     navigateTo('teacher-classrooms');
   } catch (err) { toast(err.message, 'error'); }
 }
+
+// ============ TEACHER: MENTOR GROUPS ============
+// Mentor groups are classrooms with kind='mentor'. UI mirrors the regular
+// classrooms page but every action (create/list) carries the mentor kind so
+// reviews submitted against these classrooms get routed to the mentor review
+// criteria, not the academic ones.
+async function renderTeacherMentorGroups() {
+  const [data, menteesRes] = await Promise.all([
+    cachedGet('/dashboard/teacher'),
+    API.get('/experiences/mentor/mentees').catch(() => ({ mentees: [] })),
+  ]);
+  const el = document.getElementById('contentArea');
+  const groups = (data.classrooms || []).filter(c => (c.kind || 'academic') === 'mentor');
+  const mentees = menteesRes.mentees || [];
+
+  const renderCard = (c, isArchived) => `
+    <div class="classroom-card" style="${isArchived ? 'opacity:0.65;' : ''}">
+      <div style="display:flex;justify-content:space-between;align-items:start">
+        <div>
+          <div class="class-subject">${c.subject}</div>
+          <div class="class-meta">${c.grade_level} &middot; ${c.student_count} ${t('common.students').toLowerCase()}</div>
+        </div>
+        <span style="font-size:0.7rem;background:#eef2ff;color:#4338ca;padding:3px 9px;border-radius:10px;font-weight:600;letter-spacing:0.02em">MENTOR</span>
+      </div>
+      <div style="margin-top:16px;display:flex;justify-content:space-between;align-items:center">
+        <div>
+          <div style="font-size:0.75rem;color:var(--gray-500);margin-bottom:4px">${t('teacher.join_code')}</div>
+          <span class="join-code">${formatJoinCode(c.join_code)}</span>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          ${!isArchived ? `<button class="btn btn-sm btn-outline" onclick="regenerateCode(${c.id})">${t('teacher.new_code')}</button>` : ''}
+          ${!isArchived ? `<button class="btn btn-sm btn-outline" onclick="editClassroomTeacher(${c.id}, '${c.subject.replace(/'/g, "\\'")}', '${c.grade_level.replace(/'/g, "\\'")}')"> ${t('common.edit')}</button>` : ''}
+          <button class="btn btn-sm btn-danger" onclick="deleteClassroomTeacher(${c.id}, '${c.subject.replace(/'/g, "\\'")}')"> ${t('common.delete')}</button>
+          <button class="btn btn-sm btn-primary" onclick="viewClassroomMembers(${c.id}, '${c.subject}')">${t('teacher.members')}</button>
+        </div>
+      </div>
+    </div>`;
+
+  el.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;flex-wrap:wrap;gap:10px">
+      <p style="color:var(--gray-500);margin:0">Manage your mentor groups. Mentees join with the group's code.</p>
+      <button class="btn btn-primary" onclick="showCreateMentorGroup()">+ Create mentor group</button>
+    </div>
+    ${groups.length === 0
+      ? `<div class="empty-state" style="margin-top:40px">
+          <h3 style="color:var(--gray-500);margin-bottom:6px">No mentor groups yet</h3>
+          <p style="color:var(--gray-400);font-size:0.875rem">Create your first mentor group and share the join code with your mentees.</p>
+        </div>`
+      : `<div class="grid grid-2">${groups.filter(c => c.active_status !== 0).map(c => renderCard(c, false)).join('')}</div>`}
+
+    ${mentees.length > 0 ? `
+      <div class="card" style="margin-top:32px">
+        <div class="card-header" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
+          <div>
+            <h3>My mentees</h3>
+            <p style="color:var(--gray-500);font-size:0.82rem;margin:4px 0 0">Read your mentees' UWC Experience Map reflections.</p>
+          </div>
+          <span style="font-size:0.78rem;color:var(--gray-500)">${mentees.length} mentee${mentees.length !== 1 ? 's' : ''}</span>
+        </div>
+        <div class="table-container">
+          <table>
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Group</th>
+                <th>Grade</th>
+                <th style="text-align:right">Reflections</th>
+                <th>Last reflection</th>
+                <th style="text-align:right">${t('common.actions')}</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${mentees.map(m => `
+                <tr>
+                  <td><strong>${escapeHtml(m.student_name)}</strong></td>
+                  <td>${escapeHtml(m.group_name)}</td>
+                  <td>${m.grade ? escapeHtml(m.grade) : '<span style="color:var(--gray-400)">Not yet available</span>'}</td>
+                  <td style="text-align:right;font-weight:600">${m.reflection_count}</td>
+                  <td>${m.last_date ? formatExpDate(m.last_date) : '<span style="color:var(--gray-400)">Not yet available</span>'}</td>
+                  <td style="text-align:right">
+                    <button class="btn btn-sm ${m.reflection_count > 0 ? 'btn-primary' : 'btn-outline'}" ${m.reflection_count === 0 ? 'disabled' : ''} onclick="viewMenteeExperiences(${m.student_id})">View map</button>
+                  </td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    ` : ''}
+  `;
+}
+
+function showCreateMentorGroup() {
+  openModal(`
+    <div class="modal-header"><h3>Create a mentor group</h3><button class="modal-close" onclick="closeModal()">&times;</button></div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label>Group name</label>
+        <input type="text" class="form-control" id="newMentorGroupName" placeholder="e.g. DP1 Mentor Group A" maxlength="80">
+      </div>
+      <div class="form-group">
+        <label>Year / Cohort</label>
+        <input type="text" class="form-control" id="newMentorGroupGrade" placeholder="e.g. DP1 2025-2027" maxlength="40">
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal()">${t('common.cancel')}</button>
+      <button class="btn btn-primary" onclick="createMentorGroup()">${t('common.create')}</button>
+    </div>
+  `);
+}
+
+async function createMentorGroup() {
+  const subject = document.getElementById('newMentorGroupName').value.trim();
+  const grade_level = document.getElementById('newMentorGroupGrade').value.trim();
+  if (!subject || !grade_level) return toast('Fill in group name and cohort.', 'error');
+  try {
+    const data = await API.post('/classrooms', { subject, grade_level, kind: 'mentor' });
+    toast(`Mentor group created. Join code: ${formatJoinCode(data.join_code)}`);
+    invalidateCache('/dashboard/teacher', '/classrooms');
+    closeModal();
+    navigateTo('teacher-mentor-groups');
+  } catch (err) { toast(err.message, 'error'); }
+}
+window.showCreateMentorGroup = showCreateMentorGroup;
+window.createMentorGroup = createMentorGroup;
 
 async function archiveClassroomTeacher(id, subject) {
   const confirmed = await confirmDialog(t('teacher.archive_confirm', {name: subject}), t('teacher.archive'), t('common.cancel'));
@@ -2069,9 +2218,11 @@ async function renderTeacherFeedback() {
   const data = await cachedGet('/dashboard/teacher');
   const el = document.getElementById('contentArea');
 
-  // Separate approved and pending reviews
-  const approvedReviews = data.recent_reviews.filter(r => r.approved_status === 1);
-  const pendingReviews = data.recent_reviews.filter(r => r.approved_status === 0);
+  // Filter to academic-only — mentor reviews live on the dedicated
+  // teacher-mentor-feedback view since they use a different criteria set.
+  const academicReviews = (data.recent_reviews || []).filter(r => (r.review_kind || 'teacher') !== 'mentor');
+  const approvedReviews = academicReviews.filter(r => r.approved_status === 1);
+  const pendingReviews = academicReviews.filter(r => r.approved_status === 0);
   window._teacherCompletionRates = data.completion_rates || [];
 
   // Group APPROVED reviews by subject/classroom for averages
@@ -2268,6 +2419,69 @@ function showCompletionRatesModal() {
     </div>
     <div class="modal-footer"><button class="btn btn-outline" onclick="closeModal()">${t('common.close')}</button></div>
   `);
+}
+
+async function renderTeacherMentorFeedback() {
+  const data = await cachedGet('/dashboard/teacher');
+  const el = document.getElementById('contentArea');
+  const reviews = (data.recent_reviews || []).filter(r => r.review_kind === 'mentor' && r.approved_status === 1);
+
+  // Group by mentor group
+  const byGroup = {};
+  reviews.forEach(r => {
+    const key = `${r.classroom_subject} (${r.grade_level})`;
+    if (!byGroup[key]) byGroup[key] = { reviews: [], subject: r.classroom_subject, grade: r.grade_level };
+    byGroup[key].reviews.push(r);
+  });
+
+  Object.keys(byGroup).forEach(key => {
+    const rs = byGroup[key].reviews;
+    byGroup[key].count = rs.length;
+    byGroup[key].avg_overall = (rs.reduce((s, r) => s + r.overall_rating, 0) / rs.length).toFixed(2);
+    MENTOR_CRITERIA_CONFIG.forEach(c => {
+      byGroup[key][`avg_${c.slug}`] = (rs.reduce((s, r) => s + (r[c.db_col] || 0), 0) / rs.length).toFixed(2);
+    });
+  });
+
+  el.innerHTML = `
+    <div class="card" style="margin-bottom:24px">
+      <div class="card-header" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
+        <h3>Mentor feedback</h3>
+        <span style="font-size:0.78rem;color:var(--gray-500)">${reviews.length} approved review${reviews.length !== 1 ? 's' : ''}</span>
+      </div>
+      <div class="card-body">
+        <p style="color:var(--gray-500);margin:0 0 12px;font-size:0.88rem">Anonymous feedback from your mentees, broken down by mentor group.</p>
+      </div>
+    </div>
+
+    ${reviews.length === 0
+      ? `<div class="card"><div class="card-body"><div class="empty-state">
+          <h3 style="color:var(--gray-500)">No mentor feedback yet</h3>
+          <p style="color:var(--gray-400);font-size:0.88rem">Mentees will be able to leave feedback once a feedback period is active for your mentor group.</p>
+        </div></div></div>`
+      : Object.entries(byGroup).map(([key, g]) => `
+          <div class="card" style="margin-bottom:18px">
+            <div class="card-header" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
+              <h3>${escapeHtml(g.subject)} <span style="font-weight:400;color:var(--gray-500);font-size:0.85rem">${escapeHtml(g.grade)}</span></h3>
+              <span style="font-size:0.85rem">Overall <strong style="color:${scoreColor(parseFloat(g.avg_overall))};font-size:1rem">${g.avg_overall}</strong> · ${g.count} review${g.count !== 1 ? 's' : ''}</span>
+            </div>
+            <div class="card-body">
+              <div class="grid grid-2" style="gap:10px;margin-bottom:18px">
+                ${MENTOR_CRITERIA_CONFIG.map(c => {
+                  const v = parseFloat(g[`avg_${c.slug}`]);
+                  return `<div style="display:flex;justify-content:space-between;padding:8px 12px;background:var(--gray-50);border-radius:8px">
+                    <span style="font-size:0.86rem">${escapeHtml(c.label)}</span>
+                    <strong style="color:${scoreColor(v)}">${g[`avg_${c.slug}`]}</strong>
+                  </div>`;
+                }).join('')}
+              </div>
+              ${g.reviews.filter(r => r.feedback_text).slice(0, 5).map(r => `
+                <div class="review-text" style="margin-bottom:10px">${escapeHtml(r.feedback_text)}</div>
+              `).join('')}
+            </div>
+          </div>
+        `).join('')}
+  `;
 }
 
 async function renderTeacherAnalytics() {
@@ -3071,6 +3285,79 @@ window.filterHeadTeachers = function (raw) {
     counter.textContent = q
       ? `${visible} of ${total} teacher${total !== 1 ? 's' : ''}`
       : `${total} teacher${total !== 1 ? 's' : ''}`;
+  }
+};
+
+async function renderHeadMentors() {
+  const data = await cachedGet('/dashboard/school-head/mentors');
+  const el = document.getElementById('contentArea');
+  const mentors = data.mentors || [];
+  const sorted = [...mentors].sort(
+    (a, b) => (b.scores.avg_overall || 0) - (a.scores.avg_overall || 0)
+  );
+
+  el.innerHTML = `
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:16px;flex-wrap:wrap">
+      <div style="position:relative;flex:1;min-width:240px;max-width:420px">
+        <input id="headMentorsSearch" type="search" class="form-control" placeholder="Search by name, subject, or department" oninput="filterHeadMentors(this.value)" autocomplete="off" style="padding-left:36px">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--gray-400);pointer-events:none"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+      </div>
+      <span id="headMentorsCount" style="font-size:0.78rem;color:var(--gray-500)">${mentors.length} mentor${mentors.length !== 1 ? 's' : ''}</span>
+    </div>
+    <div class="card">
+      <div class="table-container">
+        <table>
+          <thead>
+            <tr>
+              <th style="width:48px">#</th>
+              <th>Mentor</th>
+              <th>Department</th>
+              <th>Groups</th>
+              <th>${t('chart.score')}</th>
+              <th>${t('common.reviews')}</th>
+              ${MENTOR_CRITERIA_CONFIG.map(c => `<th style="text-align:right">${c.label}</th>`).join('')}
+            </tr>
+          </thead>
+          <tbody id="headMentorsBody">
+            ${sorted.length === 0
+              ? `<tr><td colspan="${6 + MENTOR_CRITERIA_CONFIG.length}" style="text-align:center;padding:32px;color:var(--gray-500)">No mentors yet. Grant the mentor role to a teacher from the Admin → Users tab.</td></tr>`
+              : sorted.map((m, i) => `
+                <tr data-search="${escapeAttr([m.full_name, m.subject, m.department].filter(Boolean).join(' ').toLowerCase())}">
+                  <td style="text-align:center;font-weight:600;color:var(--gray-500)">${i + 1}</td>
+                  <td><strong>${escapeHtml(m.full_name)}</strong></td>
+                  <td>${m.department || '<span class="score-empty">Not yet available</span>'}</td>
+                  <td>${m.group_count}</td>
+                  <td style="font-weight:600;color:${scoreColor(m.scores.avg_overall || 0)}">${fmtScore(m.scores.avg_overall)}</td>
+                  <td>${m.scores.review_count}</td>
+                  ${['avg_c1','avg_c2','avg_c3','avg_c4','avg_c5'].map(k => `
+                    <td style="text-align:right;color:${scoreColor(m.scores[k] || 0)}">${fmtScore(m.scores[k])}</td>
+                  `).join('')}
+                </tr>
+              `).join('')}
+            <tr id="headMentorsEmpty" style="display:none"><td colspan="${6 + MENTOR_CRITERIA_CONFIG.length}" style="text-align:center;padding:32px;color:var(--gray-500);font-size:0.9rem">No mentors match that search.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  `;
+}
+
+window.filterHeadMentors = function (raw) {
+  const q = (raw || '').trim().toLowerCase();
+  const rows = document.querySelectorAll('#headMentorsBody tr[data-search]');
+  let visible = 0;
+  rows.forEach(row => {
+    const hay = row.dataset.search || '';
+    const match = !q || hay.includes(q);
+    row.style.display = match ? '' : 'none';
+    if (match) visible++;
+  });
+  const empty = document.getElementById('headMentorsEmpty');
+  if (empty) empty.style.display = visible === 0 ? '' : 'none';
+  const counter = document.getElementById('headMentorsCount');
+  if (counter) {
+    const total = rows.length;
+    counter.textContent = q ? `${visible} of ${total} mentor${total !== 1 ? 's' : ''}` : `${total} mentor${total !== 1 ? 's' : ''}`;
   }
 };
 
@@ -4054,6 +4341,7 @@ function _buildUserRows(users) {
             <button class="action-dropdown-item" onclick="closeActionMenus();editUserById(${u.id})">${t('common.edit')}</button>
             <button class="action-dropdown-item" onclick="closeActionMenus();resetPassword(${u.id}, '${safeName}')">${t('admin.reset_password')}</button>
             ${u.role === 'student' ? `<button class="action-dropdown-item" onclick="closeActionMenus();toggleCouncilMember(${u.id}, ${u.is_student_council ? 0 : 1})">${u.is_student_council ? 'Revoke council access' : 'Grant council access'}</button>` : ''}
+            ${u.role === 'teacher' ? `<button class="action-dropdown-item" onclick="closeActionMenus();toggleMentor(${u.id}, ${u.is_mentor ? 0 : 1})">${u.is_mentor ? 'Revoke mentor role' : 'Make mentor'}</button>` : ''}
             ${!isSelf ? `<button class="action-dropdown-item" onclick="closeActionMenus();toggleSuspend(${u.id})">${u.suspended ? t('admin.unsuspend') : t('admin.suspend')}</button>` : ''}
             ${canDelete ? `<button class="action-dropdown-item danger" onclick="closeActionMenus();deleteUser(${u.id}, '${safeName}')">${t('admin.delete_account')}</button>` : ''}
           </div>
@@ -4077,7 +4365,7 @@ function _getSelectableUsers() {
 function _getVisibleSelectableUsers() {
   const search = (window._userSearch || '').toLowerCase();
   return _getSelectableUsers().filter(u => {
-    const roleMatch = !window._userFilter || (window._userFilter === 'admin' ? u.role === 'admin' : u.role === window._userFilter);
+    const roleMatch = _userMatchesFilter(u, window._userFilter);
     const searchMatch = !search || u.full_name.toLowerCase().includes(search) || u.email.toLowerCase().includes(search);
     return roleMatch && searchMatch;
   });
@@ -4206,6 +4494,7 @@ document.addEventListener('click', (e) => {
 function _userMatchesFilter(u, filter) {
   if (!filter) return true;
   if (filter === 'stuco') return u.role === 'student' && !!u.is_student_council;
+  if (filter === 'mentor') return u.role === 'teacher' && !!u.is_mentor;
   return u.role === filter;
 }
 
@@ -4240,7 +4529,7 @@ async function renderAdminUsers(refetch = true) {
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
       <div style="display:flex;gap:8px;flex-wrap:wrap">
         <button class="btn btn-sm ${!window._userFilter ? 'btn-primary' : 'btn-outline'}" onclick="window._userFilter=null;renderAdminUsers()">${t('common.all')}</button>
-        ${[{key: 'student', label: t('common.student')}, {key: 'stuco', label: 'StuCo'}, {key: 'teacher', label: t('common.teacher')}, {key: 'head', label: t('common.school_head')}, {key: 'admin', label: t('common.admin')}].map(r =>
+        ${[{key: 'student', label: t('common.student')}, {key: 'stuco', label: 'StuCo'}, {key: 'teacher', label: t('common.teacher')}, {key: 'mentor', label: 'Mentor'}, {key: 'head', label: t('common.school_head')}, {key: 'admin', label: t('common.admin')}].map(r =>
           `<button class="btn btn-sm ${window._userFilter === r.key ? 'btn-primary' : 'btn-outline'}" onclick="window._userFilter='${r.key}';renderAdminUsers()">${r.label}</button>`
         ).join('')}
       </div>
@@ -6237,6 +6526,9 @@ function paintStudentExperiences() {
       <p class="exp-hero-sub">Every moment is a landmark. Map your journey through our shared values.</p>
     </div>
     ${backBtn}
+    <div class="exp-privacy-notice" role="note">
+      <span><strong>Visibility:</strong> Your assigned mentor and the head of school can read these reflections. Write what you would be comfortable sharing.</span>
+    </div>
     ${_expTab === 'create' ? renderExpOrbitPicker(config) : renderExpMyTab(config, experiences)}
   `;
 }
@@ -6858,6 +7150,7 @@ function paintHeadExperiences() {
                 <th>Grade</th>
                 <th style="text-align:right">Reflections</th>
                 <th>Last reflection</th>
+                <th style="text-align:right">${t('common.actions')}</th>
               </tr>
             </thead>
             <tbody id="headExpStudentsBody"></tbody>
@@ -6925,9 +7218,12 @@ function paintHeadExpStudentsTable() {
           <td>${s.grade ? escapeHtml(s.grade) : '<span style="color:var(--gray-400)">Not yet available</span>'}</td>
           <td style="text-align:right;font-weight:600">${s.count}</td>
           <td>${s.last_date ? formatExpDate(s.last_date) : '<span style="color:var(--gray-400)">Not yet available</span>'}</td>
+          <td style="text-align:right">
+            <button class="btn btn-sm ${s.count > 0 ? 'btn-primary' : 'btn-outline'}" ${s.count === 0 ? 'disabled' : ''} onclick="viewStudentExperiencesAsHead(${s.student_id})">View</button>
+          </td>
         </tr>
       `).join('')
-    : `<tr><td colspan="4" style="text-align:center;padding:24px;color:var(--gray-500)">No students match.</td></tr>`;
+    : `<tr><td colspan="5" style="text-align:center;padding:24px;color:var(--gray-500)">No students match.</td></tr>`;
 
   const counter = document.getElementById('headExpStudentsCount');
   if (counter) {
@@ -6981,6 +7277,68 @@ window.headExpSetStudentQuery = function (v) {
 window.headExpStudentsPage = function (page) {
   _headExpStudentsPage = page;
   paintHeadExpStudentsTable();
+};
+
+// Reflection drilldown — the modal HTML is shared between head and mentor.
+// Endpoints differ (head can read any student; mentor only their mentees) so
+// the calling site picks the right URL.
+function renderStudentExperiencesModalHTML(data, config) {
+  const { student, experiences } = data;
+  return `
+    <div class="modal-header">
+      <h3>${escapeHtml(student.full_name)}'s UWC Experience Map</h3>
+      <button class="modal-close" onclick="closeModal()">&times;</button>
+    </div>
+    <div class="modal-body" style="min-width:0">
+      <div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:16px;font-size:0.85rem;color:var(--gray-600)">
+        <span>${escapeHtml(student.email)}${student.grade_or_position ? ' · ' + escapeHtml(student.grade_or_position) : ''}</span>
+        <span>${experiences.length} reflection${experiences.length !== 1 ? 's' : ''}</span>
+      </div>
+      ${experiences.length === 0
+        ? '<p style="color:var(--gray-500);text-align:center;padding:32px">No reflections yet.</p>'
+        : experiences.map(e => `
+          <article class="exp-card exp-card--readonly">
+            <div class="exp-card-head">
+              <div>
+                <h3 class="exp-card-title">${escapeHtml(e.title)}</h3>
+                <div class="exp-card-meta">
+                  <span class="exp-card-category">${escapeHtml(e.category)}</span>
+                  <span class="exp-card-dot">·</span>
+                  <span class="exp-card-date">${formatExpDate(e.date)}</span>
+                </div>
+              </div>
+            </div>
+            <div class="exp-card-values">${(e.values || []).map(v => expValueChip(v, config)).join('')}</div>
+            <div class="exp-card-reflection">${escapeHtml(e.reflection)}</div>
+          </article>
+        `).join('')}
+    </div>
+    <div class="modal-footer"><button class="btn btn-outline" onclick="closeModal()">Close</button></div>
+  `;
+}
+
+window.viewStudentExperiencesAsHead = async function (studentId) {
+  try {
+    const [data, config] = await Promise.all([
+      API.get(`/experiences/head/student/${studentId}`),
+      loadExperienceConfig(),
+    ]);
+    openModal(renderStudentExperiencesModalHTML(data, config));
+  } catch (err) {
+    toast(err.message || 'Could not load student', 'error');
+  }
+};
+
+window.viewMenteeExperiences = async function (studentId) {
+  try {
+    const [data, config] = await Promise.all([
+      API.get(`/experiences/mentor/student/${studentId}`),
+      loadExperienceConfig(),
+    ]);
+    openModal(renderStudentExperiencesModalHTML(data, config));
+  } catch (err) {
+    toast(err.message || 'Could not load mentee', 'error');
+  }
 };
 
 
@@ -7959,6 +8317,18 @@ async function toggleCouncilMember(userId, makeCouncil) {
     toast(err.message || 'Failed to update', 'error');
   }
 }
+
+async function toggleMentor(userId, makeMentor) {
+  try {
+    await API.put(`/admin/users/${userId}/mentor`, { is_mentor: makeMentor ? 1 : 0 });
+    toast(makeMentor ? 'Granted mentor role' : 'Revoked mentor role');
+    invalidateCache('/admin/users');
+    renderAdminUsers();
+  } catch (err) {
+    toast(err.message || 'Failed to update', 'error');
+  }
+}
+window.toggleMentor = toggleMentor;
 
 // Expose council functions to inline onclick handlers.
 window.openCouncilPublishChooser = openCouncilPublishChooser;

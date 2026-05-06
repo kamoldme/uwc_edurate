@@ -61,25 +61,33 @@ router.get('/', authenticate, (req, res) => {
 // POST /api/classrooms - create classroom (teacher/admin)
 router.post('/', authenticate, authorize('teacher', 'admin'), (req, res) => {
   try {
-    const { subject, grade_level, term_id } = req.body;
+    const { subject, grade_level, term_id, kind } = req.body;
 
     if (!subject || !grade_level) {
       return res.status(400).json({ error: 'Subject and grade level are required' });
     }
 
+    const classroomKind = kind === 'mentor' ? 'mentor' : 'academic';
+
     let teacherId;
     let orgId;
 
     if (req.user.role === 'teacher') {
-      const teacher = db.prepare('SELECT id, org_id FROM teachers WHERE user_id = ?').get(req.user.id);
+      const teacher = db.prepare('SELECT id, org_id, is_mentor FROM teachers WHERE user_id = ?').get(req.user.id);
       if (!teacher) return res.status(400).json({ error: 'Teacher profile not found' });
+      if (classroomKind === 'mentor' && !teacher.is_mentor) {
+        return res.status(403).json({ error: 'You do not have mentor capability. Ask an admin to grant it.' });
+      }
       teacherId = teacher.id;
       orgId = teacher.org_id;
     } else {
       teacherId = req.body.teacher_id;
       if (!teacherId) return res.status(400).json({ error: 'teacher_id is required for admin' });
-      const teacher = db.prepare('SELECT org_id FROM teachers WHERE id = ?').get(teacherId);
+      const teacher = db.prepare('SELECT org_id, is_mentor FROM teachers WHERE id = ?').get(teacherId);
       orgId = teacher?.org_id;
+      if (classroomKind === 'mentor' && !teacher?.is_mentor) {
+        return res.status(400).json({ error: 'Selected teacher does not have mentor capability.' });
+      }
     }
 
     // term_id is optional — classrooms persist across terms
@@ -88,9 +96,9 @@ router.post('/', authenticate, authorize('teacher', 'admin'), (req, res) => {
     const join_code = generateJoinCode();
 
     const result = db.prepare(`
-      INSERT INTO classrooms (teacher_id, subject, grade_level, term_id, join_code, org_id)
-      VALUES (?, ?, ?, ?, ?, ?)
-    `).run(teacherId, subject, grade_level, resolvedTermId, join_code, orgId);
+      INSERT INTO classrooms (teacher_id, subject, grade_level, term_id, join_code, org_id, kind)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `).run(teacherId, subject, grade_level, resolvedTermId, join_code, orgId, classroomKind);
 
     const classroom = db.prepare('SELECT * FROM classrooms WHERE id = ?').get(result.lastInsertRowid);
 

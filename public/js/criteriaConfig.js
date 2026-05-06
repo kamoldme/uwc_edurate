@@ -17,3 +17,16 @@ window.CRITERIA_CONFIG = [
 
 window.CRITERIA_COUNT = window.CRITERIA_CONFIG.length;
 window.CRITERIA_COLS = window.CRITERIA_CONFIG.map(c => c.db_col);
+
+// Mentor review criteria — placeholder labels until Kassie blesses the
+// final wording. Renaming labels is a one-line edit. Schema column names
+// (mentor_c{n}_rating) stay stable.
+window.MENTOR_CRITERIA_CONFIG = [
+  { slug: 'mentor_c1', db_col: 'mentor_c1_rating', label: 'Criteria 1', hint: '' },
+  { slug: 'mentor_c2', db_col: 'mentor_c2_rating', label: 'Criteria 2', hint: '' },
+  { slug: 'mentor_c3', db_col: 'mentor_c3_rating', label: 'Criteria 3', hint: '' },
+  { slug: 'mentor_c4', db_col: 'mentor_c4_rating', label: 'Criteria 4', hint: '' },
+  { slug: 'mentor_c5', db_col: 'mentor_c5_rating', label: 'Criteria 5', hint: '' },
+];
+window.MENTOR_CRITERIA_COLS = window.MENTOR_CRITERIA_CONFIG.map(c => c.db_col);
+window.MENTOR_CRITERIA_COUNT = window.MENTOR_CRITERIA_CONFIG.length;

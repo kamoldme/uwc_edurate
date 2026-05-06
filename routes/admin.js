@@ -20,15 +20,25 @@ function orgFilter(req, alias, paramsList) {
 
 // ============ USER MANAGEMENT ============
 
-// GET /api/admin/users
+// GET /api/admin/users — also surfaces teachers.is_mentor on the row so the
+// admin Users tab can show a Mentor filter and a per-row toggle. Mentor is
+// a capability layered on top of role='teacher', not a standalone role.
 router.get('/users', authenticate, authorize('admin'), authorizeOrg, (req, res) => {
   try {
-    const { role, search } = req.query;
+    const { role, search, mentor } = req.query;
     const params = [];
-    let query = 'SELECT u.id, u.full_name, u.email, u.role, u.grade_or_position, u.school_id, u.org_id, u.verified_status, u.suspended, u.avatar_url, u.is_student_council, u.created_at FROM users u WHERE u.org_id = ?';
+    let query = `
+      SELECT u.id, u.full_name, u.email, u.role, u.grade_or_position, u.school_id, u.org_id,
+             u.verified_status, u.suspended, u.avatar_url, u.is_student_council, u.created_at,
+             COALESCE(t.is_mentor, 0) AS is_mentor
+      FROM users u
+      LEFT JOIN teachers t ON t.user_id = u.id
+      WHERE u.org_id = ?
+    `;
     params.push(req.orgId || 1);
 
     if (role) { query += ' AND u.role = ?'; params.push(role); }
+    if (mentor === '1' || mentor === 'true') { query += ' AND COALESCE(t.is_mentor, 0) = 1'; }
     if (search) { query += ' AND (u.full_name LIKE ? OR u.email LIKE ?)'; params.push(`%${search}%`, `%${search}%`); }
 
     query += ' ORDER BY u.created_at DESC';
@@ -37,6 +47,43 @@ router.get('/users', authenticate, authorize('admin'), authorizeOrg, (req, res) 
   } catch (err) {
     console.error('List users error:', err);
     res.status(500).json({ error: 'Failed to fetch users' });
+  }
+});
+
+// PUT /api/admin/users/:id/mentor — toggle mentor capability on a teacher.
+// Body: { is_mentor: 0 | 1 }. Only applies to role='teacher' users; other roles
+// reject with 400 because mentor is a teacher-scoped capability.
+router.put('/users/:id/mentor', authenticate, authorize('admin'), authorizeOrg, (req, res) => {
+  try {
+    const userId = parseInt(req.params.id, 10);
+    const { is_mentor } = req.body || {};
+    const flag = (is_mentor === 1 || is_mentor === '1' || is_mentor === true) ? 1 : 0;
+
+    const user = db.prepare('SELECT id, full_name, role, org_id FROM users WHERE id = ?').get(userId);
+    if (!user) return res.status(404).json({ error: 'User not found' });
+    if (user.org_id !== (req.orgId || 1)) return res.status(403).json({ error: 'Cross-org modification denied' });
+    if (user.role !== 'teacher') {
+      return res.status(400).json({ error: 'Mentor capability only applies to teachers.' });
+    }
+
+    const teacher = db.prepare('SELECT id FROM teachers WHERE user_id = ?').get(userId);
+    if (!teacher) return res.status(404).json({ error: 'Teacher profile missing' });
+
+    db.prepare('UPDATE teachers SET is_mentor = ? WHERE id = ?').run(flag, teacher.id);
+
+    logAuditEvent({
+      userId: req.user.id, userRole: req.user.role, userName: req.user.full_name,
+      actionType: flag ? 'user_grant_mentor' : 'user_revoke_mentor',
+      actionDescription: `${flag ? 'Granted' : 'Revoked'} mentor capability for ${user.full_name}`,
+      targetType: 'user', targetId: userId,
+      metadata: { is_mentor: flag },
+      ipAddress: req.ip, orgId: req.orgId,
+    });
+
+    res.json({ ok: true, is_mentor: flag });
+  } catch (err) {
+    console.error('Toggle mentor error:', err);
+    res.status(500).json({ error: 'Failed to update mentor capability' });
   }
 });
 

@@ -298,4 +298,114 @@ router.get('/head/overview', authenticate, authorize('head', 'admin'), authorize
   });
 });
 
+// GET /api/experiences/head/student/:id — heads can read any student's
+// reflections by name. The persistent banner on the student-side view
+// tells students about this visibility upfront.
+router.get('/head/student/:id', authenticate, authorize('head', 'admin'), authorizeOrg, (req, res) => {
+  try {
+    const studentId = parseInt(req.params.id, 10);
+    const student = db.prepare(`
+      SELECT id, full_name, email, grade_or_position FROM users
+      WHERE id = ? AND role = 'student' AND COALESCE(org_id, 1) = ?
+    `).get(studentId, req.orgId);
+    if (!student) return res.status(404).json({ error: 'Student not found' });
+
+    const rows = db.prepare(`
+      SELECT * FROM experiences WHERE student_id = ?
+      ORDER BY experience_date DESC, created_at DESC
+    `).all(studentId);
+
+    logAuditEvent({
+      userId: req.user.id, userRole: req.user.role, userName: req.user.full_name,
+      actionType: 'experience_view_head',
+      actionDescription: `Viewed Experience Map of ${student.full_name}`,
+      targetType: 'user', targetId: studentId,
+      metadata: { count: rows.length },
+      ipAddress: req.ip, orgId: req.orgId,
+    });
+
+    res.json({ student, experiences: rows.map(rowToDTO) });
+  } catch (err) {
+    console.error('Head student experiences error:', err);
+    res.status(500).json({ error: 'Failed to load experiences' });
+  }
+});
+
+// GET /api/experiences/mentor/student/:id — a mentor can ONLY read the
+// reflections of a student who is in one of their mentor groups. Cross-mentor
+// reads are blocked at the DB layer (membership check), not just in the UI.
+router.get('/mentor/student/:id', authenticate, authorize('teacher'), authorizeOrg, (req, res) => {
+  try {
+    const studentId = parseInt(req.params.id, 10);
+    const teacher = db.prepare('SELECT id, is_mentor FROM teachers WHERE user_id = ?').get(req.user.id);
+    if (!teacher || !teacher.is_mentor) {
+      return res.status(403).json({ error: 'You do not have mentor capability.' });
+    }
+
+    // Membership check: student must be in at least one of this mentor's
+    // mentor classrooms. Otherwise this is a cross-mentor read attempt.
+    const linked = db.prepare(`
+      SELECT 1 FROM classroom_members cm
+      JOIN classrooms c ON c.id = cm.classroom_id
+      WHERE cm.student_id = ? AND c.teacher_id = ? AND c.kind = 'mentor'
+      LIMIT 1
+    `).get(studentId, teacher.id);
+    if (!linked) {
+      return res.status(403).json({ error: 'This student is not one of your mentees.' });
+    }
+
+    const student = db.prepare(`
+      SELECT id, full_name, email, grade_or_position FROM users WHERE id = ? AND role = 'student'
+    `).get(studentId);
+    if (!student) return res.status(404).json({ error: 'Student not found' });
+
+    const rows = db.prepare(`
+      SELECT * FROM experiences WHERE student_id = ?
+      ORDER BY experience_date DESC, created_at DESC
+    `).all(studentId);
+
+    logAuditEvent({
+      userId: req.user.id, userRole: req.user.role, userName: req.user.full_name,
+      actionType: 'experience_view_mentor',
+      actionDescription: `Viewed Experience Map of mentee ${student.full_name}`,
+      targetType: 'user', targetId: studentId,
+      metadata: { count: rows.length },
+      ipAddress: req.ip, orgId: req.orgId,
+    });
+
+    res.json({ student, experiences: rows.map(rowToDTO) });
+  } catch (err) {
+    console.error('Mentor student experiences error:', err);
+    res.status(500).json({ error: 'Failed to load experiences' });
+  }
+});
+
+// GET /api/experiences/mentor/mentees — list of mentees this mentor can drill
+// into (one row per student, with reflection count).
+router.get('/mentor/mentees', authenticate, authorize('teacher'), authorizeOrg, (req, res) => {
+  try {
+    const teacher = db.prepare('SELECT id, is_mentor FROM teachers WHERE user_id = ?').get(req.user.id);
+    if (!teacher || !teacher.is_mentor) {
+      return res.status(403).json({ error: 'You do not have mentor capability.' });
+    }
+
+    const rows = db.prepare(`
+      SELECT u.id as student_id, u.full_name as student_name, u.grade_or_position as grade,
+        c.id as group_id, c.subject as group_name,
+        (SELECT COUNT(*) FROM experiences e WHERE e.student_id = u.id) as reflection_count,
+        (SELECT MAX(experience_date) FROM experiences e WHERE e.student_id = u.id) as last_date
+      FROM classroom_members cm
+      JOIN classrooms c ON c.id = cm.classroom_id
+      JOIN users u ON u.id = cm.student_id
+      WHERE c.teacher_id = ? AND c.kind = 'mentor' AND u.role = 'student'
+      ORDER BY u.full_name ASC
+    `).all(teacher.id);
+
+    res.json({ mentees: rows });
+  } catch (err) {
+    console.error('Mentor mentees error:', err);
+    res.status(500).json({ error: 'Failed to load mentees' });
+  }
+});
+
 module.exports = router;

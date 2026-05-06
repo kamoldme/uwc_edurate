@@ -2199,6 +2199,16 @@ tbody tr:last-child td { border-bottom: none; }
 }
 
 /* ============ EXPERIENCE MAP ============ */
+.exp-privacy-notice {
+  background: #f0f9ff;
+  border: 1px solid #bae6fd;
+  color: #0c4a6e;
+  border-radius: 10px;
+  padding: 10px 14px;
+  margin-bottom: 18px;
+  font-size: 0.85rem;
+  line-height: 1.45;
+}
 .exp-hero { text-align: center; margin: 8px 0 24px; }
 .exp-hero-title {
   font-size: 1.85rem;

@@ -5,6 +5,19 @@ const { moderateText, sanitizeInput } = require('../utils/moderation');
 const { logAuditEvent } = require('../utils/audit');
 const { CRITERIA_CONFIG, CRITERIA_COUNT, CRITERIA_COLS } = require('../utils/criteriaConfig');
 
+// Mentor criteria — 5 placeholder rating columns. Renaming the labels in
+// the UI doesn't require changing these column names; only the front-end
+// labels in EXP_MENTOR_CRITERIA need to change. Keep mentor_c{n}_rating as
+// the durable schema names.
+const MENTOR_CRITERIA_COLS = [
+  'mentor_c1_rating',
+  'mentor_c2_rating',
+  'mentor_c3_rating',
+  'mentor_c4_rating',
+  'mentor_c5_rating',
+];
+const MENTOR_CRITERIA_COUNT = MENTOR_CRITERIA_COLS.length;
+
 const router = express.Router();
 
 const VALID_TAGS = [
@@ -66,6 +79,7 @@ router.get('/eligible-teachers', authenticate, authorize('student'), (req, res) 
         c.id as classroom_id,
         c.subject as classroom_subject,
         c.grade_level,
+        COALESCE(c.kind, 'academic') as classroom_kind,
         fpc_a.period_id,
         CASE WHEN r.id IS NOT NULL THEN 1 ELSE 0 END as already_reviewed,
         r.id as review_id,
@@ -106,6 +120,12 @@ router.get('/eligible-teachers', authenticate, authorize('student'), (req, res) 
 });
 
 // POST /api/reviews - submit a review
+// Branches on the classroom's kind:
+//   - kind='academic' → uses CRITERIA_COLS (13 teacher criteria), review_kind='teacher'
+//   - kind='mentor'   → uses MENTOR_CRITERIA_COLS (5 mentor criteria), review_kind='mentor'
+// The review row keeps both column families NULL-able so the UNIQUE
+// (teacher, student, period) constraint and replace-rejected logic work
+// identically for both kinds.
 router.post('/', authenticate, authorize('student'), (req, res) => {
   try {
     const { teacher_id, classroom_id, feedback_text, tags } = req.body;
@@ -115,20 +135,6 @@ router.post('/', authenticate, authorize('student'), (req, res) => {
       return res.status(400).json({ error: 'Teacher and classroom are required' });
     }
 
-    // Extract and validate all criteria ratings dynamically
-    const ratings = {};
-    for (const crit of CRITERIA_CONFIG) {
-      const r = req.body[crit.db_col];
-      if (!r || r < 1 || r > 5) {
-        return res.status(400).json({ error: 'All ratings must be between 1 and 5' });
-      }
-      ratings[crit.db_col] = r;
-    }
-
-    // Auto-calculate overall rating as average of all criteria
-    const ratingValues = CRITERIA_COLS.map(col => ratings[col]);
-    const overall_rating = Math.round(ratingValues.reduce((s, v) => s + v, 0) / CRITERIA_COUNT);
-
     // Verify student is in the classroom
     const membership = db.prepare(
       'SELECT id FROM classroom_members WHERE classroom_id = ? AND student_id = ?'
@@ -137,13 +143,33 @@ router.post('/', authenticate, authorize('student'), (req, res) => {
       return res.status(403).json({ error: 'You are not enrolled in this classroom' });
     }
 
-    // Verify classroom belongs to teacher
+    // Verify classroom belongs to teacher (we look it up here so we can also
+    // pick the right criteria set based on its kind)
     const classroom = db.prepare(
       'SELECT * FROM classrooms WHERE id = ? AND teacher_id = ?'
     ).get(classroom_id, teacher_id);
     if (!classroom) {
       return res.status(400).json({ error: 'Invalid classroom-teacher combination' });
     }
+
+    const isMentorReview = (classroom.kind || 'academic') === 'mentor';
+    const activeCriteriaCols = isMentorReview ? MENTOR_CRITERIA_COLS : CRITERIA_COLS;
+    const activeCriteriaCount = isMentorReview ? MENTOR_CRITERIA_COUNT : CRITERIA_COUNT;
+    const reviewKind = isMentorReview ? 'mentor' : 'teacher';
+
+    // Extract and validate ratings for the active criteria set
+    const ratings = {};
+    for (const col of activeCriteriaCols) {
+      const r = req.body[col];
+      if (!r || r < 1 || r > 5) {
+        return res.status(400).json({ error: 'All ratings must be between 1 and 5' });
+      }
+      ratings[col] = r;
+    }
+
+    // Auto-calculate overall rating as average of the active criteria
+    const ratingValues = activeCriteriaCols.map(col => ratings[col]);
+    const overall_rating = Math.round(ratingValues.reduce((s, v) => s + v, 0) / activeCriteriaCount);
 
     // Validate: this specific classroom has an active feedback period assigned to it
     const activePeriod = db.prepare(`
@@ -195,11 +221,12 @@ router.post('/', authenticate, authorize('student'), (req, res) => {
       ).get(teacher_id, req.user.id, activePeriod.id);
 
       if (rejected) {
-        const setCols = CRITERIA_COLS.map(c => `${c} = ?`).join(', ');
+        const setCols = activeCriteriaCols.map(c => `${c} = ?`).join(', ');
         db.prepare(`
           UPDATE reviews SET
             classroom_id = ?,
             school_id = ?, org_id = ?, term_id = ?,
+            review_kind = ?,
             overall_rating = ?, ${setCols},
             feedback_text = ?, tags = ?,
             flagged_status = ?, approved_status = 0,
@@ -208,6 +235,7 @@ router.post('/', authenticate, authorize('student'), (req, res) => {
         `).run(
           classroom_id,
           reviewOrgId || 1, reviewOrgId, activePeriod.term_id,
+          reviewKind,
           overall_rating, ...ratingValues,
           sanitized, JSON.stringify(validatedTags), flaggedStatus,
           rejected.id
@@ -215,16 +243,18 @@ router.post('/', authenticate, authorize('student'), (req, res) => {
         return { id: rejected.id, replaced: true };
       }
 
-      const colList = CRITERIA_COLS.join(', ');
-      const placeholders = CRITERIA_COLS.map(() => '?').join(', ');
+      const colList = activeCriteriaCols.join(', ');
+      const placeholders = activeCriteriaCols.map(() => '?').join(', ');
       const insertResult = db.prepare(`
         INSERT INTO reviews (
           teacher_id, classroom_id, student_id, school_id, org_id, term_id, feedback_period_id,
+          review_kind,
           overall_rating, ${colList},
           feedback_text, tags, flagged_status, approved_status
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ${placeholders}, ?, ?, ?, 0)
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ${placeholders}, ?, ?, ?, 0)
       `).run(
         teacher_id, classroom_id, req.user.id, reviewOrgId || 1, reviewOrgId, activePeriod.term_id, activePeriod.id,
+        reviewKind,
         overall_rating, ...ratingValues,
         sanitized, JSON.stringify(validatedTags), flaggedStatus
       );
