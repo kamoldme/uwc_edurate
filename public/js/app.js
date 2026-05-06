@@ -260,7 +260,6 @@ function buildNavigation() {
     items = [
       { id: 'head-home', label: t('nav.dashboard'), icon: 'home' },
       { id: 'head-teachers', label: t('nav.teachers'), icon: 'users' },
-      { id: 'head-mentors', label: 'Mentors', icon: 'users' },
       { id: 'head-classrooms', label: t('nav.classrooms'), icon: 'classroom' },
       { id: 'head-analytics', label: t('nav.analytics'), icon: 'chart' },
       { id: 'head-experiences', label: 'UWC Experience Map', icon: 'review' },
@@ -335,7 +334,6 @@ function navigateTo(view) {
     'teacher-analytics': t('title.analytics'),
     'head-home': t('title.school_overview'),
     'head-teachers': t('title.teacher_performance'),
-    'head-mentors': 'Mentors',
     'head-classrooms': t('title.all_classrooms'),
     'head-analytics': t('title.analytics'),
     'admin-home': t('title.admin_dashboard'),
@@ -386,7 +384,6 @@ function navigateTo(view) {
     'teacher-announcements': renderTeacherAnnouncements,
     'head-home': renderHeadHome,
     'head-teachers': renderHeadTeachers,
-    'head-mentors': renderHeadMentors,
     'head-classrooms': renderHeadClassrooms,
     'head-analytics': renderHeadAnalytics,
     'admin-home': renderAdminHome,
@@ -1959,14 +1956,31 @@ async function renderTeacherClassrooms() {
           </div>
         </div>`;
       };
-      return `<div class="grid grid-2">
-        ${active.map(c => renderCard(c, false)).join('')}
-      </div>
-      ${archived.length > 0 ? `
-        <div style="margin-top:32px">
-          <h3 style="color:var(--gray-500);font-size:0.95rem;margin-bottom:12px">${t('teacher.archived')} (${archived.length})</h3>
-          <div class="grid grid-2">${archived.map(c => renderCard(c, true)).join('')}</div>
-        </div>` : ''}`;
+      const academicActive = active.filter(c => (c.kind || 'academic') !== 'mentor');
+      const mentorActive = active.filter(c => (c.kind || 'academic') === 'mentor');
+      const academicArchived = archived.filter(c => (c.kind || 'academic') !== 'mentor');
+      const mentorArchived = archived.filter(c => (c.kind || 'academic') === 'mentor');
+      return `
+        ${academicActive.length > 0
+          ? `<h3 style="font-size:1rem;margin:0 0 12px;color:var(--gray-700)">My classrooms</h3>
+             <div class="grid grid-2">${academicActive.map(c => renderCard(c, false)).join('')}</div>`
+          : ''}
+        ${academicArchived.length > 0 ? `
+          <div style="margin-top:24px">
+            <h3 style="color:var(--gray-500);font-size:0.95rem;margin-bottom:12px">${t('teacher.archived')} classrooms (${academicArchived.length})</h3>
+            <div class="grid grid-2">${academicArchived.map(c => renderCard(c, true)).join('')}</div>
+          </div>` : ''}
+        ${mentorActive.length > 0 || mentorArchived.length > 0 ? `
+          <div style="margin-top:32px;padding-top:24px;border-top:1px solid var(--gray-200)">
+            <h3 style="font-size:1rem;margin:0 0 12px;color:var(--gray-700)">My mentor groups</h3>
+            ${mentorActive.length > 0 ? `<div class="grid grid-2">${mentorActive.map(c => renderCard(c, false)).join('')}</div>` : ''}
+            ${mentorArchived.length > 0 ? `
+              <div style="margin-top:24px">
+                <h4 style="color:var(--gray-500);font-size:0.9rem;margin-bottom:12px">${t('teacher.archived')} mentor groups (${mentorArchived.length})</h4>
+                <div class="grid grid-2">${mentorArchived.map(c => renderCard(c, true)).join('')}</div>
+              </div>` : ''}
+          </div>` : ''}
+      `;
     })()}
     ${isMentor && mentees.length > 0 ? `
       <div class="card" style="margin-top:32px">
@@ -2010,17 +2024,26 @@ async function renderTeacherClassrooms() {
   `;
 }
 
-function showCreateClassroomTeacher() {
+async function showCreateClassroomTeacher() {
   const isMentor = !!currentUser?.is_mentor;
+  // One mentor group per mentor — once created, hide the toggle.
+  let alreadyHasMentorGroup = false;
+  if (isMentor) {
+    try {
+      const data = await cachedGet('/dashboard/teacher');
+      alreadyHasMentorGroup = (data.classrooms || []).some(c => (c.kind || 'academic') === 'mentor');
+    } catch (_) {}
+  }
+  const showMentorToggle = isMentor && !alreadyHasMentorGroup;
   openModal(`
     <div class="modal-header"><h3>${t('teacher.create_classroom_title')}</h3><button class="modal-close" onclick="closeModal()">&times;</button></div>
     <div class="modal-body">
-      ${isMentor ? `
+      ${showMentorToggle ? `
         <div class="form-group" style="background:#f8fafc;border:1px solid var(--gray-100);border-radius:10px;padding:12px 14px">
           <label style="display:flex;align-items:center;gap:10px;cursor:pointer;margin:0">
             <input type="checkbox" id="newClassroomIsMentor" onchange="onCreateClassroomKindToggle(this.checked)">
             <span><strong>This is a mentor group</strong>
-              <span style="display:block;font-weight:400;font-size:0.78rem;color:var(--gray-500);margin-top:2px">Mentees join with the code, feedback uses mentor criteria.</span>
+              <span style="display:block;font-weight:400;font-size:0.78rem;color:var(--gray-500);margin-top:2px">Mentees join with the code, feedback uses mentor criteria. One per mentor.</span>
             </span>
           </label>
         </div>
@@ -3166,21 +3189,31 @@ async function renderHeadHome() {
 async function renderHeadTeachers() {
   const data = await cachedGet('/dashboard/school-head');
   const el = document.getElementById('contentArea');
+  window._headTeachersAll = data.teachers || [];
 
-  const sorted = [...data.teachers].sort(
+  const filter = window._headTeachersFilter || 'all';
+  const visible = filter === 'mentors'
+    ? window._headTeachersAll.filter(t => !!t.is_mentor)
+    : window._headTeachersAll;
+
+  const sorted = [...visible].sort(
     (a, b) => (b.scores.avg_overall || 0) - (a.scores.avg_overall || 0)
   );
 
   const rowsHTML = sorted.map((tchr, i) => `
     <tr data-search="${escAttr([tchr.full_name, tchr.subject, tchr.department].filter(Boolean).join(' ').toLowerCase())}">
       <td style="text-align:center;font-weight:600;color:var(--gray-500)">${i + 1}</td>
-      <td><strong>${tchr.full_name}</strong></td>
-      <td>${tchr.subject || '-'}</td>
-      <td>${tchr.department || '-'}</td>
+      <td>
+        <strong>${escapeHtml(tchr.full_name)}</strong>
+        ${tchr.is_mentor ? '<span style="font-size:0.65rem;background:#eef2ff;color:#4338ca;padding:2px 8px;border-radius:10px;font-weight:600;letter-spacing:0.04em;margin-left:6px;vertical-align:middle">MENTOR</span>' : ''}
+      </td>
+      <td>${tchr.subject || '<span class="score-empty">Not yet available</span>'}</td>
+      <td>${tchr.department || '<span class="score-empty">Not yet available</span>'}</td>
       <td style="font-weight:600;color:${scoreColor(tchr.scores.avg_overall || 0)}">${fmtScore(tchr.scores.avg_overall)}</td>
       <td>${tchr.scores.review_count}</td>
       <td>${tchr.trend ? trendArrow(tchr.trend.trend) : '-'}</td>
       <td style="text-align:right;white-space:nowrap">
+        ${tchr.is_mentor ? `<button class="btn btn-sm btn-outline" style="font-size:0.78rem;padding:5px 10px" onclick="viewMentorMentees(${tchr.id}, ${JSON.stringify(tchr.full_name)})">View mentees</button>` : ''}
         <button class="btn btn-sm btn-primary" style="font-size:0.78rem;padding:5px 12px" onclick="viewTeacherFeedback(${tchr.id})">View</button>
         <button class="btn btn-sm btn-outline" style="font-size:0.78rem;padding:5px 10px" onclick="exportTeacherPDF(${tchr.id})" title="${t('admin.export_pdf')}">PDF</button>
       </td>
@@ -3193,7 +3226,11 @@ async function renderHeadTeachers() {
         <input id="headTeachersSearch" type="search" class="form-control" placeholder="Search by name, subject, or department" oninput="filterHeadTeachers(this.value)" autocomplete="off" style="padding-left:36px">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--gray-400);pointer-events:none"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
       </div>
-      <span id="headTeachersCount" style="font-size:0.78rem;color:var(--gray-500)">${data.teachers.length} teacher${data.teachers.length !== 1 ? 's' : ''}</span>
+      <span id="headTeachersCount" style="font-size:0.78rem;color:var(--gray-500)">${visible.length} of ${window._headTeachersAll.length}</span>
+    </div>
+    <div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap">
+      <button class="btn btn-sm ${filter === 'all' ? 'btn-primary' : 'btn-outline'}" onclick="setHeadTeachersFilter('all')">All</button>
+      <button class="btn btn-sm ${filter === 'mentors' ? 'btn-primary' : 'btn-outline'}" onclick="setHeadTeachersFilter('mentors')">Mentors only</button>
     </div>
     <div class="card">
       <div class="table-container">
@@ -3219,6 +3256,11 @@ async function renderHeadTeachers() {
     </div>
   `;
 }
+
+window.setHeadTeachersFilter = function (mode) {
+  window._headTeachersFilter = mode;
+  renderHeadTeachers();
+};
 
 window.filterHeadTeachers = function (raw) {
   const q = (raw || '').trim().toLowerCase();
@@ -4334,7 +4376,8 @@ function _buildUserRows(users) {
       <td><strong>${u.full_name}</strong></td>
       <td style="font-size:0.8rem;color:var(--gray-500)">${u.email}</td>
       <td>
-        <span class="badge ${u.role === 'super_admin' ? 'badge-flagged' : u.role === 'admin' ? 'badge-flagged' : u.role === 'teacher' ? 'badge-active' : u.role === 'head' ? 'badge-approved' : (u.role === 'student' && u.is_student_council) ? 'badge-active' : 'badge-pending'}">${(u.role === 'student' && u.is_student_council) ? 'StuCo' : ({student: t('common.student'), teacher: t('common.teacher'), school_head: t('common.school_head'), admin: t('common.admin'), super_admin: t('common.super_admin')}[u.role] || u.role)}</span>
+        <span class="badge ${u.role === 'super_admin' ? 'badge-flagged' : u.role === 'admin' ? 'badge-flagged' : u.role === 'teacher' ? 'badge-active' : u.role === 'head' ? 'badge-approved' : 'badge-pending'}">${({student: t('common.student'), teacher: t('common.teacher'), school_head: t('common.school_head'), admin: t('common.admin'), super_admin: t('common.super_admin')}[u.role] || u.role)}</span>
+        ${u.role === 'student' && u.is_student_council ? '<span class="badge badge-active" style="margin-left:4px">StuCo</span>' : ''}
         ${u.role === 'teacher' && u.is_mentor ? '<span class="badge badge-approved" style="margin-left:4px;background:#eef2ff;color:#4338ca;border-color:#c7d2fe">Mentor</span>' : ''}
       </td>
       <td>${u.grade_or_position || '-'}</td>
@@ -5223,35 +5266,50 @@ async function deleteTerm(termId, termName) {
 
 async function renderAdminClassrooms() {
   const classrooms = await API.get('/admin/classrooms');
+  // Cache so editClassroom(id) can look up by id instead of relying on a
+  // JSON-stringified attribute that breaks on apostrophes / quotes.
+  window._adminClassrooms = classrooms;
+  const filter = window._adminClassroomFilter || 'all';
+  const visible = filter === 'all'
+    ? classrooms
+    : classrooms.filter(c => (c.kind || 'academic') === filter);
   const el = document.getElementById('contentArea');
 
   const isSuperAdmin = false;
   const orgColumnHeader = isSuperAdmin ? `<th>${t('admin.organization')}</th>` : '';
 
   el.innerHTML = `
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;flex-wrap:wrap;gap:12px">
       <h2>${t('admin.classroom_management_count', {count: classrooms.length})}</h2>
       <button class="btn btn-primary" onclick="showCreateClassroom()">+ ${t('admin.create_classroom_title')}</button>
+    </div>
+    <div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap">
+      <button class="btn btn-sm ${filter === 'all' ? 'btn-primary' : 'btn-outline'}" onclick="setAdminClassroomFilter('all')">All</button>
+      <button class="btn btn-sm ${filter === 'academic' ? 'btn-primary' : 'btn-outline'}" onclick="setAdminClassroomFilter('academic')">Classrooms</button>
+      <button class="btn btn-sm ${filter === 'mentor' ? 'btn-primary' : 'btn-outline'}" onclick="setAdminClassroomFilter('mentor')">Mentor groups</button>
     </div>
     <div class="card">
       <div class="table-container">
         <table>
           <thead><tr><th>${t('common.subject')}</th>${orgColumnHeader}<th>${t('common.teacher')}</th><th>${t('common.grade')}</th><th>${t('common.students')}</th><th>${t('admin.join_code')}</th><th>${t('common.actions')}</th></tr></thead>
           <tbody>
-            ${classrooms.map(c => {
+            ${visible.length === 0 ? `<tr><td colspan="${6 + (isSuperAdmin ? 1 : 0)}" style="text-align:center;color:var(--gray-500);padding:32px">No classrooms in this view.</td></tr>` : ''}
+            ${visible.map(c => {
               const orgColumn = isSuperAdmin ? `<td>${c.org_name || '-'}</td>` : '';
+              const isMentor = (c.kind || 'academic') === 'mentor';
+              const subjectCell = `<strong>${escapeHtml(c.subject)}</strong>${isMentor ? ' <span style="font-size:0.65rem;background:#eef2ff;color:#4338ca;padding:2px 8px;border-radius:10px;font-weight:600;letter-spacing:0.04em;margin-left:4px;vertical-align:middle">MENTOR</span>' : ''}`;
               return `
               <tr>
-                <td><strong>${c.subject}</strong></td>
+                <td>${subjectCell}</td>
                 ${orgColumn}
-                <td>${c.teacher_name || '-'}</td>
-                <td>${c.grade_level}</td>
-                <td><a href="#" onclick="event.preventDefault();viewClassroomMembers(${c.id}, '${c.subject.replace(/'/g, "\\'")}')" style="color:var(--primary);font-weight:600">${c.student_count || 0}</a></td>
+                <td>${escapeHtml(c.teacher_name || '-')}</td>
+                <td>${escapeHtml(c.grade_level)}</td>
+                <td><a href="#" onclick="event.preventDefault();viewClassroomMembers(${c.id}, ${JSON.stringify(c.subject)})" style="color:var(--primary);font-weight:600">${c.student_count || 0}</a></td>
                 <td><code style="background:var(--gray-100);padding:2px 8px;border-radius:4px">${formatJoinCode(c.join_code)}</code></td>
                 <td>
-                  <button class="btn btn-sm btn-outline" onclick="viewClassroomMembers(${c.id}, '${c.subject.replace(/'/g, "\\'")}')">${t('teacher.members')}</button>
-                  <button class="btn btn-sm btn-outline" onclick='editClassroom(${JSON.stringify(c)})'>${t('common.edit')}</button>
-                  <button class="btn btn-sm btn-danger" onclick="deleteClassroom(${c.id}, '${c.subject}')">${t('common.delete')}</button>
+                  <button class="btn btn-sm btn-outline" onclick="viewClassroomMembers(${c.id}, ${JSON.stringify(c.subject)})">${t('teacher.members')}</button>
+                  <button class="btn btn-sm btn-outline" onclick="editClassroom(${c.id})">${t('common.edit')}</button>
+                  <button class="btn btn-sm btn-danger" onclick="deleteClassroom(${c.id}, ${JSON.stringify(c.subject)})">${t('common.delete')}</button>
                 </td>
               </tr>
               `;
@@ -5262,6 +5320,11 @@ async function renderAdminClassrooms() {
     </div>
   `;
 }
+
+window.setAdminClassroomFilter = function (kind) {
+  window._adminClassroomFilter = kind;
+  renderAdminClassrooms();
+};
 
 function showCreateClassroom() {
   cachedGet('/admin/teachers', CACHE_TTL.medium).then(teachers => {
@@ -5309,40 +5372,58 @@ async function createClassroom() {
   } catch (err) { toast(err.message, 'error'); }
 }
 
-function editClassroom(classroom) {
+function editClassroom(idOrObject) {
+  // Accepts either an id (preferred — looked up from window._adminClassrooms)
+  // or a classroom object (legacy callers). Mentor groups skip the Subject
+  // input and ask for cohort only, since they don't have a subject by design.
+  const classroom = typeof idOrObject === 'number'
+    ? (window._adminClassrooms || []).find(c => c.id === idOrObject)
+    : idOrObject;
+  if (!classroom) {
+    toast('Classroom not found', 'error');
+    return;
+  }
+  const isMentor = (classroom.kind || 'academic') === 'mentor';
   cachedGet('/admin/teachers', CACHE_TTL.medium).then(teachers => {
     openModal(`
-      <div class="modal-header"><h3>${t('admin.edit_classroom_title', {subject: classroom.subject})}</h3><button class="modal-close" onclick="closeModal()">&times;</button></div>
+      <div class="modal-header"><h3>${t('admin.edit_classroom_title', {subject: classroom.subject})}${isMentor ? ' <span style="font-size:0.7rem;background:#eef2ff;color:#4338ca;padding:2px 8px;border-radius:10px;font-weight:600;margin-left:6px;vertical-align:middle">MENTOR</span>' : ''}</h3><button class="modal-close" onclick="closeModal()">&times;</button></div>
       <div class="modal-body">
+        ${isMentor ? '' : `
+          <div class="form-group">
+            <label>${t('common.subject')}</label>
+            <input type="text" class="form-control" id="editClassroomSubject" value="${escapeAttr(classroom.subject)}">
+          </div>
+        `}
         <div class="form-group">
-          <label>${t('common.subject')}</label>
-          <input type="text" class="form-control" id="editClassroomSubject" value="${classroom.subject}">
+          <label>${isMentor ? 'Mentor group name / cohort' : t('admin.grade_level')}</label>
+          <input type="text" class="form-control" id="editClassroomGrade" value="${escapeAttr(classroom.grade_level)}">
         </div>
         <div class="form-group">
-          <label>${t('admin.grade_level')}</label>
-          <input type="text" class="form-control" id="editClassroomGrade" value="${classroom.grade_level}">
-        </div>
-        <div class="form-group">
-          <label>${t('common.teacher')}</label>
+          <label>${isMentor ? 'Mentor' : t('common.teacher')}</label>
           <select class="form-control" id="editClassroomTeacher">
-            ${teachers.map(tchr => `<option value="${tchr.id}" ${tchr.id === classroom.teacher_id ? 'selected' : ''}>${tchr.full_name} - ${tchr.subject || t('admin.no_subject')}</option>`).join('')}
+            ${teachers.filter(tchr => isMentor ? !!tchr.is_mentor : true).map(tchr => `<option value="${tchr.id}" ${tchr.id === classroom.teacher_id ? 'selected' : ''}>${escapeHtml(tchr.full_name)}${tchr.subject ? ' — ' + escapeHtml(tchr.subject) : ''}</option>`).join('')}
           </select>
         </div>
       </div>
       <div class="modal-footer">
         <button class="btn btn-outline" onclick="closeModal()">${t('common.cancel')}</button>
-        <button class="btn btn-primary" onclick="saveClassroomEdit(${classroom.id})">${t('admin.save_changes')}</button>
+        <button class="btn btn-primary" onclick="saveClassroomEdit(${classroom.id}, ${isMentor ? 'true' : 'false'})">${t('admin.save_changes')}</button>
       </div>
     `);
   });
 }
 
-async function saveClassroomEdit(classroomId) {
+async function saveClassroomEdit(classroomId, isMentor = false) {
+  const subjectInput = document.getElementById('editClassroomSubject');
   const body = {
-    subject: document.getElementById('editClassroomSubject').value,
     grade_level: document.getElementById('editClassroomGrade').value,
-    teacher_id: parseInt(document.getElementById('editClassroomTeacher').value)
+    teacher_id: parseInt(document.getElementById('editClassroomTeacher').value),
   };
+  if (isMentor) {
+    body.subject = 'Mentor Group';
+  } else if (subjectInput) {
+    body.subject = subjectInput.value;
+  }
   try {
     await API.put(`/admin/classrooms/${classroomId}`, body);
     toast(t('admin.classroom_updated'));
@@ -5682,66 +5763,129 @@ async function renderAdminTeachers() {
 
 async function viewTeacherFeedback(teacherId) {
   const data = await API.get(`/admin/teacher/${teacherId}/feedback`);
+  const allReviews = data.reviews || [];
+  const academicReviews = allReviews.filter(r => (r.review_kind || 'teacher') !== 'mentor');
+  const mentorReviews = allReviews.filter(r => r.review_kind === 'mentor');
+  const isMentor = !!data.teacher.is_mentor;
+
+  // Cache for tab switching
+  window._feedbackModalState = {
+    teacher: data.teacher,
+    scores: data.scores,
+    academicReviews,
+    mentorReviews,
+    isMentor,
+    tab: 'academic',
+  };
+
   openModal(`
     <div class="modal-header">
-      <h2>${t('admin.feedback_for', {name: data.teacher.full_name})}</h2>
+      <h2>${t('admin.feedback_for', {name: escapeHtml(data.teacher.full_name)})}${isMentor ? ' <span style="font-size:0.7rem;background:#eef2ff;color:#4338ca;padding:2px 8px;border-radius:10px;font-weight:600;margin-left:6px;vertical-align:middle">MENTOR</span>' : ''}</h2>
       <button onclick="closeModal()" style="background:none;border:none;font-size:1.5rem;cursor:pointer">&times;</button>
     </div>
-    <div class="modal-body">
-      <div style="margin-bottom:20px;padding:16px;background:var(--gray-50);border-radius:var(--radius-md)">
-        <div style="display:flex;justify-content:space-around;text-align:center;margin-bottom:20px">
-          <div>
-            <div style="font-size:2rem;font-weight:700;color:${scoreColor(data.scores.avg_overall || 0)}">${fmtScore(data.scores.avg_overall)}</div>
-            <div style="color:var(--gray-500);font-size:0.85rem">${t('profile.overall_rating')}</div>
-          </div>
-          <div>
-            <div style="font-size:2rem;font-weight:700">${data.scores.review_count}</div>
-            <div style="color:var(--gray-500);font-size:0.85rem">${t('profile.total_reviews')}</div>
-          </div>
+    <div class="modal-body" id="feedbackModalBody">
+      ${isMentor ? `
+        <div class="exp-tabs" style="margin-bottom:18px">
+          <button class="exp-tab is-active" id="fbTab-academic" onclick="setFeedbackTab('academic')">Teacher feedback <span class="exp-tab-count">${academicReviews.length}</span></button>
+          <button class="exp-tab" id="fbTab-mentor" onclick="setFeedbackTab('mentor')">Mentor feedback <span class="exp-tab-count">${mentorReviews.length}</span></button>
         </div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;padding-top:16px;border-top:1px solid var(--gray-200)">
-          ${CRITERIA_CONFIG.map(c => {
-            const key = `avg_${c.slug}`;
-            const val = data.scores[key] || 0;
-            return `<div style="text-align:center">
-              <div style="font-size:1.3rem;font-weight:600;color:${scoreColor(val)}">${fmtScore(data.scores[key])}</div>
-              <div style="color:var(--gray-500);font-size:0.85rem;display:flex;align-items:center;justify-content:center;gap:3px">${t(c.label_key)}${criteriaInfoIcon(c.info_key)}</div>
-            </div>`;
-          }).join('')}
+      ` : ''}
+      <div id="feedbackTabPanel">${renderFeedbackTabPanel('academic')}</div>
+    </div>
+  `);
+}
+
+window.setFeedbackTab = function (tab) {
+  if (!window._feedbackModalState) return;
+  window._feedbackModalState.tab = tab;
+  document.getElementById('fbTab-academic')?.classList.toggle('is-active', tab === 'academic');
+  document.getElementById('fbTab-mentor')?.classList.toggle('is-active', tab === 'mentor');
+  const panel = document.getElementById('feedbackTabPanel');
+  if (panel) panel.innerHTML = renderFeedbackTabPanel(tab);
+};
+
+function renderFeedbackTabPanel(tab) {
+  const s = window._feedbackModalState;
+  if (!s) return '';
+  const reviews = tab === 'mentor' ? s.mentorReviews : s.academicReviews;
+  const isMentorTab = tab === 'mentor';
+
+  // Compute aggregates from the active reviews so the headline numbers match
+  // the visible tab. Mentor criteria use the mentor_c{n}_rating columns.
+  const ratingFor = (r, col) => Number(r[col]) || null;
+  const cols = isMentorTab ? MENTOR_CRITERIA_COLS : CRITERIA_COLS;
+  const reviewCount = reviews.length;
+  const avgOverall = reviewCount
+    ? +(reviews.reduce((sum, r) => sum + (Number(r.overall_rating) || 0), 0) / reviewCount).toFixed(2)
+    : null;
+  const avgPerCriterion = {};
+  cols.forEach(col => {
+    const vals = reviews.map(r => ratingFor(r, col)).filter(v => v != null);
+    avgPerCriterion[col] = vals.length ? +(vals.reduce((a, b) => a + b, 0) / vals.length).toFixed(2) : null;
+  });
+
+  const criteriaList = isMentorTab
+    ? MENTOR_CRITERIA_CONFIG.map(c => ({ db_col: c.db_col, label: c.label, info_key: null }))
+    : CRITERIA_CONFIG.map(c => ({ db_col: c.db_col, label: t(c.label_key), info_key: c.info_key }));
+
+  return `
+    <div style="margin-bottom:20px;padding:16px;background:var(--gray-50);border-radius:var(--radius-md)">
+      <div style="display:flex;justify-content:space-around;text-align:center;margin-bottom:20px">
+        <div>
+          <div style="font-size:2rem;font-weight:700;color:${scoreColor(avgOverall || 0)}">${fmtScore(avgOverall)}</div>
+          <div style="color:var(--gray-500);font-size:0.85rem">${t('profile.overall_rating')}</div>
+        </div>
+        <div>
+          <div style="font-size:2rem;font-weight:700">${reviewCount}</div>
+          <div style="color:var(--gray-500);font-size:0.85rem">${t('profile.total_reviews')}</div>
         </div>
       </div>
-
-      <div style="max-height:400px;overflow-y:auto">
-        ${data.reviews.length === 0 ? `<div class="empty-state"><p>${t('admin.no_approved_reviews')}</p></div>` : data.reviews.map(r => {
-          const avg = criteriaAverage(r);
-          const colorVal = avg !== null ? avg : (r.overall_rating || 0);
-          return `
-          <div class="review-card" style="padding:14px;border:1px solid var(--gray-200);border-radius:var(--radius-md);margin-bottom:12px">
-            <div class="review-header">
-              <div>
-                <div style="font-size:0.85rem;color:var(--gray-500)">${new Date(r.created_at).toLocaleDateString()}</div>
-                <div style="font-size:0.85rem;color:var(--gray-500);margin-top:4px">${r.classroom_subject} (${r.grade_level}) &middot; ${r.term_name} &middot; ${r.period_name}</div>
-              </div>
-              <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
-                <div style="font-weight:700;font-size:1.05rem;color:${scoreColor(colorVal)}">${fmtRatingFloat(avg)}</div>
-                ${starsHTML(avg !== null ? avg : 0, 'small')}
-              </div>
-            </div>
-            <details class="criteria-collapse">
-              <summary>
-                <span>${t('student.criteria_breakdown')}</span>
-                <svg class="caret" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
-              </summary>
-              ${ratingGridHTML(r)}
-            </details>
-            ${r.feedback_text
-              ? `<div class="review-text">${r.feedback_text}</div>`
-              : `<div class="review-text review-text-empty">${t('review.no_written_feedback')}</div>`}
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;padding-top:16px;border-top:1px solid var(--gray-200)">
+        ${criteriaList.map(c => {
+          const val = avgPerCriterion[c.db_col] || 0;
+          return `<div style="text-align:center">
+            <div style="font-size:1.3rem;font-weight:600;color:${scoreColor(val)}">${fmtScore(avgPerCriterion[c.db_col])}</div>
+            <div style="color:var(--gray-500);font-size:0.85rem;display:flex;align-items:center;justify-content:center;gap:3px">${escapeHtml(c.label)}${c.info_key ? criteriaInfoIcon(c.info_key) : ''}</div>
           </div>`;
         }).join('')}
       </div>
     </div>
-  `);
+
+    <div style="max-height:400px;overflow-y:auto">
+      ${reviews.length === 0
+        ? `<div class="empty-state"><p>${t('admin.no_approved_reviews')}</p></div>`
+        : reviews.map(r => {
+            const ratingValues = cols.map(c => Number(r[c]) || 0).filter(v => v > 0);
+            const avg = ratingValues.length ? ratingValues.reduce((a, b) => a + b, 0) / ratingValues.length : null;
+            const colorVal = avg != null ? avg : (r.overall_rating || 0);
+            return `
+            <div class="review-card" style="padding:14px;border:1px solid var(--gray-200);border-radius:var(--radius-md);margin-bottom:12px">
+              <div class="review-header">
+                <div>
+                  <div style="font-size:0.85rem;color:var(--gray-500)">${new Date(r.created_at).toLocaleDateString()}</div>
+                  <div style="font-size:0.85rem;color:var(--gray-500);margin-top:4px">${escapeHtml(r.classroom_subject)} (${escapeHtml(r.grade_level)}) &middot; ${escapeHtml(r.term_name)} &middot; ${escapeHtml(r.period_name)}</div>
+                </div>
+                <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
+                  <div style="font-weight:700;font-size:1.05rem;color:${scoreColor(colorVal)}">${fmtRatingFloat(avg)}</div>
+                  ${starsHTML(avg != null ? avg : 0, 'small')}
+                </div>
+              </div>
+              <details class="criteria-collapse">
+                <summary>
+                  <span>${t('student.criteria_breakdown')}</span>
+                  <svg class="caret" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+                </summary>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:12px 0">
+                  ${criteriaList.map(c => `<div style="display:flex;justify-content:space-between;padding:4px 8px;background:var(--gray-50);border-radius:6px"><span style="font-size:0.82rem">${escapeHtml(c.label)}</span><span style="font-weight:600">${r[c.db_col] || '-'}/5</span></div>`).join('')}
+                </div>
+              </details>
+              ${r.feedback_text
+                ? `<div class="review-text">${escapeHtml(r.feedback_text)}</div>`
+                : `<div class="review-text review-text-empty">${t('review.no_written_feedback')}</div>`}
+            </div>`;
+          }).join('')}
+    </div>
+  `;
 }
 
 async function exportMyPDF() {

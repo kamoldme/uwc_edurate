@@ -1537,12 +1537,14 @@ router.get('/teacher/:id/feedback', authenticate, authorize('admin', 'head'), au
     const { term_id, period_id, classroom_id } = req.query;
 
     const adminCritCols = CRITERIA_COLS.map(c => `r.${c}`).join(', ');
+    const mentorCritCols = ['r.mentor_c1_rating','r.mentor_c2_rating','r.mentor_c3_rating','r.mentor_c4_rating','r.mentor_c5_rating'].join(', ');
     // Heads now see all approved reviews; teacher_private gate removed pre-pilot.
     const adminVisFilter = '';
     let query = `
-      SELECT r.id, r.overall_rating, ${adminCritCols},
+      SELECT r.id, r.overall_rating, ${adminCritCols}, ${mentorCritCols},
+        COALESCE(r.review_kind, 'teacher') as review_kind,
         r.feedback_text, r.tags, r.created_at, r.flagged_status, r.approved_status,
-        c.subject as classroom_subject, c.grade_level,
+        c.subject as classroom_subject, c.grade_level, COALESCE(c.kind, 'academic') as classroom_kind,
         fp.name as period_name, t.name as term_name
       FROM reviews r
       JOIN classrooms c ON r.classroom_id = c.id

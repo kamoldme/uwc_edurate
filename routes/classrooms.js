@@ -90,6 +90,18 @@ router.post('/', authenticate, authorize('teacher', 'admin'), (req, res) => {
       }
     }
 
+    // One mentor group per mentor — even on race, the second create returns
+    // 409 with a clear message. Users see this as a UI affordance going away
+    // after the first creation; this is the server-side guarantee.
+    if (classroomKind === 'mentor') {
+      const existing = db.prepare(
+        "SELECT id FROM classrooms WHERE teacher_id = ? AND kind = 'mentor' AND active_status = 1"
+      ).get(teacherId);
+      if (existing) {
+        return res.status(409).json({ error: 'This mentor already has an active mentor group.' });
+      }
+    }
+
     // term_id is optional — classrooms persist across terms
     const resolvedTermId = term_id || null;
 
