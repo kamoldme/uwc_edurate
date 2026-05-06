@@ -753,9 +753,11 @@ function scoreColor(score) {
   return 'var(--danger)';
 }
 
-// Format a score to always show 2 decimal places (e.g. 4 → "4.00", 3.5 → "3.50")
+// Format a score to always show 2 decimal places (e.g. 4 → "4.00", 3.5 → "3.50").
+// When there's no value yet, return a neutral gray placeholder so the surrounding
+// scoreColor() red doesn't bleed onto a "no data" label.
 function fmtScore(val) {
-  if (val === null || val === undefined) return 'No info yet';
+  if (val === null || val === undefined) return '<span class="score-empty">Not yet available</span>';
   return Number(val).toFixed(2);
 }
 
@@ -6848,17 +6850,17 @@ function paintHeadExperiences() {
       <div class="stat-card"><div class="stat-label">Total reflections</div><div class="stat-value">${totals.total_experiences}</div></div>
       <div class="stat-card"><div class="stat-label">Students engaged</div><div class="stat-value">${totals.students_engaged} <span class="exp-stat-meta">/ ${totals.students_total}</span></div></div>
       <div class="stat-card"><div class="stat-label">${escapeHtml(participationLabel)}</div><div class="stat-value">${totals.participation_pct}%</div></div>
-      <div class="stat-card"><div class="stat-label">Top value</div><div class="stat-value-sm">${by_value[0]?.count ? by_value[0].value : '<span class="exp-stat-empty">No info yet</span>'}</div></div>
+      <div class="stat-card"><div class="stat-label">Top value</div><div class="stat-value-sm">${by_value[0]?.count ? by_value[0].value : '<span class="exp-stat-empty">Not yet available</span>'}</div></div>
     </div>
 
     <div class="grid grid-2" style="margin-bottom:24px">
       <div class="card">
         <div class="card-header"><h3>Reflections by UWC value</h3></div>
-        <div class="card-body" style="height:340px">${by_value.some(v => v.count) ? '<canvas id="headExpByValue"></canvas>' : '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--gray-400);font-size:0.9rem">No info yet.</div>'}</div>
+        <div class="card-body" style="height:340px">${by_value.some(v => v.count) ? '<canvas id="headExpByValue"></canvas>' : '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--gray-400);font-size:0.9rem">Not yet available.</div>'}</div>
       </div>
       <div class="card">
         <div class="card-header"><h3>Reflections by category</h3></div>
-        <div class="card-body" style="height:340px">${by_category.length ? '<canvas id="headExpByCategory"></canvas>' : '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--gray-400);font-size:0.9rem">No info yet.</div>'}</div>
+        <div class="card-body" style="height:340px">${by_category.length ? '<canvas id="headExpByCategory"></canvas>' : '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--gray-400);font-size:0.9rem">Not yet available.</div>'}</div>
       </div>
     </div>
 
@@ -6943,9 +6945,9 @@ function paintHeadExpStudentsTable() {
     ? pageRows.map(s => `
         <tr>
           <td><strong>${escapeHtml(s.student_name || '')}</strong></td>
-          <td>${s.grade ? escapeHtml(s.grade) : '<span style="color:var(--gray-400)">No info yet</span>'}</td>
+          <td>${s.grade ? escapeHtml(s.grade) : '<span style="color:var(--gray-400)">Not yet available</span>'}</td>
           <td style="text-align:right;font-weight:600">${s.count}</td>
-          <td>${s.last_date ? formatExpDate(s.last_date) : '<span style="color:var(--gray-400)">No info yet</span>'}</td>
+          <td>${s.last_date ? formatExpDate(s.last_date) : '<span style="color:var(--gray-400)">Not yet available</span>'}</td>
         </tr>
       `).join('')
     : `<tr><td colspan="4" style="text-align:center;padding:24px;color:var(--gray-500)">No students match.</td></tr>`;
@@ -7398,7 +7400,7 @@ function editOrganization(orgIndex) {
 
 function copySuperInviteCode() {
   const code = document.getElementById('superInviteCode')?.textContent;
-  if (!code || code === 'N/A' || code === 'No info yet' || code === 'Loading...' || code === 'Error' || code === '—') return;
+  if (!code || code === 'N/A' || code === 'Not yet available' || code === 'Loading...' || code === 'Error' || code === '—') return;
   navigator.clipboard.writeText(code).then(() => toast(t('org.code_copied'), 'success')).catch(() => toast(t('org.copy_failed'), 'error'));
 }
 

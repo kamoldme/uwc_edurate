@@ -2271,6 +2271,18 @@ tbody tr:last-child td { border-bottom: none; }
 }
 .exp-back-btn { margin-bottom: 16px; }
 
+/* Empty placeholder used inside score cells so the surrounding scoreColor()
+   red/orange doesn't bleed onto a "no data yet" label. !important here is
+   load-bearing — the parent inline style="color: var(--danger)" wins
+   otherwise. Stays compact so a numeric score and the placeholder occupy
+   roughly the same visual footprint. */
+.score-empty {
+  color: var(--gray-400) !important;
+  font-style: italic;
+  font-weight: 500;
+  font-size: 0.85em;
+}
+
 /* Compact segmented control reused for the head's scope toggle (this term /
    all time). Same visual language as the larger pill controls elsewhere in
    the platform. */
