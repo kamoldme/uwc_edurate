@@ -2494,11 +2494,12 @@ tbody tr:last-child td { border-bottom: none; }
 /* Inner orbs hold their position on hover and selection — only the styling
    (border, background, shadow) changes. Scaling the orb pushed it visually
    off the ring and confused readability. Outer ring keeps its scale-on-hover
-   pop because outer is the primary action affordance. */
-.exp-orbit-node--inner:hover {
-  transform: none;
-}
-.exp-orbit-node--inner.is-selected {
+   pop because outer is the primary action affordance.
+
+   Specificity bump via the wrapper so this beats the base
+   `.exp-orbit-node.is-selected` rule that appears later in the cascade. */
+.exp-orbit-inner-wrap .exp-orbit-node--inner:hover,
+.exp-orbit-inner-wrap .exp-orbit-node--inner.is-selected {
   transform: none;
 }
 .exp-orbit-info-btn {
