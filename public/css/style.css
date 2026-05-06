@@ -2421,8 +2421,58 @@ tbody tr:last-child td { border-bottom: none; }
 .exp-orbit-node--outer { width: 20%; aspect-ratio: 1 / 1; }
 /* Inner is sized so that even when an outer node hovers (scale 1.18) it
    doesn't overlap. Outer hovered inner-edge ≈ 47 − 11.8 = 35.2%. Inner
-   outer-edge = 26 + 8 = 34% → ~1.2% safe gap. */
-.exp-orbit-node--inner { width: 16%; aspect-ratio: 1 / 1; color: #475569; }
+   outer-edge = 26 + 8 = 34% → ~1.2% safe gap. The inner node lives inside
+   a wrapper so we can pin a small info "i" badge on its top-right corner. */
+.exp-orbit-inner-wrap {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  width: 16%;
+  aspect-ratio: 1 / 1;
+}
+.exp-orbit-node--inner {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  transform: none;
+  aspect-ratio: 1 / 1;
+  color: #475569;
+}
+.exp-orbit-node--inner:hover {
+  transform: scale(1.06);
+}
+.exp-orbit-node--inner.is-selected {
+  transform: scale(1.08);
+}
+.exp-orbit-info-btn {
+  position: absolute;
+  top: -2px;
+  right: -2px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #fff;
+  border: 1.5px solid #c7d2fe;
+  color: #4f46e5;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 0;
+  z-index: 4;
+  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.08);
+  transition: background 0.12s ease, color 0.12s ease, transform 0.1s ease, border-color 0.12s ease;
+}
+.exp-orbit-info-btn:hover {
+  background: #4f46e5;
+  color: #fff;
+  border-color: #4f46e5;
+  transform: scale(1.12);
+}
+.exp-orbit-info-btn svg { width: 12px; height: 12px; }
+@media (max-width: 540px) {
+  .exp-orbit-info-btn { width: 18px; height: 18px; }
+  .exp-orbit-info-btn svg { width: 10px; height: 10px; }
+}
 /* Outer ring text uses the inscribed square inside the circle (≈71% of
    diameter). Text wraps inside that square instead of spilling out, so
    it can be visibly bigger without breaking the orbit's clean silhouette.
@@ -2441,7 +2491,13 @@ tbody tr:last-child td { border-bottom: none; }
   overflow-wrap: anywhere;
   hyphens: auto;
 }
-.exp-orbit-node--inner .exp-orbit-node-label { color: inherit; }
+.exp-orbit-node--inner .exp-orbit-node-label {
+  color: inherit;
+  width: 100%;
+  margin: 0;
+  font-size: 0.68rem;
+  line-height: 1.18;
+}
 .exp-orbit-node.is-selected {
   background: #4f46e5;
   border-color: #4f46e5;
@@ -2452,25 +2508,6 @@ tbody tr:last-child td { border-bottom: none; }
 }
 .exp-orbit-node.is-selected .exp-orbit-node-label { color: #fff; }
 
-/* "+" add-category node — visually distinct so users read it as an action,
-   not another category. Dashed border, gray when idle, primary on hover. */
-.exp-orbit-node--add {
-  border-style: dashed;
-  border-color: #cbd5e1;
-  color: #94a3b8;
-  background: #f8fafc;
-}
-.exp-orbit-node--add:hover {
-  border-style: solid;
-  border-color: #4f46e5;
-  color: #4f46e5;
-  background: #eef2ff;
-}
-.exp-orbit-node-add-icon {
-  font-size: 1.6rem;
-  font-weight: 300;
-  line-height: 1;
-}
 
 .exp-orbit-panel {
   background: #fff;

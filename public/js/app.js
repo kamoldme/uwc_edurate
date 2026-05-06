@@ -241,7 +241,7 @@ function buildNavigation() {
       { id: 'student-classrooms', label: t('nav.my_classrooms'), icon: 'classroom' },
       { id: 'student-review', label: t('nav.write_review'), icon: 'review' },
       { id: 'student-my-reviews', label: t('nav.my_reviews'), icon: 'chart' },
-      { id: 'student-experiences', label: 'Experience Map', icon: 'review' },
+      { id: 'student-experiences', label: 'UWC Experience Map', icon: 'review' },
       { id: 'student-comms', label: 'Communication', icon: 'chatBubble' },
       { id: 'help', label: 'Help', icon: 'help' }
     ];
@@ -260,7 +260,7 @@ function buildNavigation() {
       { id: 'head-teachers', label: t('nav.teachers'), icon: 'users' },
       { id: 'head-classrooms', label: t('nav.classrooms'), icon: 'classroom' },
       { id: 'head-analytics', label: t('nav.analytics'), icon: 'chart' },
-      { id: 'head-experiences', label: 'Experience Map', icon: 'review' },
+      { id: 'head-experiences', label: 'UWC Experience Map', icon: 'review' },
       { id: 'admin-departments', label: 'Departments', icon: 'department' },
       { id: 'head-comms', label: 'Communication', icon: 'chatBubble' },
       { id: 'help', label: 'Help', icon: 'help' }
@@ -323,8 +323,8 @@ function navigateTo(view) {
     'student-classrooms': t('title.my_classrooms'),
     'student-review': t('title.write_review'),
     'student-my-reviews': t('title.my_reviews'),
-    'student-experiences': 'Experience Map',
-    'head-experiences': 'Experience Map',
+    'student-experiences': 'UWC Experience Map',
+    'head-experiences': 'UWC Experience Map',
     'teacher-home': t('title.teacher_dashboard'),
     'teacher-classrooms': t('title.my_classrooms'),
     'teacher-feedback': t('title.student_feedback'),
@@ -6167,7 +6167,7 @@ async function renderAdminAudit(page = 1) {
   `;
 }
 
-// ============ EXPERIENCE MAP ============
+// ============ UWC EXPERIENCE MAP ============
 //
 // Student-authored reflections tied to UWC values. Privacy: Model B — every
 // reflection is visible to the head of school (by name) and to admins (via
@@ -6233,7 +6233,7 @@ function paintStudentExperiences() {
   const backBtn = `<button class="btn btn-outline btn-sm exp-back-btn" onclick="expSetTab('hub')">← Back</button>`;
   el.innerHTML = `
     <div class="exp-hero">
-      <h1 class="exp-hero-title">EXPERIENCE MAP</h1>
+      <h1 class="exp-hero-title">UWC EXPERIENCE MAP</h1>
       <p class="exp-hero-sub">Every moment is a landmark. Map your journey through our shared values.</p>
     </div>
     ${backBtn}
@@ -6244,11 +6244,11 @@ function paintStudentExperiences() {
 function renderExpHub(count) {
   return `
     <div class="exp-hero">
-      <h1 class="exp-hero-title">EXPERIENCE MAP</h1>
+      <h1 class="exp-hero-title">UWC EXPERIENCE MAP</h1>
       <p class="exp-hero-sub">Every moment is a landmark. Map your journey through our shared values.</p>
     </div>
     <div class="exp-hub">
-      <div class="exp-hub-card" onclick="expSetTab('create')" tabindex="0" onkeydown="if(event.key==='Enter')expSetTab('create')" role="button" aria-label="Create an Experience Map">
+      <div class="exp-hub-card" onclick="expSetTab('create')" tabindex="0" onkeydown="if(event.key==='Enter')expSetTab('create')" role="button" aria-label="Create a UWC Experience Map">
         <div class="exp-hub-icon">
           <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
             <circle cx="12" cy="12" r="9"/>
@@ -6259,11 +6259,11 @@ function renderExpHub(count) {
             <circle cx="3"  cy="12" r="1.4" fill="currentColor"/>
           </svg>
         </div>
-        <div class="exp-hub-title">Create an Experience Map</div>
+        <div class="exp-hub-title">Create a UWC Experience Map</div>
         <div class="exp-hub-desc">Pick an experience, connect it to UWC values, and capture what it meant to you.</div>
         <div class="exp-hub-arrow">→</div>
       </div>
-      <div class="exp-hub-card" onclick="expSetTab('my')" tabindex="0" onkeydown="if(event.key==='Enter')expSetTab('my')" role="button" aria-label="My Experience Maps">
+      <div class="exp-hub-card" onclick="expSetTab('my')" tabindex="0" onkeydown="if(event.key==='Enter')expSetTab('my')" role="button" aria-label="My UWC Experience Maps">
         <div class="exp-hub-icon">
           <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
             <path d="M9 4 3 6v14l6-2 6 2 6-2V4l-6 2-6-2z"/>
@@ -6271,7 +6271,7 @@ function renderExpHub(count) {
             <path d="M15 6v14"/>
           </svg>
         </div>
-        <div class="exp-hub-title">My Experience Maps ${count ? `<span class="exp-hub-count">${count}</span>` : ''}</div>
+        <div class="exp-hub-title">My UWC Experience Maps ${count ? `<span class="exp-hub-count">${count}</span>` : ''}</div>
         <div class="exp-hub-desc">Browse, search, edit, or delete the moments you've already mapped.</div>
         <div class="exp-hub-arrow">→</div>
       </div>
@@ -6343,8 +6343,8 @@ function renderExpMyTab(config, experiences) {
         ? `<div class="exp-empty-state">
             <div class="exp-empty-icon">📍</div>
             <h3>No reflections yet</h3>
-            <p>Switch to "Create an Experience Map" to capture your first moment.</p>
-            <button class="btn btn-primary" onclick="expSetTab('create')">Create an Experience Map</button>
+            <p>Switch to "Create a UWC Experience Map" to capture your first moment.</p>
+            <button class="btn btn-primary" onclick="expSetTab('create')">Create a UWC Experience Map</button>
           </div>`
         : filtered.length === 0
           ? `<div class="exp-empty-state exp-empty-state--filtered">
@@ -6396,9 +6396,21 @@ function expCardHTML(e, config) {
 
 let _expDraft = { category: null, values: [] };
 
-// Full UWC value + category names live in the orbit. Long phrases overflow
-// the circle visually (CSS allows the label to extend slightly beyond the
-// orb so things like "Personal responsibility and integrity" stay legible).
+// Outer ring uses the full category names. Inner ring shows a 1-2 word short
+// label inside the circle (so the orb stays compact) plus a small "i" badge
+// that reveals the full UWC value name in a modal. Hover tooltip is also
+// wired via the title attribute as a fallback.
+const EXP_VALUE_SHORT = {
+  'Intercultural understanding': 'Intercultural',
+  'Celebration of difference': 'Diversity',
+  'Personal responsibility and integrity': 'Integrity',
+  'Mutual responsibility and respect': 'Mutual respect',
+  'Compassion and service': 'Compassion',
+  'Respect for the environment': 'Environment',
+  'A sense of idealism': 'Idealism',
+  'Personal challenge': 'Challenge',
+  'Action and personal example': 'Action',
+};
 
 function expOrbitPosition(index, total, radiusPct) {
   // Place item index on a circle, top of circle = index 0.
@@ -6408,25 +6420,17 @@ function expOrbitPosition(index, total, radiusPct) {
   return { x, y };
 }
 
-function expGetAllCategories(config, experiences, draft) {
-  // Standard categories plus AT MOST ONE temporary custom slot from the
-  // current draft. The custom slot is per-session: it disappears after
-  // save (draft is reset) and a second "+" replaces it instead of stacking.
-  const seen = new Set();
-  const out = [];
-  const push = (c) => { if (c && !seen.has(c)) { seen.add(c); out.push(c); } };
-  (config.categories || []).forEach(push);
-  const custom = ((draft && draft.customCategories) || [])[0];
-  if (custom) push(custom);
-  return out;
+function expGetAllCategories(config) {
+  // Outer ring is now a fixed list of UWC categories. Custom "+" was
+  // removed in favour of a permanent "Global Issues Forum (GIFs)" slot.
+  return [...(config.categories || [])];
 }
 
 function renderExpOrbitPicker(config) {
-  const cats = expGetAllCategories(config, _expCache.experiences, _expDraft);
+  const cats = expGetAllCategories(config);
   const vals = config.values;
 
-  // Total slots on the outer ring = categories + the "+" add-new button.
-  const outerSlots = cats.length + 1;
+  const outerSlots = cats.length;
   const outerNodes = cats.map((c, i) => {
     const { x, y } = expOrbitPosition(i, outerSlots, 47);
     const isSelected = _expDraft.category === c;
@@ -6440,28 +6444,27 @@ function renderExpOrbitPicker(config) {
     </button>`;
   }).join('');
 
-  // "+" sits in the last slot. Different visual (dashed) so it reads as an
-  // action, not a category.
-  const addPos = expOrbitPosition(cats.length, outerSlots, 47);
-  const addNode = `<button type="button"
-    class="exp-orbit-node exp-orbit-node--outer exp-orbit-node--add"
-    style="left:${addPos.x}%;top:${addPos.y}%"
-    onclick="expOpenAddCategory()"
-    title="Add a custom experience">
-    <span class="exp-orbit-node-add-icon">+</span>
-  </button>`;
-
   const innerNodes = vals.map((v, i) => {
     const { x, y } = expOrbitPosition(i, vals.length, 26);
     const isSelected = _expDraft.values.includes(v);
-    return `<button type="button"
-      class="exp-orbit-node exp-orbit-node--inner ${isSelected ? 'is-selected' : ''}"
-      style="left:${x}%;top:${y}%"
-      data-value="${escapeAttr(v)}"
-      onclick="expToggleValue('${escapeAttr(v).replace(/'/g, "\\'")}')"
-      title="${escapeAttr(v)}">
-      <span class="exp-orbit-node-label">${escapeHtml(v)}</span>
-    </button>`;
+    const shortLabel = EXP_VALUE_SHORT[v] || v;
+    const safeFull = escapeAttr(v).replace(/'/g, "\\'");
+    return `<div class="exp-orbit-inner-wrap" style="left:${x}%;top:${y}%">
+      <button type="button"
+        class="exp-orbit-node exp-orbit-node--inner ${isSelected ? 'is-selected' : ''}"
+        data-value="${escapeAttr(v)}"
+        onclick="expToggleValue('${safeFull}')"
+        title="${escapeAttr(v)}">
+        <span class="exp-orbit-node-label">${escapeHtml(shortLabel)}</span>
+      </button>
+      <button type="button"
+        class="exp-orbit-info-btn"
+        onclick="expShowValueInfo('${safeFull}')"
+        aria-label="What does ${escapeAttr(v)} mean?"
+        title="View full name">
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+      </button>
+    </div>`;
   }).join('');
 
   const valueChips = _expDraft.values.length === 0
@@ -6478,7 +6481,6 @@ function renderExpOrbitPicker(config) {
           <div class="exp-orbit-center-count"><span id="expValueCount">${_expDraft.values.length}</span>/3 VALUES</div>
         </div>
         ${outerNodes}
-        ${addNode}
         ${innerNodes}
       </div>
       <aside class="exp-orbit-panel">
@@ -6494,7 +6496,7 @@ function renderExpOrbitPicker(config) {
         <div class="exp-orbit-panel-divider"></div>
         <form id="expOrbitForm" onsubmit="expSaveOrbital(event)">
           <input type="text" id="expOrbitTitle" class="form-control exp-orbit-input" placeholder="Title" maxlength="${config.limits.max_title}" required>
-          <textarea id="expOrbitReflection" class="form-control exp-orbit-textarea" rows="5" minlength="${config.limits.min_reflection}" maxlength="${config.limits.max_reflection}" placeholder="How did this moment shape your perspective?" required oninput="document.getElementById('expOrbitCounter').textContent = this.value.length"></textarea>
+          <textarea id="expOrbitReflection" class="form-control exp-orbit-textarea" rows="5" minlength="${config.limits.min_reflection}" maxlength="${config.limits.max_reflection}" placeholder="How did this experience develop your understanding of the UWC values?" required oninput="document.getElementById('expOrbitCounter').textContent = this.value.length"></textarea>
           <div class="exp-orbit-counter"><span id="expOrbitCounter">0</span> / ${config.limits.max_reflection} (min ${config.limits.min_reflection})</div>
           <button type="submit" class="exp-orbit-save">CAPTURE THIS MOMENT</button>
         </form>
@@ -6508,44 +6510,19 @@ window.expSelectCategory = function (cat) {
   expRepaintOrbit();
 };
 
-window.expOpenAddCategory = function () {
+window.expShowValueInfo = function (fullName) {
   openModal(`
-    <form onsubmit="expSubmitNewCategory(event)">
-      <div class="modal-header">
-        <h3>Add a custom experience</h3>
-        <button type="button" class="modal-close" onclick="closeModal()">&times;</button>
-      </div>
-      <div class="modal-body">
-        <div class="form-group">
-          <label for="expNewCategoryName">What is this experience?</label>
-          <input id="expNewCategoryName" type="text" class="form-control" placeholder="e.g. Sports Day, Sushi Night" maxlength="60" required>
-          <p style="font-size:0.78rem;color:var(--gray-500);margin-top:6px">It will appear as a new circle on the outer ring and be selected automatically.</p>
-        </div>
-      </div>
-      <div class="modal-footer">
-        <button type="button" class="btn btn-outline" onclick="closeModal()">Cancel</button>
-        <button type="submit" class="btn btn-primary">Add &amp; select</button>
-      </div>
-    </form>
+    <div class="modal-header">
+      <h3>UWC Value</h3>
+      <button type="button" class="modal-close" onclick="closeModal()">&times;</button>
+    </div>
+    <div class="modal-body" style="text-align:center;padding:32px 24px">
+      <div style="font-size:1.4rem;font-weight:700;color:#0f172a;line-height:1.35">${escapeHtml(fullName)}</div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-primary" onclick="closeModal()">Got it</button>
+    </div>
   `);
-  setTimeout(() => document.getElementById('expNewCategoryName')?.focus(), 50);
-};
-
-window.expSubmitNewCategory = function (e) {
-  e.preventDefault();
-  const raw = document.getElementById('expNewCategoryName').value;
-  const name = (raw || '').trim().replace(/\s+/g, ' ');
-  if (!name) return;
-  if (name.length > 60) {
-    toast('Custom experience name must be 60 characters or fewer.', 'error');
-    return;
-  }
-  // Single-slot policy: a fresh "+" always replaces the previous custom
-  // circle so we never accumulate ghost rings on the orbit.
-  _expDraft.customCategories = [name];
-  _expDraft.category = name;
-  closeModal();
-  paintStudentExperiences();
 };
 
 window.expToggleValue = function (v) {
