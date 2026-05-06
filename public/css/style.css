@@ -2765,6 +2765,11 @@ tbody tr:last-child td { border-bottom: none; }
   box-shadow: var(--shadow);
   padding: 20px 24px;
   transition: box-shadow 0.15s ease, transform 0.1s ease;
+  /* min-width:0 so the card respects its parent flex/grid track and long
+     content can shrink rather than overflow horizontally. overflow:hidden
+     is the safety net if a child still tries to escape. */
+  min-width: 0;
+  overflow: hidden;
 }
 .exp-card:hover { box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08); transform: translateY(-1px); }
 .exp-card--readonly:hover { box-shadow: var(--shadow); transform: none; }
@@ -2775,7 +2780,7 @@ tbody tr:last-child td { border-bottom: none; }
   gap: 12px;
   margin-bottom: 10px;
 }
-.exp-card-title { font-size: 1.02rem; margin: 0; color: var(--gray-800); line-height: 1.3; }
+.exp-card-title { font-size: 1.02rem; margin: 0; color: var(--gray-800); line-height: 1.3; overflow-wrap: anywhere; word-break: break-word; }
 .exp-card-meta { color: var(--gray-500); font-size: 0.78rem; margin-top: 4px; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 .exp-card-category { font-weight: 500; }
 .exp-card-dot { color: var(--gray-300); }
@@ -2792,6 +2797,12 @@ tbody tr:last-child td { border-bottom: none; }
   font-size: 0.9rem;
   line-height: 1.55;
   white-space: pre-wrap;
+  /* Break long unbroken strings (URLs, no-space text) so they don't push
+     past the card edge. anywhere is more aggressive than break-word and
+     handles the worst-case "one really long token" reflection. */
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  max-width: 100%;
 }
 
 .exp-empty-state {
