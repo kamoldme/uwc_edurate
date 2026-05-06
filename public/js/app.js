@@ -769,7 +769,7 @@ function scoreColor(score) {
 // When there's no value yet, return a neutral gray placeholder so the surrounding
 // scoreColor() red doesn't bleed onto a "no data" label.
 function fmtScore(val) {
-  if (val === null || val === undefined) return '<span class="score-empty">Not yet available</span>';
+  if (val === null || val === undefined) return '<span class="score-empty">N/A</span>';
   return Number(val).toFixed(2);
 }
 
@@ -2016,9 +2016,9 @@ async function renderTeacherClassrooms() {
                 <tr>
                   <td><strong>${escapeHtml(m.student_name)}</strong></td>
                   <td>${escapeHtml(m.group_name)}</td>
-                  <td>${m.grade ? escapeHtml(m.grade) : '<span style="color:var(--gray-400)">Not yet available</span>'}</td>
+                  <td>${m.grade ? escapeHtml(m.grade) : '<span style="color:var(--gray-400)">N/A</span>'}</td>
                   <td style="text-align:right;font-weight:600">${m.reflection_count}</td>
-                  <td>${m.last_date ? formatExpDate(m.last_date) : '<span style="color:var(--gray-400)">Not yet available</span>'}</td>
+                  <td>${m.last_date ? formatExpDate(m.last_date) : '<span style="color:var(--gray-400)">N/A</span>'}</td>
                   <td style="text-align:right">
                     <button class="btn btn-sm ${m.reflection_count > 0 ? 'btn-primary' : 'btn-outline'}" ${m.reflection_count === 0 ? 'disabled' : ''} onclick="viewMenteeExperiences(${m.student_id})">View map</button>
                   </td>
@@ -3215,8 +3215,8 @@ async function renderHeadTeachers() {
         <strong>${escapeHtml(tchr.full_name)}</strong>
         ${tchr.is_mentor ? '<span style="font-size:0.65rem;background:#eef2ff;color:#4338ca;padding:2px 8px;border-radius:10px;font-weight:600;letter-spacing:0.04em;margin-left:6px;vertical-align:middle">MENTOR</span>' : ''}
       </td>
-      <td>${tchr.subject || '<span class="score-empty">Not yet available</span>'}</td>
-      <td>${tchr.department || '<span class="score-empty">Not yet available</span>'}</td>
+      <td>${tchr.subject || '<span class="score-empty">N/A</span>'}</td>
+      <td>${tchr.department || '<span class="score-empty">N/A</span>'}</td>
       <td style="font-weight:600;color:${scoreColor(tchr.scores.avg_overall || 0)}">${fmtScore(tchr.scores.avg_overall)}</td>
       <td>${tchr.scores.review_count}</td>
       <td>${tchr.trend ? trendArrow(tchr.trend.trend) : '-'}</td>
@@ -3306,8 +3306,8 @@ async function renderHeadMentors() {
     <tr data-search="${escapeAttr([m.full_name, m.subject, m.department].filter(Boolean).join(' ').toLowerCase())}">
       <td style="text-align:center;font-weight:600;color:var(--gray-500)">${i + 1}</td>
       <td><strong>${escapeHtml(m.full_name)}</strong></td>
-      <td>${m.subject || '<span class="score-empty">Not yet available</span>'}</td>
-      <td>${m.department || '<span class="score-empty">Not yet available</span>'}</td>
+      <td>${m.subject || '<span class="score-empty">N/A</span>'}</td>
+      <td>${m.department || '<span class="score-empty">N/A</span>'}</td>
       <td style="font-weight:600;color:${scoreColor(m.scores.avg_overall || 0)}">${fmtScore(m.scores.avg_overall)}</td>
       <td>${m.scores.review_count}</td>
       <td>${m.group_count}</td>
@@ -3376,9 +3376,9 @@ window.viewMentorMentees = async function (mentorId, mentorName) {
                   <tr>
                     <td><strong>${escapeHtml(m.student_name)}</strong></td>
                     <td>${escapeHtml(m.group_name)}</td>
-                    <td>${m.grade ? escapeHtml(m.grade) : '<span style="color:var(--gray-400)">Not yet available</span>'}</td>
+                    <td>${m.grade ? escapeHtml(m.grade) : '<span style="color:var(--gray-400)">N/A</span>'}</td>
                     <td style="text-align:right;font-weight:600">${m.reflection_count}</td>
-                    <td>${m.last_date ? formatExpDate(m.last_date) : '<span style="color:var(--gray-400)">Not yet available</span>'}</td>
+                    <td>${m.last_date ? formatExpDate(m.last_date) : '<span style="color:var(--gray-400)">N/A</span>'}</td>
                     <td style="text-align:right">
                       <button class="btn btn-sm ${m.reflection_count > 0 ? 'btn-primary' : 'btn-outline'}" ${m.reflection_count === 0 ? 'disabled' : ''} onclick="closeModal();viewStudentExperiencesAsHead(${m.student_id})">View map</button>
                     </td>
@@ -7315,24 +7315,24 @@ function paintHeadExperiences() {
         <div class="stat-label">Top value</div>
         <div class="exp-top-tag-row">${topValue
           ? `<span class="exp-top-tag exp-top-tag--value">${escapeHtml(topValue.value)}</span><span class="exp-top-count">${topValue.count}×</span>`
-          : '<span class="score-empty">Not yet available</span>'}</div>
+          : '<span class="score-empty">N/A</span>'}</div>
       </div>
       <div class="stat-card exp-top-card">
         <div class="stat-label">Top experience</div>
         <div class="exp-top-tag-row">${topCategory
           ? `<span class="exp-top-tag exp-top-tag--experience">${escapeHtml(topCategory.category)}</span><span class="exp-top-count">${topCategory.count}×</span>`
-          : '<span class="score-empty">Not yet available</span>'}</div>
+          : '<span class="score-empty">N/A</span>'}</div>
       </div>
     </div>
 
     <div class="grid grid-2" style="margin-bottom:24px">
       <div class="card">
         <div class="card-header"><h3>Reflections by UWC value</h3></div>
-        <div class="card-body" style="height:340px">${by_value.some(v => v.count) ? '<canvas id="headExpByValue"></canvas>' : '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--gray-400);font-size:0.9rem">Not yet available.</div>'}</div>
+        <div class="card-body" style="height:340px">${by_value.some(v => v.count) ? '<canvas id="headExpByValue"></canvas>' : '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--gray-400);font-size:0.9rem">N/A.</div>'}</div>
       </div>
       <div class="card">
         <div class="card-header"><h3>Reflections by category</h3></div>
-        <div class="card-body" style="height:340px">${by_category.length ? '<canvas id="headExpByCategory"></canvas>' : '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--gray-400);font-size:0.9rem">Not yet available.</div>'}</div>
+        <div class="card-body" style="height:340px">${by_category.length ? '<canvas id="headExpByCategory"></canvas>' : '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--gray-400);font-size:0.9rem">N/A.</div>'}</div>
       </div>
     </div>
 
@@ -7418,9 +7418,9 @@ function paintHeadExpStudentsTable() {
     ? pageRows.map(s => `
         <tr>
           <td><strong>${escapeHtml(s.student_name || '')}</strong></td>
-          <td>${s.grade ? escapeHtml(s.grade) : '<span style="color:var(--gray-400)">Not yet available</span>'}</td>
+          <td>${s.grade ? escapeHtml(s.grade) : '<span style="color:var(--gray-400)">N/A</span>'}</td>
           <td style="text-align:right;font-weight:600">${s.count}</td>
-          <td>${s.last_date ? formatExpDate(s.last_date) : '<span style="color:var(--gray-400)">Not yet available</span>'}</td>
+          <td>${s.last_date ? formatExpDate(s.last_date) : '<span style="color:var(--gray-400)">N/A</span>'}</td>
           <td style="text-align:right">
             <button class="btn btn-sm ${s.count > 0 ? 'btn-primary' : 'btn-outline'}" ${s.count === 0 ? 'disabled' : ''} onclick="viewStudentExperiencesAsHead(${s.student_id})">View</button>
           </td>
@@ -7961,7 +7961,7 @@ function editOrganization(orgIndex) {
 
 function copySuperInviteCode() {
   const code = document.getElementById('superInviteCode')?.textContent;
-  if (!code || code === 'N/A' || code === 'Not yet available' || code === 'Loading...' || code === 'Error' || code === '—') return;
+  if (!code || code === 'N/A' || code === 'N/A' || code === 'Loading...' || code === 'Error' || code === '—') return;
   navigator.clipboard.writeText(code).then(() => toast(t('org.code_copied'), 'success')).catch(() => toast(t('org.copy_failed'), 'error'));
 }
 
