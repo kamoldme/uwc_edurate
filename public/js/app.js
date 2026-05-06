@@ -3556,6 +3556,18 @@ window.filterHeadMentors = function (raw) {
 
 async function renderHeadClassrooms() {
   const data = await cachedGet('/dashboard/school-head');
+  window._headClassroomsAll = data.classrooms || [];
+  paintHeadClassrooms();
+}
+
+function paintHeadClassrooms() {
+  const all = window._headClassroomsAll || [];
+  const filter = window._headClassroomFilter || 'all';
+  const visible = filter === 'mentor'
+    ? all.filter(c => (c.kind || 'academic') === 'mentor')
+    : filter === 'academic'
+      ? all.filter(c => (c.kind || 'academic') !== 'mentor')
+      : all;
   const el = document.getElementById('contentArea');
 
   el.innerHTML = `
@@ -3564,22 +3576,32 @@ async function renderHeadClassrooms() {
         <input id="headClassroomsSearch" type="search" class="form-control" placeholder="Search by subject, teacher, or grade" oninput="filterHeadClassrooms(this.value)" autocomplete="off" style="padding-left:36px">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--gray-400);pointer-events:none"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
       </div>
-      <span id="headClassroomsCount" style="font-size:0.78rem;color:var(--gray-500)">${data.classrooms.length} classroom${data.classrooms.length !== 1 ? 's' : ''}</span>
+      <span id="headClassroomsCount" style="font-size:0.78rem;color:var(--gray-500)">${visible.length} of ${all.length} classroom${all.length !== 1 ? 's' : ''}</span>
+    </div>
+    <div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap">
+      <button class="btn btn-sm ${filter === 'all' ? 'btn-primary' : 'btn-outline'}" onclick="setHeadClassroomFilter('all')">All</button>
+      <button class="btn btn-sm ${filter === 'academic' ? 'btn-primary' : 'btn-outline'}" onclick="setHeadClassroomFilter('academic')">Classrooms</button>
+      <button class="btn btn-sm ${filter === 'mentor' ? 'btn-primary' : 'btn-outline'}" onclick="setHeadClassroomFilter('mentor')">Mentor groups</button>
     </div>
     <div class="card">
       <div class="table-container">
         <table>
           <thead><tr><th>${t('common.subject')}</th><th>${t('common.teacher')}</th><th>${t('common.grade')}</th><th>${t('common.students')}</th><th>${t('common.actions')}</th></tr></thead>
           <tbody id="headClassroomsBody">
-            ${data.classrooms.map(c => `
-              <tr data-search="${escAttr([c.subject, c.teacher_name, c.grade_level].filter(Boolean).join(' ').toLowerCase())}">
-                <td><strong>${c.subject}</strong></td>
-                <td>${c.teacher_name}</td>
-                <td>${c.grade_level}</td>
-                <td><a href="#" onclick="event.preventDefault();viewHeadClassroomMembers(${c.id},'${c.subject.replace(/'/g, "\\'")}')" style="color:var(--primary);font-weight:600">${c.student_count || 0}</a></td>
-                <td><button class="btn btn-sm btn-outline" onclick="viewHeadClassroomMembers(${c.id},'${c.subject.replace(/'/g, "\\'")}')">${t('teacher.members')}</button></td>
-              </tr>
-            `).join('')}
+            ${visible.length === 0 ? `<tr><td colspan="5" style="text-align:center;color:var(--gray-500);padding:32px">No classrooms in this view.</td></tr>` : ''}
+            ${visible.map(c => {
+              const isMentor = (c.kind || 'academic') === 'mentor';
+              const subjectCell = `<strong>${escapeHtml(c.subject)}</strong>${isMentor ? ' <span style="font-size:0.65rem;background:#eef2ff;color:#4338ca;padding:2px 8px;border-radius:10px;font-weight:600;letter-spacing:0.04em;margin-left:4px;vertical-align:middle">MENTOR</span>' : ''}`;
+              return `
+                <tr data-search="${escAttr([c.subject, c.teacher_name, c.grade_level].filter(Boolean).join(' ').toLowerCase())}">
+                  <td>${subjectCell}</td>
+                  <td>${escapeHtml(c.teacher_name || '')}</td>
+                  <td>${escapeHtml(c.grade_level || '')}</td>
+                  <td><a href="#" onclick="event.preventDefault();viewHeadClassroomMembers(${c.id}, ${jsAttr(c.subject)})" style="color:var(--primary);font-weight:600">${c.student_count || 0}</a></td>
+                  <td><button class="btn btn-sm btn-outline" onclick="viewHeadClassroomMembers(${c.id}, ${jsAttr(c.subject)})">${t('teacher.members')}</button></td>
+                </tr>
+              `;
+            }).join('')}
             <tr id="headClassroomsEmpty" style="display:none"><td colspan="5" style="text-align:center;padding:32px;color:var(--gray-500);font-size:0.9rem">No classrooms match that search.</td></tr>
           </tbody>
         </table>
@@ -3587,6 +3609,11 @@ async function renderHeadClassrooms() {
     </div>
   `;
 }
+
+window.setHeadClassroomFilter = function (kind) {
+  window._headClassroomFilter = kind;
+  paintHeadClassrooms();
+};
 
 window.filterHeadClassrooms = function (raw) {
   const q = (raw || '').trim().toLowerCase();
