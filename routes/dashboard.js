@@ -188,7 +188,14 @@ router.get('/teacher/reviews', authenticate, authorize('teacher'), (req, res) =>
     const limit = 50;
     const offset = (page - 1) * limit;
 
-    const total = db.prepare('SELECT COUNT(*) as count FROM reviews WHERE teacher_id = ? AND approved_status = 1').get(teacher.id).count;
+    // Approved Reviews on the teacher Feedback tab is academic-only — mentor
+    // reviews never surface here (the page is the teacher's academic feedback
+    // home, no mentor cross-contamination).
+    const total = db.prepare(`
+      SELECT COUNT(*) as count FROM reviews
+      WHERE teacher_id = ? AND approved_status = 1
+        AND COALESCE(review_kind, 'teacher') != 'mentor'
+    `).get(teacher.id).count;
 
     const critCols2 = CRITERIA_COLS.map(c => `r.${c}`).join(', ');
     const reviews = db.prepare(`
@@ -200,6 +207,7 @@ router.get('/teacher/reviews', authenticate, authorize('teacher'), (req, res) =>
       JOIN terms t ON r.term_id = t.id
       JOIN classrooms c ON r.classroom_id = c.id
       WHERE r.teacher_id = ? AND r.approved_status = 1
+        AND COALESCE(r.review_kind, 'teacher') != 'mentor'
       ORDER BY r.created_at DESC
       LIMIT ? OFFSET ?
     `).all(teacher.id, limit, offset);
