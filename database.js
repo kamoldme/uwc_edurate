@@ -1292,6 +1292,27 @@ try {
   console.error('Migration error (reviews unique with classroom_id):', err.message);
 }
 
+// Migration: rename cohort labels from "Class of YYYY" → "YYYY-YYYY".
+// UWC IB DP is a 2-year program, so "Class of 2027" maps to entry-graduation
+// span "2025-2027". Idempotent: only updates rows still in the legacy format.
+try {
+  const cohortMap = {
+    'Class of 2026': '2024-2026',
+    'Class of 2027': '2025-2027',
+    'Class of 2028': '2026-2028',
+    'Class of 2029': '2027-2029',
+  };
+  const upd = db.prepare('UPDATE users SET grade_or_position = ? WHERE role = ? AND grade_or_position = ?');
+  let touched = 0;
+  for (const [oldLabel, newLabel] of Object.entries(cohortMap)) {
+    const r = upd.run(newLabel, 'student', oldLabel);
+    touched += r.changes;
+  }
+  if (touched > 0) console.log(`✅ Migration: relabeled ${touched} student cohort(s) from "Class of YYYY" to "YYYY-YYYY"`);
+} catch (err) {
+  console.error('Migration error (cohort label rename):', err.message);
+}
+
 // Seed the default admin only. Teacher / head / student accounts are created
 // through the admin UI on each deploy as needed — no need to seed them every
 // boot. The admin seed remains so a fresh DB is recoverable without DB access.

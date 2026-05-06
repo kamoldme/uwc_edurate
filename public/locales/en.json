@@ -266,7 +266,7 @@
   "admin.full_name": "Full Name",
   "admin.password": "Password",
   "admin.grade_position_label": "Cohort / Year / Position",
-  "admin.grade_position_placeholder": "e.g. Class of 2027 or Mathematics Teacher",
+  "admin.grade_position_placeholder": "e.g. 2025-2027 or Mathematics Teacher",
   "admin.years_experience": "Years of Experience",
   "admin.user_created": "User created",
   "admin.fill_required": "Fill required fields",

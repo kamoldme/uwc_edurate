@@ -2141,7 +2141,7 @@ async function showCreateClassroomTeacher() {
       </div>
       <div class="form-group">
         <label id="newGradeLabel">Cohort / Year</label>
-        <input type="text" class="form-control" id="newGradeLevel" placeholder="e.g. Class of 2027">
+        <input type="text" class="form-control" id="newGradeLevel" placeholder="e.g. 2025-2027">
       </div>
     </div>
     <div class="modal-footer">
@@ -2161,7 +2161,7 @@ window.onCreateClassroomKindToggle = function (isMentorGroup) {
   if (subjectLabel) subjectLabel.textContent = isMentorGroup ? 'Mentor group name' : t('common.subject');
   if (subjectInput) subjectInput.placeholder = isMentorGroup ? "e.g. Yaro's Mentor Group" : t('teacher.subject_placeholder');
   if (gradeLabel) gradeLabel.textContent = 'Cohort / Year';
-  if (gradeInput) gradeInput.placeholder = 'e.g. Class of 2027';
+  if (gradeInput) gradeInput.placeholder = 'e.g. 2025-2027';
 };
 
 async function createClassroomTeacher() {
@@ -4816,10 +4816,10 @@ async function showCreateUser() {
         <label id="newUserGradeLabel">Cohort / Year</label>
         <select class="form-control" id="newUserGrade">
           <option value="">Choose cohort / year</option>
-          <option value="Class of 2026">Class of 2026</option>
-          <option value="Class of 2027">Class of 2027</option>
-          <option value="Class of 2028">Class of 2028</option>
-          <option value="Class of 2029">Class of 2029</option>
+          <option value="2024-2026">2024-2026</option>
+          <option value="2025-2027">2025-2027</option>
+          <option value="2026-2028">2026-2028</option>
+          <option value="2027-2029">2027-2029</option>
         </select>
         <input type="text" class="form-control" id="newUserGradeText" placeholder="e.g. Senior Teacher" style="display:none;margin-top:8px">
       </div>
@@ -4929,9 +4929,9 @@ function editUser(user) {
         ${user.role === 'student' ? `
           <select class="form-control" id="editUserGrade">
             <option value="">Choose cohort / year</option>
-            ${['Class of 2026','Class of 2027','Class of 2028','Class of 2029'].map(opt =>
+            ${['2024-2026','2025-2027','2026-2028','2027-2029'].map(opt =>
               `<option value="${opt}" ${user.grade_or_position === opt ? 'selected' : ''}>${opt}</option>`).join('')}
-            ${user.grade_or_position && !['Class of 2026','Class of 2027','Class of 2028','Class of 2029'].includes(user.grade_or_position)
+            ${user.grade_or_position && !['2024-2026','2025-2027','2026-2028','2027-2029'].includes(user.grade_or_position)
               ? `<option value="${escapeAttr(user.grade_or_position)}" selected>${escapeHtml(user.grade_or_position)}</option>` : ''}
           </select>
         ` : `
@@ -5559,7 +5559,7 @@ window.onAdminCreateClassroomKindToggle = function (isMentorGroup) {
   if (subjectLabel) subjectLabel.textContent = isMentorGroup ? 'Mentor group name' : t('admin.subject_required');
   if (subjectInput) subjectInput.placeholder = isMentorGroup ? "e.g. Yaro's Mentor Group" : t('admin.subject_placeholder');
   if (gradeLabel) gradeLabel.textContent = 'Cohort / Year';
-  if (gradeInput) gradeInput.placeholder = 'e.g. Class of 2027';
+  if (gradeInput) gradeInput.placeholder = 'e.g. 2025-2027';
   if (teacherLabel) teacherLabel.textContent = isMentorGroup ? 'Mentor' : t('admin.teacher_required');
   if (teacherSelect) {
     [...teacherSelect.options].forEach(opt => {

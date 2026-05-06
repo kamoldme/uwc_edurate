@@ -39,8 +39,9 @@
     .pilot-warn code { background: #fee2e2; padding: 1px 6px; border-radius: 4px; font-size: 0.9em; }
 
     /* Graduation-class dropdown — replaces the prior DP1/DP2 segmented
-       toggle. The cohort label is durable across years (a "Class of 2027"
-       student is still Class of 2027 next year, so no rollover hack). */
+       toggle. The cohort label is durable across years (a "2025-2027"
+       student is still 2025-2027 next year, so no rollover hack). The
+       format is entry-year–graduation-year, matching the 2-year IB DP. */
     .grade-label {
       display: block; text-align: center;
       font-size: 0.85rem; font-weight: 500; color: #334155;
@@ -92,10 +93,10 @@
       <div class="grade-label">Your cohort / year</div>
       <select id="gradeSelect" class="form-control" onchange="selectGrade(this.value)" style="width:100%;padding:12px 14px;border:2px solid #e2e8f0;border-radius:10px;font-size:0.95rem;font-family:inherit;background:#fff;color:#0f172a">
         <option value="">Choose your cohort / year</option>
-        <option value="Class of 2026">Class of 2026</option>
-        <option value="Class of 2027">Class of 2027</option>
-        <option value="Class of 2028">Class of 2028</option>
-        <option value="Class of 2029">Class of 2029</option>
+        <option value="2024-2026">2024-2026</option>
+        <option value="2025-2027">2025-2027</option>
+        <option value="2026-2028">2026-2028</option>
+        <option value="2027-2029">2027-2029</option>
       </select>
       <div class="grade-hint" id="gradeHint">Pick your cohort / year, then sign in with Google.</div>
 
