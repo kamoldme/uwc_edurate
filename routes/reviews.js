@@ -422,10 +422,22 @@ router.put('/:id', authenticate, authorize('student'), (req, res) => {
 });
 
 // POST /api/reviews/:id/flag - flag a review
+// Teachers can only flag reviews that are about themselves; otherwise a
+// teacher could grief a colleague's feedback queue. Heads and admins can
+// flag any review in their org for moderation.
 router.post('/:id/flag', authenticate, authorize('teacher', 'head', 'admin'), (req, res) => {
   try {
     const review = db.prepare('SELECT * FROM reviews WHERE id = ?').get(req.params.id);
     if (!review) return res.status(404).json({ error: 'Review not found' });
+
+    if (req.user.role === 'teacher') {
+      const teacher = db.prepare('SELECT id FROM teachers WHERE user_id = ?').get(req.user.id);
+      if (!teacher || review.teacher_id !== teacher.id) {
+        return res.status(403).json({ error: 'You can only flag reviews about yourself.' });
+      }
+    } else if (review.org_id && req.user.org_id && review.org_id !== req.user.org_id) {
+      return res.status(403).json({ error: 'Review does not belong to your organization' });
+    }
 
     db.prepare("UPDATE reviews SET flagged_status = 'flagged' WHERE id = ?").run(req.params.id);
 

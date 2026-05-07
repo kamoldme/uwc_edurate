@@ -45,7 +45,7 @@ const MAX_REFLECTION = 4000;
 const MAX_TITLE = 120;
 const MAX_CATEGORY = 60;
 
-function validatePayload(body) {
+function validatePayload(body, { requireDate = true } = {}) {
   const errors = [];
   const title = String(body.title || '').trim();
   const category = String(body.category || '').trim();
@@ -57,8 +57,11 @@ function validatePayload(body) {
   if (title.length > MAX_TITLE) errors.push(`Title must be at most ${MAX_TITLE} characters.`);
   if (!category) errors.push('Choose a category.');
   if (category.length > MAX_CATEGORY) errors.push(`Category must be at most ${MAX_CATEGORY} characters.`);
-  if (!date || isNaN(Date.parse(date))) errors.push('Pick a valid date.');
-  if (date) {
+  // Date is required on create; on edit it's immutable server-side, so we
+  // accept submissions that omit it. If a value is sent, it's still range-
+  // checked even though the UPDATE statement ignores it.
+  if (requireDate && (!date || isNaN(Date.parse(date)))) errors.push('Pick a valid date.');
+  if (date && !isNaN(Date.parse(date))) {
     const d = new Date(date);
     const today = new Date();
     today.setHours(23, 59, 59, 999);
@@ -157,12 +160,14 @@ router.patch('/:id', authenticate, authorize('student'), authorizeOrg, (req, res
   if (!existing) return res.status(404).json({ error: 'Not found' });
   if (existing.student_id !== req.user.id) return res.status(403).json({ error: 'Not your experience' });
 
-  const { errors, clean } = validatePayload(req.body);
+  // experience_date is immutable on edit; skip the required-date check so a
+  // payload that omits the field still validates. If the client does send
+  // one, validatePayload still range-checks it.
+  const { errors, clean } = validatePayload(req.body, { requireDate: false });
   if (errors.length) return res.status(400).json({ error: errors[0], errors });
 
-  // experience_date is immutable after creation. The client-side form hides
-  // the field; the server enforces it by always reusing the existing row's
-  // date, ignoring whatever the client submits.
+  // experience_date is immutable after creation. The server reuses the
+  // existing row's date, ignoring whatever the client submits.
   db.prepare(`
     UPDATE experiences
     SET title = ?, category = ?, values_json = ?, reflection = ?, updated_at = CURRENT_TIMESTAMP

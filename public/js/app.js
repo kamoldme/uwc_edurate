@@ -4925,6 +4925,7 @@ function editUser(user) {
           <option value="student" ${user.role === 'student' ? 'selected' : ''}>${t('common.student')}</option>
           <option value="teacher" ${user.role === 'teacher' ? 'selected' : ''}>${t('common.teacher')}</option>
           <option value="head" ${user.role === 'head' ? 'selected' : ''}>${t('common.school_head')}</option>
+          <option value="admin" ${user.role === 'admin' ? 'selected' : ''}>${t('common.admin') || 'Admin'}</option>
         </select>
       </div>
     </div>
@@ -5442,10 +5443,22 @@ window.setAdminClassroomFilter = function (kind) {
 };
 
 function showCreateClassroom() {
-  cachedGet('/admin/teachers', CACHE_TTL.medium).then(teachers => {
-    // Mentor toggle: only mentor-capable teachers (is_mentor=1) without an
-    // existing active mentor group are eligible. Server enforces the same.
-    const mentorEligible = teachers.filter(t => !!t.is_mentor);
+  Promise.all([
+    cachedGet('/admin/teachers', CACHE_TTL.medium),
+    // Pull current classrooms so we can hide mentors who already have an
+    // active mentor group from the eligibility count. Server still enforces
+    // 1-per-mentor on POST/PATCH; this is just so the toggle doesn't show
+    // up when there's nobody left to create a group for.
+    cachedGet('/admin/classrooms', CACHE_TTL.medium).catch(() => []),
+  ]).then(([teachers, classrooms]) => {
+    const mentorTeacherIdsWithActiveGroup = new Set(
+      (classrooms || [])
+        .filter(c => c.kind === 'mentor' && Number(c.active_status) === 1)
+        .map(c => c.teacher_id)
+    );
+    const mentorEligible = teachers.filter(t =>
+      !!t.is_mentor && !mentorTeacherIdsWithActiveGroup.has(t.id)
+    );
     openModal(`
       <div class="modal-header"><h3>${t('admin.create_classroom_title')}</h3><button class="modal-close" onclick="closeModal()">&times;</button></div>
       <div class="modal-body">

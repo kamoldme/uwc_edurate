@@ -244,7 +244,12 @@ router.get('/school-head', authenticate, authorize('head', 'admin'), authorizeOr
     // Heads now see all approved reviews. The teacher_private gate was over-
     // engineering — pilot heads need to course-correct during active periods,
     // not wait for them to close. Column stays so the toggle can come back.
-    const visFilter = '';
+    // The dashboard is academic-only: mentor reviews live in a separate
+    // criterion family and would otherwise inflate review counts and skew
+    // the rating distribution. The /school-head/mentors endpoint surfaces
+    // mentor data on a dedicated tab.
+    const academicOnly = "AND COALESCE(r.review_kind, 'teacher') != 'mentor'";
+    const visFilter = academicOnly;
 
     // 1 query: all teacher aggregate scores (classroom-weighted)
     const scoresData = db.prepare(`
@@ -273,7 +278,7 @@ router.get('/school-head', authenticate, authorize('head', 'admin'), authorizeOr
 
     // 1 query: monthly scores for trend — classroom-weighted, grouped by calendar month
     const classroomScoreExpr = CRITERIA_CONFIG.map(c => `AVG(r.${c.db_col})`).join(' + ');
-    const monthVisFilter = '';
+    const monthVisFilter = academicOnly;
     let monthData = [];
     if (activeTerm) {
       monthData = db.prepare(`
@@ -288,8 +293,8 @@ router.get('/school-head', authenticate, authorize('head', 'admin'), authorizeOr
             COUNT(r.id) as review_count,
             ROUND((${classroomScoreExpr}) / ${CRITERIA_COUNT}, 2) as classroom_score
           FROM feedback_periods fp
-          JOIN reviews r ON r.feedback_period_id = fp.id AND r.approved_status = 1 ${orgFilter2}
-          WHERE fp.term_id = ? ${monthVisFilter}
+          JOIN reviews r ON r.feedback_period_id = fp.id AND r.approved_status = 1 ${orgFilter2} ${monthVisFilter}
+          WHERE fp.term_id = ?
           GROUP BY month, r.teacher_id, r.classroom_id
         )
         GROUP BY month, teacher_id
@@ -345,10 +350,10 @@ router.get('/school-head', authenticate, authorize('head', 'admin'), authorizeOr
         let trendDir = null;
         if (validMonths.length >= 2) {
           const firstClassrooms = new Set(
-            db.prepare(`SELECT DISTINCT r.classroom_id FROM reviews r JOIN feedback_periods fp ON r.feedback_period_id = fp.id WHERE r.teacher_id = ? AND fp.term_id = ? AND strftime('%Y-%m', fp.start_date) = ? AND r.approved_status = 1`)
+            db.prepare(`SELECT DISTINCT r.classroom_id FROM reviews r JOIN feedback_periods fp ON r.feedback_period_id = fp.id WHERE r.teacher_id = ? AND fp.term_id = ? AND strftime('%Y-%m', fp.start_date) = ? AND r.approved_status = 1 ${academicOnly}`)
               .all(t.id, activeTerm.id, validMonths[0].month).map(r => r.classroom_id)
           );
-          const lastClassroomIds = db.prepare(`SELECT DISTINCT r.classroom_id FROM reviews r JOIN feedback_periods fp ON r.feedback_period_id = fp.id WHERE r.teacher_id = ? AND fp.term_id = ? AND strftime('%Y-%m', fp.start_date) = ? AND r.approved_status = 1`)
+          const lastClassroomIds = db.prepare(`SELECT DISTINCT r.classroom_id FROM reviews r JOIN feedback_periods fp ON r.feedback_period_id = fp.id WHERE r.teacher_id = ? AND fp.term_id = ? AND strftime('%Y-%m', fp.start_date) = ? AND r.approved_status = 1 ${academicOnly}`)
             .all(t.id, activeTerm.id, validMonths[validMonths.length - 1].month).map(r => r.classroom_id);
           const hasOverlap = lastClassroomIds.some(id => firstClassrooms.has(id));
           if (hasOverlap) {
@@ -537,7 +542,8 @@ router.get('/school-head/teacher/:id', authenticate, authorize('head', 'admin'),
     });
 
     const detailCritCols = CRITERIA_COLS.map(c => `r.${c}`).join(', ');
-    const detailVisFilter = '';
+    // Academic detail view: mentor reviews live on the head's mentor tab.
+    const detailVisFilter = "AND COALESCE(r.review_kind, 'teacher') != 'mentor'";
     const reviews = db.prepare(`
       SELECT r.overall_rating, ${detailCritCols},
         r.feedback_text, r.tags,
@@ -583,7 +589,8 @@ router.get('/departments/:name', authenticate, authorize('head', 'admin'), autho
     const deptInnerAvg = CRITERIA_CONFIG.map(c => `AVG(r.${c.db_col}) as avg_${c.slug}`).join(', ');
     const deptOuterAvg = CRITERIA_CONFIG.map(c => `ROUND(AVG(avg_${c.slug}), 2) as avg_${c.slug}`).join(', ');
     const deptSumExpr = CRITERIA_CONFIG.map(c => `AVG(avg_${c.slug})`).join(' + ');
-    const deptVisFilter = '';
+    // Department analytics is academic-only (mentor reviews don't have a department).
+    const deptVisFilter = "AND COALESCE(r.review_kind, 'teacher') != 'mentor'";
 
     const scoresData = db.prepare(`
       SELECT teacher_id,
@@ -617,7 +624,7 @@ router.get('/departments/:name', authenticate, authorize('head', 'admin'), autho
 
     // Trend: dept avg score by calendar month — classroom-weighted, all terms
     const deptClassroomScore = CRITERIA_CONFIG.map(c => `AVG(r.${c.db_col})`).join(' + ');
-    const deptTrendVis = '';
+    const deptTrendVis = "AND COALESCE(r.review_kind, 'teacher') != 'mentor'";
     const trend = db.prepare(`
       SELECT month, MIN(month_start) as month_start, term_name, term_id,
         SUM(review_count) as review_count,

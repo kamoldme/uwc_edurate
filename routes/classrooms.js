@@ -1,6 +1,6 @@
 const express = require('express');
 const db = require('../database');
-const { authenticate, authorize } = require('../middleware/auth');
+const { authenticate, authorize, authorizeOrg } = require('../middleware/auth');
 const { logAuditEvent } = require('../utils/audit');
 
 const router = express.Router();
@@ -10,8 +10,22 @@ function generateJoinCode() {
   return String(Math.floor(10000000 + Math.random() * 90000000));
 }
 
+// Returns a join code that does not collide with any existing classroom.
+// 8 digits give 90M codes; with hundreds of classrooms a collision is rare
+// but possible (~5% at ~3k codes), and a collision would silently route a
+// student to the wrong classroom on /classrooms/join. Retry up to 25 times,
+// then fall back so we never spin forever in a degenerate state.
+function uniqueJoinCode() {
+  const lookup = db.prepare('SELECT 1 FROM classrooms WHERE join_code = ?');
+  for (let i = 0; i < 25; i++) {
+    const code = generateJoinCode();
+    if (!lookup.get(code)) return code;
+  }
+  return generateJoinCode();
+}
+
 // GET /api/classrooms - list classrooms based on role
-router.get('/', authenticate, (req, res) => {
+router.get('/', authenticate, authorizeOrg, (req, res) => {
   try {
     const { role, id: userId } = req.user;
 
@@ -39,7 +53,8 @@ router.get('/', authenticate, (req, res) => {
         ORDER BY cm.joined_at DESC
       `).all(userId);
     } else {
-      // admin or school_head see all
+      // admin / school_head: scoped to the requester's org so cross-org
+      // classroom listings can't leak when a second tenant exists.
       classrooms = db.prepare(`
         SELECT c.*, t.name as term_name, te.full_name as teacher_name,
           te.avatar_url as teacher_avatar_url,
@@ -47,8 +62,9 @@ router.get('/', authenticate, (req, res) => {
         FROM classrooms c
         LEFT JOIN terms t ON c.term_id = t.id
         JOIN teachers te ON c.teacher_id = te.id
+        WHERE c.org_id = ?
         ORDER BY c.created_at DESC
-      `).all();
+      `).all(req.orgId);
     }
 
     res.json(classrooms);
@@ -105,7 +121,7 @@ router.post('/', authenticate, authorize('teacher', 'admin'), (req, res) => {
     // term_id is optional — classrooms persist across terms
     const resolvedTermId = term_id || null;
 
-    const join_code = generateJoinCode();
+    const join_code = uniqueJoinCode();
 
     const result = db.prepare(`
       INSERT INTO classrooms (teacher_id, subject, grade_level, term_id, join_code, org_id, kind)
@@ -135,7 +151,7 @@ router.post('/', authenticate, authorize('teacher', 'admin'), (req, res) => {
 });
 
 // GET /api/classrooms/:id - classroom detail
-router.get('/:id', authenticate, (req, res) => {
+router.get('/:id', authenticate, authorizeOrg, (req, res) => {
   try {
     const classroom = db.prepare(`
       SELECT c.*, t.name as term_name, te.full_name as teacher_name, te.subject as teacher_subject,
@@ -147,6 +163,23 @@ router.get('/:id', authenticate, (req, res) => {
     `).get(req.params.id);
 
     if (!classroom) return res.status(404).json({ error: 'Classroom not found' });
+
+    // Tenancy guard. Students need a stricter check (they have to be enrolled);
+    // every other authenticated role must at least share the classroom's org
+    // so a cross-tenant member-list leak is impossible.
+    if (req.user.role === 'student') {
+      const enrolled = db.prepare(
+        'SELECT 1 FROM classroom_members WHERE classroom_id = ? AND student_id = ? LIMIT 1'
+      ).get(classroom.id, req.user.id);
+      if (!enrolled) return res.status(403).json({ error: 'You are not a member of this classroom' });
+    } else if (req.user.role === 'teacher') {
+      const teacher = db.prepare('SELECT id FROM teachers WHERE user_id = ?').get(req.user.id);
+      if (!teacher || classroom.teacher_id !== teacher.id) {
+        return res.status(403).json({ error: 'Not your classroom' });
+      }
+    } else if (classroom.org_id !== req.orgId) {
+      return res.status(403).json({ error: 'Classroom does not belong to your organization' });
+    }
 
     const members = db.prepare(`
       SELECT cm.id, cm.joined_at, u.full_name, u.email, u.grade_or_position
@@ -214,7 +247,7 @@ router.post('/join', authenticate, authorize('student'), (req, res) => {
 });
 
 // PATCH /api/classrooms/:id - edit classroom (teacher owns it, or admin)
-router.patch('/:id', authenticate, authorize('teacher', 'admin'), (req, res) => {
+router.patch('/:id', authenticate, authorize('teacher', 'admin'), authorizeOrg, (req, res) => {
   try {
     const classroom = db.prepare('SELECT * FROM classrooms WHERE id = ?').get(req.params.id);
     if (!classroom) return res.status(404).json({ error: 'Classroom not found' });
@@ -224,11 +257,31 @@ router.patch('/:id', authenticate, authorize('teacher', 'admin'), (req, res) => 
       if (!teacher || classroom.teacher_id !== teacher.id) {
         return res.status(403).json({ error: 'Not your classroom' });
       }
+    } else if (classroom.org_id !== req.orgId) {
+      return res.status(403).json({ error: 'Classroom does not belong to your organization' });
     }
 
     const subject = req.body.subject?.trim() || classroom.subject;
     const grade_level = req.body.grade_level?.trim() || classroom.grade_level;
     const active_status = req.body.active_status !== undefined ? req.body.active_status : classroom.active_status;
+
+    // Mentor groups are 1-per-mentor while active. POST enforces this on
+    // creation; we also enforce it here so a mentor can't deactivate group A,
+    // create group B, then reactivate A and end up with two active mentor
+    // groups (which would corrupt /experiences/mentor/* and the head's mentor
+    // table, both of which assume one active mentor group per teacher).
+    if (
+      classroom.kind === 'mentor' &&
+      Number(active_status) === 1 &&
+      Number(classroom.active_status) === 0
+    ) {
+      const conflict = db.prepare(
+        "SELECT id FROM classrooms WHERE teacher_id = ? AND kind = 'mentor' AND active_status = 1 AND id != ?"
+      ).get(classroom.teacher_id, classroom.id);
+      if (conflict) {
+        return res.status(409).json({ error: 'This mentor already has another active mentor group. Deactivate it first.' });
+      }
+    }
 
     db.prepare('UPDATE classrooms SET subject = ?, grade_level = ?, active_status = ? WHERE id = ?')
       .run(subject, grade_level, active_status, req.params.id);
@@ -249,7 +302,7 @@ router.patch('/:id', authenticate, authorize('teacher', 'admin'), (req, res) => 
 });
 
 // DELETE /api/classrooms/:id - delete classroom (teacher owns it, or admin)
-router.delete('/:id', authenticate, authorize('teacher', 'admin'), (req, res) => {
+router.delete('/:id', authenticate, authorize('teacher', 'admin'), authorizeOrg, (req, res) => {
   try {
     const classroom = db.prepare('SELECT * FROM classrooms WHERE id = ?').get(req.params.id);
     if (!classroom) return res.status(404).json({ error: 'Classroom not found' });
@@ -259,6 +312,8 @@ router.delete('/:id', authenticate, authorize('teacher', 'admin'), (req, res) =>
       if (!teacher || classroom.teacher_id !== teacher.id) {
         return res.status(403).json({ error: 'Not your classroom' });
       }
+    } else if (classroom.org_id !== req.orgId) {
+      return res.status(403).json({ error: 'Classroom does not belong to your organization' });
     }
 
     db.prepare('DELETE FROM classrooms WHERE id = ?').run(req.params.id);
@@ -279,7 +334,7 @@ router.delete('/:id', authenticate, authorize('teacher', 'admin'), (req, res) =>
 });
 
 // POST /api/classrooms/:id/regenerate-code - teacher regenerates join code
-router.post('/:id/regenerate-code', authenticate, authorize('teacher', 'admin'), (req, res) => {
+router.post('/:id/regenerate-code', authenticate, authorize('teacher', 'admin'), authorizeOrg, (req, res) => {
   try {
     const classroom = db.prepare('SELECT * FROM classrooms WHERE id = ?').get(req.params.id);
     if (!classroom) return res.status(404).json({ error: 'Classroom not found' });
@@ -289,9 +344,11 @@ router.post('/:id/regenerate-code', authenticate, authorize('teacher', 'admin'),
       if (!teacher || classroom.teacher_id !== teacher.id) {
         return res.status(403).json({ error: 'Not your classroom' });
       }
+    } else if (classroom.org_id !== req.orgId) {
+      return res.status(403).json({ error: 'Classroom does not belong to your organization' });
     }
 
-    const newCode = generateJoinCode();
+    const newCode = uniqueJoinCode();
     db.prepare('UPDATE classrooms SET join_code = ? WHERE id = ?').run(newCode, req.params.id);
 
     logAuditEvent({
@@ -337,14 +394,25 @@ router.delete('/:id/leave', authenticate, authorize('student'), (req, res) => {
 });
 
 // GET /api/classrooms/:id/members - get members
-router.get('/:id/members', authenticate, authorize('teacher', 'admin', 'head', 'student'), (req, res) => {
+router.get('/:id/members', authenticate, authorize('teacher', 'admin', 'head', 'student'), authorizeOrg, (req, res) => {
   try {
-    // Students can only view members of classrooms they are enrolled in
+    const classroom = db.prepare('SELECT id, org_id, teacher_id FROM classrooms WHERE id = ?').get(req.params.id);
+    if (!classroom) return res.status(404).json({ error: 'Classroom not found' });
+
+    // Tenancy guard mirrors GET /:id — students must be enrolled, teachers
+    // must own the classroom, heads/admins must share the org.
     if (req.user.role === 'student') {
       const enrolled = db.prepare(
         'SELECT id FROM classroom_members WHERE classroom_id = ? AND student_id = ?'
       ).get(req.params.id, req.user.id);
       if (!enrolled) return res.status(403).json({ error: 'You are not a member of this classroom' });
+    } else if (req.user.role === 'teacher') {
+      const teacher = db.prepare('SELECT id FROM teachers WHERE user_id = ?').get(req.user.id);
+      if (!teacher || classroom.teacher_id !== teacher.id) {
+        return res.status(403).json({ error: 'Not your classroom' });
+      }
+    } else if (classroom.org_id !== req.orgId) {
+      return res.status(403).json({ error: 'Classroom does not belong to your organization' });
     }
 
     const members = db.prepare(`
@@ -363,7 +431,7 @@ router.get('/:id/members', authenticate, authorize('teacher', 'admin', 'head', '
 });
 
 // DELETE /api/classrooms/:id/members/:studentId - remove student from classroom (teacher/admin)
-router.delete('/:id/members/:studentId', authenticate, authorize('teacher', 'admin'), (req, res) => {
+router.delete('/:id/members/:studentId', authenticate, authorize('teacher', 'admin'), authorizeOrg, (req, res) => {
   try {
     const classroom = db.prepare('SELECT * FROM classrooms WHERE id = ?').get(req.params.id);
     if (!classroom) return res.status(404).json({ error: 'Classroom not found' });
@@ -373,6 +441,8 @@ router.delete('/:id/members/:studentId', authenticate, authorize('teacher', 'adm
       if (!teacher || classroom.teacher_id !== teacher.id) {
         return res.status(403).json({ error: 'Not your classroom' });
       }
+    } else if (classroom.org_id !== req.orgId) {
+      return res.status(403).json({ error: 'Classroom does not belong to your organization' });
     }
 
     const result = db.prepare(

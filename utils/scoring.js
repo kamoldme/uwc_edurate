@@ -7,6 +7,13 @@ const outerAvgCols = CRITERIA_CONFIG.map(c => `ROUND(AVG(avg_${c.slug}), 2) as a
 const sumExpr = CRITERIA_CONFIG.map(c => `AVG(avg_${c.slug})`).join(' + ');
 const classroomScoreExpr = CRITERIA_CONFIG.map(c => `AVG(r.${c.db_col})`).join(' + ');
 
+// All academic scoring helpers must exclude mentor reviews. Mentor reviews
+// share the reviews table but populate a separate column family
+// (mentor_c{1..5}_rating); without this filter their NULL teacher-criteria
+// rows count toward review_count and their overall_rating mixes into the
+// distribution / trend.
+const ACADEMIC_ONLY_FILTER = " AND COALESCE(r.review_kind, 'teacher') != 'mentor'";
+
 function calculateFinalScore(review) {
   const sum = CRITERIA_CONFIG.reduce((s, c) => s + (review[c.db_col] || 0), 0);
   return sum / CRITERIA_COUNT;
@@ -18,7 +25,7 @@ function calculateFinalScore(review) {
 function getTeacherScores(teacherId, options = {}) {
   const { classroomId, feedbackPeriodId, termId, visibilityRole } = options;
 
-  let where = 'WHERE r.teacher_id = ? AND r.approved_status = 1';
+  let where = 'WHERE r.teacher_id = ? AND r.approved_status = 1' + ACADEMIC_ONLY_FILTER;
   const params = [teacherId];
 
   if (classroomId) {
@@ -60,7 +67,7 @@ function getTeacherScores(teacherId, options = {}) {
 function getRatingDistribution(teacherId, options = {}) {
   const { classroomId, feedbackPeriodId, termId, visibilityRole } = options;
 
-  let where = 'WHERE r.teacher_id = ? AND r.approved_status = 1';
+  let where = 'WHERE r.teacher_id = ? AND r.approved_status = 1' + ACADEMIC_ONLY_FILTER;
   const params = [teacherId];
 
   if (classroomId) { where += ' AND r.classroom_id = ?'; params.push(classroomId); }
@@ -83,7 +90,7 @@ function getRatingDistribution(teacherId, options = {}) {
 
 function getTeacherTrend(teacherId, termId, visibilityRole) {
   void visibilityRole; // teacher_private gate disabled pre-pilot
-  const visFilter = '';
+  const visFilter = ACADEMIC_ONLY_FILTER;
 
   const monthRows = db.prepare(`
     SELECT strftime('%Y-%m', fp.start_date) as month,
@@ -92,8 +99,8 @@ function getTeacherTrend(teacherId, termId, visibilityRole) {
       COUNT(r.id) as review_count
     FROM feedback_periods fp
     JOIN reviews r ON r.feedback_period_id = fp.id
-      AND r.teacher_id = ? AND r.approved_status = 1
-    WHERE fp.term_id = ?${visFilter}
+      AND r.teacher_id = ? AND r.approved_status = 1 ${ACADEMIC_ONLY_FILTER}
+    WHERE fp.term_id = ?
     GROUP BY month
     ORDER BY month ASC
   `).all(teacherId, termId);
@@ -106,8 +113,8 @@ function getTeacherTrend(teacherId, termId, visibilityRole) {
           ROUND((${classroomScoreExpr}) / ${CRITERIA_COUNT}, 2) as classroom_score
         FROM feedback_periods fp
         JOIN reviews r ON r.feedback_period_id = fp.id
-          AND r.teacher_id = ? AND r.approved_status = 1
-        WHERE fp.term_id = ? AND strftime('%Y-%m', fp.start_date) = ?${visFilter}
+          AND r.teacher_id = ? AND r.approved_status = 1 ${ACADEMIC_ONLY_FILTER}
+        WHERE fp.term_id = ? AND strftime('%Y-%m', fp.start_date) = ?
         GROUP BY r.classroom_id
       )
     `).get(teacherId, termId, m.month);
@@ -125,7 +132,7 @@ function getTeacherTrend(teacherId, termId, visibilityRole) {
     SELECT DISTINCT r.classroom_id, c.subject, c.grade_level
     FROM reviews r
     JOIN classrooms c ON r.classroom_id = c.id
-    WHERE r.teacher_id = ? AND r.term_id = ? AND r.approved_status = 1
+    WHERE r.teacher_id = ? AND r.term_id = ? AND r.approved_status = 1 ${ACADEMIC_ONLY_FILTER}
   `).all(teacherId, termId);
 
   const classroomTrends = classrooms.map(cls => {
@@ -136,8 +143,8 @@ function getTeacherTrend(teacherId, termId, visibilityRole) {
         COUNT(r.id) as review_count
       FROM feedback_periods fp
       JOIN reviews r ON r.feedback_period_id = fp.id
-        AND r.teacher_id = ? AND r.classroom_id = ? AND r.approved_status = 1
-      WHERE fp.term_id = ?${visFilter}
+        AND r.teacher_id = ? AND r.classroom_id = ? AND r.approved_status = 1 ${ACADEMIC_ONLY_FILTER}
+      WHERE fp.term_id = ?
       GROUP BY month
       ORDER BY month ASC
     `).all(teacherId, cls.classroom_id, termId);
@@ -160,13 +167,15 @@ function getTeacherTrend(teacherId, termId, visibilityRole) {
       db.prepare(`
         SELECT DISTINCT r.classroom_id FROM reviews r
         JOIN feedback_periods fp ON r.feedback_period_id = fp.id
-        WHERE r.teacher_id = ? AND fp.term_id = ? AND strftime('%Y-%m', fp.start_date) = ? AND r.approved_status = 1
+        WHERE r.teacher_id = ? AND fp.term_id = ? AND strftime('%Y-%m', fp.start_date) = ?
+          AND r.approved_status = 1 ${ACADEMIC_ONLY_FILTER}
       `).all(teacherId, termId, firstMonth).map(r => r.classroom_id)
     );
     const lastClassroomIds = db.prepare(`
       SELECT DISTINCT r.classroom_id FROM reviews r
       JOIN feedback_periods fp ON r.feedback_period_id = fp.id
-      WHERE r.teacher_id = ? AND fp.term_id = ? AND strftime('%Y-%m', fp.start_date) = ? AND r.approved_status = 1
+      WHERE r.teacher_id = ? AND fp.term_id = ? AND strftime('%Y-%m', fp.start_date) = ?
+        AND r.approved_status = 1 ${ACADEMIC_ONLY_FILTER}
     `).all(teacherId, termId, lastMonth).map(r => r.classroom_id);
 
     const hasOverlap = lastClassroomIds.some(id => firstClassrooms.has(id));
@@ -182,7 +191,7 @@ function getTeacherTrend(teacherId, termId, visibilityRole) {
 }
 
 function getDepartmentAverage(department, termId, orgId, visibilityRole) {
-  let where = 't.department = ? AND r.approved_status = 1';
+  let where = "t.department = ? AND r.approved_status = 1 AND COALESCE(r.review_kind, 'teacher') != 'mentor'";
   const params = [department];
 
   if (termId) {

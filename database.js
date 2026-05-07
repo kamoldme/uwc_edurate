@@ -1292,6 +1292,20 @@ try {
   console.error('Migration error (reviews unique with classroom_id):', err.message);
 }
 
+// Migration: ensure classroom join_code values are unique. 8-digit numeric
+// codes are sparse but birthday-paradox collisions become possible at scale,
+// and a collision would silently route a student to the wrong classroom on
+// /api/classrooms/join. Idempotent — the index name encodes the constraint.
+try {
+  db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_classrooms_join_code_unique ON classrooms(join_code)');
+} catch (err) {
+  // Index creation can fail if duplicates already exist. Surface it loudly
+  // but don't crash boot — the application code uses uniqueJoinCode() to
+  // avoid creating new collisions; the duplicates can be reconciled in a
+  // follow-up migration.
+  console.error('Migration: idx_classrooms_join_code_unique failed (likely existing duplicates):', err.message);
+}
+
 // Migration: rename cohort labels from "Class of YYYY" → "YYYY-YYYY".
 // UWC IB DP is a 2-year program, so "Class of 2027" maps to entry-graduation
 // span "2025-2027". Idempotent: only updates rows still in the legacy format.
