@@ -2388,10 +2388,16 @@ tbody tr:last-child td { border-bottom: none; }
 }
 .exp-orbit-stage {
   position: relative;
-  width: 100%;
-  max-width: 720px;
+  /* Size the orbit relative to the smaller viewport dimension so browser
+     zoom (which scales CSS px proportionally) and viewport height changes
+     don't reflow the orbit at unpredictable thresholds. The clamp keeps
+     a sensible floor on tiny screens and a hard ceiling on large ones. */
+  width: min(100%, 720px, 72vmin);
   aspect-ratio: 1 / 1;
   margin: 0 auto;
+  /* Geometry of every node is pinned to this stage; isolate it so any
+     hovered orb's z-index lift doesn't affect outside stacking. */
+  isolation: isolate;
 }
 .exp-orbit-ring {
   position: absolute;
@@ -2446,17 +2452,23 @@ tbody tr:last-child td { border-bottom: none; }
      centered ribbon that breathes outside the circle when needed. */
   overflow: visible;
 }
+/* Hover/selection no longer change geometry — they were scaling the orb,
+   which (a) made nearby orbs overlap unpredictably, (b) caused the info
+   badge to graze the cursor and visibly jump, and (c) left a layout
+   "kick" at zoom thresholds where the grid reflowed. The visual cue is
+   carried entirely by border, shadow and color now; every orb stays
+   exactly on its ring. */
 .exp-orbit-node:hover {
-  transform: translate(-50%, -50%) scale(1.06);
   border-color: #6366f1;
   box-shadow: 0 6px 18px rgba(79, 70, 229, 0.18);
   z-index: 2;
 }
-/* Outer ring gets a stronger pop on hover so the label visibly grows; this
-   is the affordance — the orb is what you click, the text leaning out is
-   the cue. */
+/* Outer ring keeps the primary-affordance feel via a slightly bolder
+   border + stronger shadow rather than a scale. */
 .exp-orbit-node--outer:hover {
-  transform: translate(-50%, -50%) scale(1.18);
+  border-color: #4f46e5;
+  border-width: 2px;
+  box-shadow: 0 8px 22px rgba(79, 70, 229, 0.28);
 }
 .exp-orbit-node-label {
   font-size: 0.9rem;
@@ -2473,10 +2485,10 @@ tbody tr:last-child td { border-bottom: none; }
   color: inherit;
 }
 .exp-orbit-node--outer { width: 20%; aspect-ratio: 1 / 1; }
-/* Inner is sized so that even when an outer node hovers (scale 1.18) it
-   doesn't overlap. Outer hovered inner-edge ≈ 47 − 11.8 = 35.2%. Inner
-   outer-edge = 26 + 8 = 34% → ~1.2% safe gap. The inner node lives inside
-   a wrapper so we can pin a small info "i" badge on its top-right corner. */
+/* Outer-edge of inner = 26 + 8 = 34% of stage; outer-edge of an outer orb
+   pulled inward = 47 − 10 = 37% → ~3% safe gap. Hover no longer scales
+   either orb, so this gap is permanent. The inner orb lives inside a
+   wrapper so we can pin a small info "i" badge on its center-facing edge. */
 .exp-orbit-inner-wrap {
   position: absolute;
   transform: translate(-50%, -50%);
@@ -2491,17 +2503,9 @@ tbody tr:last-child td { border-bottom: none; }
   aspect-ratio: 1 / 1;
   color: #475569;
 }
-/* Inner orbs hold their position on hover and selection — only the styling
-   (border, background, shadow) changes. Scaling the orb pushed it visually
-   off the ring and confused readability. Outer ring keeps its scale-on-hover
-   pop because outer is the primary action affordance.
-
-   Specificity bump via the wrapper so this beats the base
-   `.exp-orbit-node.is-selected` rule that appears later in the cascade. */
-.exp-orbit-inner-wrap .exp-orbit-node--inner:hover,
-.exp-orbit-inner-wrap .exp-orbit-node--inner.is-selected {
-  transform: none;
-}
+/* The inner-specific transform override is no longer needed — base hover
+   and selection rules don't change geometry anymore. Kept as a comment
+   anchor in case selection visuals are revisited. */
 .exp-orbit-info-btn {
   /* Position-anchor at (left%, top%) within the wrapper, then translate by
      -50% so the badge is centered on the anchor. JS sets left/top inline so
@@ -2527,7 +2531,8 @@ tbody tr:last-child td { border-bottom: none; }
   background: #4f46e5;
   color: #fff;
   border-color: #4f46e5;
-  transform: translate(-50%, -50%) scale(1.12);
+  /* No scale: the badge sits on the orb's center-facing edge and any
+     scale change made it visually push the orb when the cursor grazed it. */
 }
 .exp-orbit-info-btn svg { width: 12px; height: 12px; }
 @media (max-width: 540px) {
@@ -2564,8 +2569,9 @@ tbody tr:last-child td { border-bottom: none; }
   border-color: #4f46e5;
   color: #fff;
   box-shadow: 0 8px 20px rgba(79, 70, 229, 0.32);
-  transform: translate(-50%, -50%) scale(1.08);
   z-index: 3;
+  /* No scale: selection is communicated by the filled background and the
+     deeper shadow; geometry stays pinned to the ring. */
 }
 .exp-orbit-node.is-selected .exp-orbit-node-label { color: #fff; }
 
