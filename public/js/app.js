@@ -986,8 +986,8 @@ async function renderStudentClassrooms() {
               </div>
             </div>
             <div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--gray-100);display:flex;justify-content:space-between;align-items:center;gap:8px">
-              <button class="btn btn-sm btn-outline" onclick="showClassroomMembers(${c.id}, '${c.subject.replace(/'/g, "\\'")}')">Members</button>
-              <button class="btn btn-sm btn-outline" style="color:var(--danger);border-color:var(--danger)" onclick="leaveClassroom(${c.id}, '${c.subject}')">${t('student.leave')}</button>
+              <button class="btn btn-sm btn-outline" onclick="showClassroomMembers(${c.id}, ${jsAttr(c.subject)})">Members</button>
+              <button class="btn btn-sm btn-outline" style="color:var(--danger);border-color:var(--danger)" onclick="leaveClassroom(${c.id}, ${jsAttr(c.subject)})">${t('student.leave')}</button>
             </div>
           </div>
         `).join('')}
@@ -2029,10 +2029,10 @@ async function renderTeacherClassrooms() {
               ${!isArchived ? `<button class="btn btn-sm btn-outline" onclick="regenerateCode(${c.id})">${t('teacher.new_code')}</button>` : ''}
               ${!isArchived ? `<button class="btn btn-sm btn-outline" onclick="editClassroomTeacher(${c.id}, ${jsAttr(c.subject)}, ${jsAttr(c.grade_level)}, ${jsAttr(c.kind || 'academic')})"> ${t('common.edit')}</button>` : ''}
               ${!isArchived
-                ? `<button class="btn btn-sm btn-outline" style="color:var(--gray-500)" onclick="archiveClassroomTeacher(${c.id}, '${c.subject.replace(/'/g, "\\'")}')"> ${t('teacher.archive')}</button>`
+                ? `<button class="btn btn-sm btn-outline" style="color:var(--gray-500)" onclick="archiveClassroomTeacher(${c.id}, ${jsAttr(c.subject)})"> ${t('teacher.archive')}</button>`
                 : `<button class="btn btn-sm btn-outline" onclick="unarchiveClassroomTeacher(${c.id})">${t('teacher.unarchive')}</button>`}
-              <button class="btn btn-sm btn-danger" onclick="deleteClassroomTeacher(${c.id}, '${c.subject.replace(/'/g, "\\'")}')"> ${t('common.delete')}</button>
-              <button class="btn btn-sm btn-primary" onclick="viewClassroomMembers(${c.id}, '${c.subject}')">${t('teacher.members')}</button>
+              <button class="btn btn-sm btn-danger" onclick="deleteClassroomTeacher(${c.id}, ${jsAttr(c.subject)})"> ${t('common.delete')}</button>
+              <button class="btn btn-sm btn-primary" onclick="viewClassroomMembers(${c.id}, ${jsAttr(c.subject)})">${t('teacher.members')}</button>
             </div>
           </div>
         </div>`;
