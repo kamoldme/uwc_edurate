@@ -611,6 +611,32 @@ function toast(message, type = 'success') {
   setTimeout(() => el.remove(), 4000);
 }
 
+// Disable a submit button + swap its label while an async action is in
+// flight, so users on flaky Wi-Fi don't double-tap and trigger the
+// duplicate-detection error path. Resolves with whatever the inner fn
+// returns; restores the button in a finally block even on throw.
+async function withSubmitting(btnOrEvent, label, fn) {
+  let btn = btnOrEvent;
+  if (btn && btn.preventDefault) {
+    // Pass the form-submit event in directly: pull its first submit button.
+    btn = btn.target?.querySelector?.('button[type="submit"], input[type="submit"]') || null;
+  }
+  if (!btn || btn.disabled) {
+    // No button (or already mid-submit) — just run the action; the UNIQUE
+    // constraints on the server still protect against duplicate submits.
+    return fn();
+  }
+  const original = btn.innerHTML;
+  btn.disabled = true;
+  btn.innerHTML = label || 'Submitting…';
+  try {
+    return await fn();
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = original;
+  }
+}
+
 function openModal(html) {
   document.getElementById('modalContent').innerHTML = html;
   document.getElementById('modalOverlay').classList.add('active');
@@ -996,38 +1022,46 @@ async function renderStudentClassrooms() {
 }
 
 function showJoinClassroom() {
+  // Wrap in a <form> so pressing Enter in the join-code input submits;
+  // students paste the 8-digit code and naturally hit Enter.
   openModal(`
-    <div class="modal-header"><h3>${t('student.join_modal_title')}</h3><button class="modal-close" onclick="closeModal()">&times;</button></div>
-    <div class="modal-body">
-      <div class="form-group">
-        <label>${t('student.join_code_label')}</label>
-        <input type="text" class="form-control" id="joinCodeInput" placeholder="XXXX-XXXX" maxlength="9" style="font-family:monospace;font-size:1.2rem;letter-spacing:3px;text-align:center" oninput="this.value=this.value.replace(/[^0-9]/g,'').slice(0,8);this.value=this.value.length>4?this.value.slice(0,4)+'-'+this.value.slice(4):this.value">
+    <form id="joinClassroomForm" onsubmit="joinClassroom(event)">
+      <div class="modal-header"><h3>${t('student.join_modal_title')}</h3><button type="button" class="modal-close" onclick="closeModal()">&times;</button></div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label>${t('student.join_code_label')}</label>
+          <input type="text" class="form-control" id="joinCodeInput" placeholder="XXXX-XXXX" maxlength="9" style="font-family:monospace;font-size:1.2rem;letter-spacing:3px;text-align:center" oninput="this.value=this.value.replace(/[^0-9]/g,'').slice(0,8);this.value=this.value.length>4?this.value.slice(0,4)+'-'+this.value.slice(4):this.value">
+        </div>
       </div>
-    </div>
-    <div class="modal-footer">
-      <button class="btn btn-outline" onclick="closeModal()">${t('common.cancel')}</button>
-      <button class="btn btn-primary" onclick="joinClassroom()">${t('student.join_btn')}</button>
-    </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline" onclick="closeModal()">${t('common.cancel')}</button>
+        <button type="submit" class="btn btn-primary">${t('student.join_btn')}</button>
+      </div>
+    </form>
   `);
   setTimeout(() => document.getElementById('joinCodeInput')?.focus(), 100);
 }
 
-async function joinClassroom() {
+async function joinClassroom(e) {
+  if (e && e.preventDefault) e.preventDefault();
   const code = document.getElementById('joinCodeInput').value.trim();
   if (!code) return toast(t('student.enter_join_code'), 'error');
-  try {
-    const data = await API.post('/classrooms/join', { join_code: code });
-    toast(data.message);
-    invalidateCache('/dashboard/student', '/classrooms', '/reviews/eligible-teachers');
-    closeModal();
-    navigateTo('student-classrooms');
-  } catch (err) { toast(err.message, 'error'); }
+  const submitBtn = e?.target?.querySelector('button[type="submit"]');
+  await withSubmitting(submitBtn, 'Joining…', async () => {
+    try {
+      const data = await API.post('/classrooms/join', { join_code: code });
+      toast(data.message);
+      invalidateCache('/dashboard/student', '/classrooms', '/reviews/eligible-teachers');
+      closeModal();
+      navigateTo('student-classrooms');
+    } catch (err) { toast(err.message, 'error'); }
+  });
 }
 
 async function showClassroomMembers(classroomId, subject) {
   openModal(`
     <div class="modal-header">
-      <h3>${subject} — Members</h3>
+      <h3>${escapeHtml(subject)} — Members</h3>
       <button class="modal-close" onclick="closeModal()">&times;</button>
     </div>
     <div class="modal-body" id="membersModalBody">
@@ -1270,6 +1304,7 @@ function setRating(btn) {
 async function submitReview(e, teacherId, classroomId) {
   e.preventDefault();
   const form = e.target;
+  const submitBtn = form.querySelector('button[type="submit"]');
   const isMentor = form.dataset.classroomKind === 'mentor';
   const cols = isMentor ? MENTOR_CRITERIA_COLS : CRITERIA_COLS;
   const count = cols.length;
@@ -1301,19 +1336,30 @@ async function submitReview(e, teacherId, classroomId) {
   }
   const feedbackText = form.querySelector('[name="feedback_text"]').value;
 
-  try {
-    await API.post('/reviews', {
-      teacher_id: teacherId,
-      classroom_id: classroomId,
-      overall_rating: overall,
-      ...ratingValues,
-      feedback_text: feedbackText,
-      tags: selectedTags
-    });
-    toast(t('student.review_submitted'));
-    invalidateCache('/dashboard/student', '/reviews/eligible-teachers', '/reviews/my-reviews');
-    navigateTo('student-review');
-  } catch (err) { toast(err.message, 'error'); }
+  await withSubmitting(submitBtn, t('common.submitting') || 'Submitting…', async () => {
+    try {
+      await API.post('/reviews', {
+        teacher_id: teacherId,
+        classroom_id: classroomId,
+        overall_rating: overall,
+        ...ratingValues,
+        feedback_text: feedbackText,
+        tags: selectedTags
+      });
+      toast(t('student.review_submitted'));
+      invalidateCache('/dashboard/student', '/reviews/eligible-teachers', '/reviews/my-reviews');
+      // Briefly flip the button to "Submitted ✓" + green so the user sees an
+      // explicit confirmation; without this the card just disappears on
+      // re-render and many students wonder if it really worked.
+      if (submitBtn) {
+        submitBtn.style.background = '#10b981';
+        submitBtn.style.borderColor = '#10b981';
+        submitBtn.innerHTML = 'Submitted ✓';
+      }
+      await new Promise(r => setTimeout(r, 700));
+      navigateTo('student-review');
+    } catch (err) { toast(err.message, 'error'); }
+  });
 }
 
 async function renderStudentMyReviews() {
@@ -1459,13 +1505,16 @@ async function submitReviewEdit(reviewId) {
   list.forEach(c => {
     body[c.db_col] = parseInt(document.getElementById(`edit_${c.slug}`).value);
   });
-  try {
-    await API.put(`/reviews/${reviewId}`, body);
-    toast(t('review.updated'));
-    invalidateCache('/reviews/my-reviews');
-    closeModal();
-    renderStudentMyReviews();
-  } catch (err) { toast(err.message, 'error'); }
+  const submitBtn = document.querySelector('#modalContent .btn-primary');
+  await withSubmitting(submitBtn, 'Saving…', async () => {
+    try {
+      await API.put(`/reviews/${reviewId}`, body);
+      toast(t('review.updated'));
+      invalidateCache('/reviews/my-reviews');
+      closeModal();
+      renderStudentMyReviews();
+    } catch (err) { toast(err.message, 'error'); }
+  });
 }
 
 async function viewTeacherProfile(teacherId) {
@@ -2063,43 +2112,52 @@ async function renderTeacherClassrooms() {
           </div>` : ''}
       `;
     })()}
-    ${isMentor && mentees.length > 0 ? `
+    ${isMentor ? `
       <div class="card" style="margin-top:32px">
         <div class="card-header" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
           <div>
             <h3>My mentees</h3>
             <p style="color:var(--gray-500);font-size:0.82rem;margin:4px 0 0">Read your mentees' UWC Experience Map reflections.</p>
           </div>
-          <span style="font-size:0.78rem;color:var(--gray-500)">${mentees.length} mentee${mentees.length !== 1 ? 's' : ''}</span>
+          ${mentees.length > 0 ? `<span style="font-size:0.78rem;color:var(--gray-500)">${mentees.length} mentee${mentees.length !== 1 ? 's' : ''}</span>` : ''}
         </div>
-        <div class="table-container">
-          <table>
-            <thead>
-              <tr>
-                <th>Name</th>
-                <th>Group</th>
-                <th>Cohort / Year</th>
-                <th style="text-align:right">Reflections</th>
-                <th>Last reflection</th>
-                <th style="text-align:right">${t('common.actions')}</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${mentees.map(m => `
+        ${mentees.length === 0 ? `
+          <div class="card-body">
+            <div class="empty-state" style="padding:24px 16px">
+              <h4 style="color:var(--gray-600);font-size:0.95rem;margin-bottom:6px">No mentees yet</h4>
+              <p style="color:var(--gray-500);font-size:0.85rem;margin:0">Share the join code from your mentor group above and your mentees will appear here once they sign in.</p>
+            </div>
+          </div>
+        ` : `
+          <div class="table-container">
+            <table>
+              <thead>
                 <tr>
-                  <td><strong>${escapeHtml(m.student_name)}</strong></td>
-                  <td>${escapeHtml(m.group_name)}</td>
-                  <td>${m.grade ? escapeHtml(m.grade) : '<span style="color:var(--gray-400)">N/A</span>'}</td>
-                  <td style="text-align:right;font-weight:600">${m.reflection_count}</td>
-                  <td>${m.last_date ? formatExpDate(m.last_date) : '<span style="color:var(--gray-400)">N/A</span>'}</td>
-                  <td style="text-align:right">
-                    <button class="btn btn-sm ${m.reflection_count > 0 ? 'btn-primary' : 'btn-outline'}" ${m.reflection_count === 0 ? 'disabled' : ''} onclick="viewMenteeExperiences(${m.student_id})">View map</button>
-                  </td>
+                  <th>Name</th>
+                  <th>Group</th>
+                  <th>Cohort / Year</th>
+                  <th style="text-align:right">Reflections</th>
+                  <th>Last reflection</th>
+                  <th style="text-align:right">${t('common.actions')}</th>
                 </tr>
-              `).join('')}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody>
+                ${mentees.map(m => `
+                  <tr>
+                    <td><strong>${escapeHtml(m.student_name)}</strong></td>
+                    <td>${escapeHtml(m.group_name)}</td>
+                    <td>${m.grade ? escapeHtml(m.grade) : '<span style="color:var(--gray-400)">N/A</span>'}</td>
+                    <td style="text-align:right;font-weight:600">${m.reflection_count}</td>
+                    <td>${m.last_date ? formatExpDate(m.last_date) : '<span style="color:var(--gray-400)">N/A</span>'}</td>
+                    <td style="text-align:right">
+                      <button class="btn btn-sm ${m.reflection_count > 0 ? 'btn-primary' : 'btn-outline'}" ${m.reflection_count === 0 ? 'disabled' : ''} onclick="viewMenteeExperiences(${m.student_id})">View map</button>
+                    </td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>
+        `}
       </div>
     ` : ''}
   `;
@@ -2163,17 +2221,20 @@ async function createClassroomTeacher() {
   const subject = document.getElementById('newSubject').value.trim();
   const grade_level = document.getElementById('newGradeLevel').value.trim();
   if (!subject || !grade_level) return toast(t('teacher.fill_all_fields'), 'error');
-  try {
-    const data = await API.post('/classrooms', {
-      subject,
-      grade_level,
-      kind: isMentorGroup ? 'mentor' : 'academic',
-    });
-    toast(t('teacher.classroom_created', {code: formatJoinCode(data.join_code)}));
-    invalidateCache('/dashboard/teacher', '/classrooms', '/forms');
-    closeModal();
-    navigateTo('teacher-classrooms');
-  } catch (err) { toast(err.message, 'error'); }
+  const submitBtn = document.querySelector('#modalContent .btn-primary');
+  await withSubmitting(submitBtn, 'Creating…', async () => {
+    try {
+      const data = await API.post('/classrooms', {
+        subject,
+        grade_level,
+        kind: isMentorGroup ? 'mentor' : 'academic',
+      });
+      toast(t('teacher.classroom_created', {code: formatJoinCode(data.join_code)}));
+      invalidateCache('/dashboard/teacher', '/classrooms', '/forms');
+      closeModal();
+      navigateTo('teacher-classrooms');
+    } catch (err) { toast(err.message, 'error'); }
+  });
 }
 
 // ============ TEACHER: MENTOR GROUPS ============
@@ -2259,14 +2320,17 @@ async function regenerateCode(classroomId) {
 async function viewClassroomMembers(classroomId, subject) {
   try {
     const members = await API.get(`/classrooms/${classroomId}/members`);
+    // Title goes through escapeHtml because subject is teacher-controlled
+    // free text. Body wrapped in a max-height scroller so a 18+ student
+    // mentor group doesn't push the modal taller than the viewport.
     openModal(`
-      <div class="modal-header"><h3>${t('teacher.students_title', {subject})}</h3><button class="modal-close" onclick="closeModal()">&times;</button></div>
+      <div class="modal-header"><h3>${escapeHtml(t('teacher.students_title', {subject}))}</h3><button class="modal-close" onclick="closeModal()">&times;</button></div>
       <div class="modal-body">
         ${members.length === 0
           ? `<p style="color:var(--gray-500);text-align:center">${t('teacher.no_students_enrolled')}</p>`
-          : `<table><thead><tr><th>${t('common.name')}</th><th>${t('common.grade')}</th><th>${t('teacher.joined')}</th></tr></thead><tbody>
-              ${members.map(m => `<tr><td>${m.full_name}</td><td>${m.grade_or_position || '-'}</td><td>${new Date(m.joined_at).toLocaleDateString()}</td></tr>`).join('')}
-            </tbody></table>`}
+          : `<div style="max-height:60vh;overflow:auto"><table><thead><tr><th>${t('common.name')}</th><th>${t('common.grade')}</th><th>${t('teacher.joined')}</th></tr></thead><tbody>
+              ${members.map(m => `<tr><td>${escapeHtml(m.full_name)}</td><td>${m.grade_or_position ? escapeHtml(m.grade_or_position) : '-'}</td><td>${new Date(m.joined_at).toLocaleDateString()}</td></tr>`).join('')}
+            </tbody></table></div>`}
       </div>
     `);
   } catch (err) { toast(err.message, 'error'); }
@@ -4875,13 +4939,16 @@ async function createUser() {
     body.department = document.getElementById('newTeacherDept').value;
   }
   if (!body.full_name || !body.email || !body.password) return toast(t('admin.fill_required'), 'error');
-  try {
-    await API.post('/admin/users', body);
-    toast(t('admin.user_created'));
-    invalidateCache('/admin/stats', '/admin/users', '/admin/teachers');
-    closeModal();
-    renderAdminUsers();
-  } catch (err) { toast(err.message, 'error'); }
+  const submitBtn = document.querySelector('#modalContent .btn-primary');
+  await withSubmitting(submitBtn, 'Creating…', async () => {
+    try {
+      await API.post('/admin/users', body);
+      toast(t('admin.user_created'));
+      invalidateCache('/admin/stats', '/admin/users', '/admin/teachers');
+      closeModal();
+      renderAdminUsers();
+    } catch (err) { toast(err.message, 'error'); }
+  });
 }
 
 function editUserById(id) {
@@ -4951,13 +5018,16 @@ async function saveUserEdit(userId) {
     role: role
   };
   if (!body.full_name || !body.email) return toast(t('admin.name_email_required'), 'error');
-  try {
-    await API.put(`/admin/users/${userId}`, body);
-    toast(t('admin.user_updated'));
-    invalidateCache('/admin/users', '/admin/teachers', '/admin/stats');
-    closeModal();
-    renderAdminUsers();
-  } catch (err) { toast(err.message, 'error'); }
+  const submitBtn = document.querySelector('#modalContent .btn-primary');
+  await withSubmitting(submitBtn, 'Saving…', async () => {
+    try {
+      await API.put(`/admin/users/${userId}`, body);
+      toast(t('admin.user_updated'));
+      invalidateCache('/admin/users', '/admin/teachers', '/admin/stats');
+      closeModal();
+      renderAdminUsers();
+    } catch (err) { toast(err.message, 'error'); }
+  });
 }
 
 async function resetPassword(userId, userName) {
@@ -5616,20 +5686,20 @@ async function viewClassroomMembers(classroomId, subject) {
   try {
     const members = await API.get(`/classrooms/${classroomId}/members`);
     openModal(`
-      <div class="modal-header"><h3>${t('admin.members_title', {subject})}</h3><button class="modal-close" onclick="closeModal()">&times;</button></div>
+      <div class="modal-header"><h3>${escapeHtml(t('admin.members_title', {subject}))}</h3><button class="modal-close" onclick="closeModal()">&times;</button></div>
       <div class="modal-body" style="min-width:0">
         ${members.length === 0
           ? `<p style="color:var(--gray-500)">${t('admin.no_students_enrolled')}</p>`
-          : `<div style="overflow-x:auto"><table style="width:100%">
+          : `<div style="max-height:60vh;overflow:auto"><table style="width:100%">
               <thead><tr><th>${t('common.name')}</th><th>${t('common.email')}</th><th>${t('admin.grade_position_col')}</th><th>${t('common.joined')}</th><th style="width:80px">${t('common.actions')}</th></tr></thead>
               <tbody>
                 ${members.map(m => `
                   <tr id="member-row-${m.student_id}">
-                    <td><strong>${m.full_name}</strong></td>
-                    <td>${m.email}</td>
-                    <td>${m.grade_or_position || '-'}</td>
+                    <td><strong>${escapeHtml(m.full_name)}</strong></td>
+                    <td>${escapeHtml(m.email)}</td>
+                    <td>${m.grade_or_position ? escapeHtml(m.grade_or_position) : '-'}</td>
                     <td>${m.joined_at ? new Date(m.joined_at).toLocaleDateString() : '-'}</td>
-                    <td><button class="btn btn-danger" style="padding:4px 10px;font-size:0.78rem" onclick="removeStudentFromClassroom(${classroomId}, ${m.student_id}, '${m.full_name.replace(/'/g, "\\'")}', '${subject.replace(/'/g, "\\'")}')">${t('admin.remove')}</button></td>
+                    <td><button class="btn btn-danger" style="padding:4px 10px;font-size:0.78rem" onclick="removeStudentFromClassroom(${classroomId}, ${m.student_id}, ${jsAttr(m.full_name)}, ${jsAttr(subject)})">${t('admin.remove')}</button></td>
                   </tr>
                 `).join('')}
               </tbody>
@@ -7224,16 +7294,19 @@ window.expSaveOrbital = async function (e) {
     values: _expDraft.values,
   };
 
-  try {
-    await API.post('/experiences', payload);
-    toast('Your experience has been added to your map.');
-    _expDraft = { category: null, values: [] };
-    _expTab = 'my';
-    _expCache = null;
-    renderStudentExperiences();
-  } catch (err) {
-    toast(err.message || 'Could not save experience', 'error');
-  }
+  const submitBtn = e.target.querySelector('button[type="submit"]');
+  await withSubmitting(submitBtn, 'Saving…', async () => {
+    try {
+      await API.post('/experiences', payload);
+      toast('Your experience has been added to your map.');
+      _expDraft = { category: null, values: [] };
+      _expTab = 'my';
+      _expCache = null;
+      renderStudentExperiences();
+    } catch (err) {
+      toast(err.message || 'Could not save experience', 'error');
+    }
+  });
 };
 
 window.expSetFilterCategory = function (v) {
@@ -7373,20 +7446,23 @@ window.submitExperienceForm = async function (e, id) {
   if (values.length < 1) return toast('Pick at least one UWC value.', 'error');
   if (values.length > 3) return toast('You can select up to 3 values for each experience.', 'error');
 
-  try {
-    if (id) {
-      await API.patch(`/experiences/${id}`, payload);
-      toast('Experience updated.');
-    } else {
-      await API.post('/experiences', payload);
-      toast('Your experience has been added to your map.');
+  const submitBtn = form.querySelector('button[type="submit"]');
+  await withSubmitting(submitBtn, 'Saving…', async () => {
+    try {
+      if (id) {
+        await API.patch(`/experiences/${id}`, payload);
+        toast('Experience updated.');
+      } else {
+        await API.post('/experiences', payload);
+        toast('Your experience has been added to your map.');
+      }
+      closeModal();
+      _expCache = null;
+      renderStudentExperiences();
+    } catch (err) {
+      toast(err.message || 'Could not save experience', 'error');
     }
-    closeModal();
-    _expCache = null;
-    renderStudentExperiences();
-  } catch (err) {
-    toast(err.message || 'Could not save experience', 'error');
-  }
+  });
 };
 
 window.confirmDeleteExperience = async function (id) {

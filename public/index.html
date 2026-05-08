@@ -103,6 +103,22 @@
     }
     function hideStatus() { statusEl.className = 'status-msg'; }
     function showError(m) { errEl.textContent = m; errEl.className = 'error-msg show'; }
+    // 404 from /api/auth/google means the email signed in but no account
+    // exists on Oasis yet. Instead of leaving the user stuck on a red
+    // "No account found" message, surface direct CTAs to /register
+    // (students) and /join (teachers) so they can finish onboarding in
+    // one click.
+    function showNoAccountError(email) {
+      errEl.innerHTML =
+        '<div style="margin-bottom:8px"><strong>No Oasis account yet for ' +
+        (email ? email.replace(/[<>&"]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c])) : 'this email') +
+        '</strong>.</div>' +
+        '<div style="display:flex;gap:8px;flex-wrap:wrap">' +
+        '  <a href="/register" style="flex:1;text-align:center;background:#0069AA;color:#fff;padding:8px 12px;border-radius:6px;text-decoration:none;font-weight:600;font-size:0.85rem">Register as student</a>' +
+        '  <a href="/join" style="flex:1;text-align:center;background:#fff;color:#0069AA;padding:8px 12px;border-radius:6px;text-decoration:none;font-weight:600;font-size:0.85rem;border:1.5px solid #0069AA">Join as teacher</a>' +
+        '</div>';
+      errEl.className = 'error-msg show';
+    }
 
     async function handleCred(response) {
       try {
@@ -113,7 +129,20 @@
           body: JSON.stringify({ credential: response.credential, intent: 'login' })
         });
         const data = await res.json();
-        if (!res.ok) { showError(data.error || 'Google sign-in failed.'); return; }
+        if (!res.ok) {
+          if (res.status === 404) {
+            // Decode the email out of the credential JWT for the CTA copy.
+            let email = '';
+            try {
+              const payload = JSON.parse(atob(response.credential.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));
+              email = payload.email || '';
+            } catch (_) {}
+            showNoAccountError(email);
+            return;
+          }
+          showError(data.error || 'Google sign-in failed.');
+          return;
+        }
         localStorage.setItem('oasis_token', data.token);
         localStorage.setItem('oasis_user', JSON.stringify(data.user));
         window.location.href = '/app';

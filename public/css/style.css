@@ -2645,10 +2645,15 @@ tbody tr:last-child td { border-bottom: none; }
   .exp-orbit-panel { margin-left: 0; justify-self: stretch; }
 }
 @media (max-width: 540px) {
-  .exp-orbit-node-label { font-size: 0.55rem; width: 140%; margin: 0 -20%; }
-  .exp-orbit-node--outer { width: 22%; }
-  .exp-orbit-node--inner { width: 17%; }
-  .exp-orbit-node--outer .exp-orbit-node-label { font-size: 0.66rem; width: 80%; margin: 0; }
+  /* Larger orbs and bigger labels on phones — at 320px viewport the stage
+     is ~230px wide, so we need 24% / 19% to keep tap targets above the
+     ~44px iOS minimum and the labels readable (the previous 0.55rem was
+     too small for the long UWC value names like "Intercultural
+     understanding"). */
+  .exp-orbit-node-label { font-size: 0.62rem; width: 140%; margin: 0 -20%; }
+  .exp-orbit-node--outer { width: 24%; }
+  .exp-orbit-inner-wrap { width: 19%; }
+  .exp-orbit-node--outer .exp-orbit-node-label { font-size: 0.7rem; width: 80%; margin: 0; }
   .exp-orbit-center { width: 18%; }
   .exp-orbit-node-add-icon { font-size: 1.3rem; }
 }
