@@ -25,6 +25,7 @@ const CATEGORIES = [
   'LOTs',
   'Monday Briefings',
   'Leadership & Student Voice',
+  'Sports',
   'Global Issues Forum (GIFs)',
 ];
 
