@@ -1278,8 +1278,12 @@ tbody tr:last-child td { border-bottom: none; }
   .top-bar { padding: 16px 32px; }
 }
 
-/* Tablet portrait / small tablet */
-@media (max-width: 768px) {
+/* Sidebar drawer breakpoint. Pulled out of the 768px block (where it
+   originally lived) so the sidebar collapses earlier than the rest of
+   the small-tablet styles. Rationale: on ~870px laptops, a 260px
+   sidebar + content padding leaves the main column awkwardly narrow,
+   and a drawer feels right well before grid/typography needs to mobile-ify. */
+@media (max-width: 882px) {
   .sidebar {
     transform: translateX(-100%);
     width: 280px;
@@ -1293,6 +1297,10 @@ tbody tr:last-child td { border-bottom: none; }
   .mobile-toggle { display: block; }
   /* Lock body scroll under the open drawer so iOS Safari doesn't bleed through */
   body.sidebar-open { overflow: hidden; touch-action: none; }
+}
+
+/* Tablet portrait / small tablet — everything that isn't the sidebar */
+@media (max-width: 768px) {
   .content-area { padding: 16px 12px; }
   .top-bar { padding: 12px 16px; }
   .top-bar h2 { font-size: 1.05rem; }
@@ -2655,16 +2663,17 @@ tbody tr:last-child td { border-bottom: none; }
 /* At or below 1380px the two-column grid (orbit + capture panel) gets
    cramped and labels shrink past readability. Collapse to a single
    column with the orbit centered on top and the capture panel below.
-   Panel max-width is bumped up from the 416px ceiling so it doesn't
-   look like a narrow strip floating under a wider orbit. */
+   Stage gets a larger ceiling so the EM can claim the visual weight it
+   loses by no longer sitting next to the panel; gap is bumped to 48px
+   so the panel doesn't look glued to the orbit. */
 @media (max-width: 1380px) {
   .exp-orbit-shell {
     grid-template-columns: 1fr;
-    gap: 32px;
+    gap: 48px;
     justify-items: center;
   }
   .exp-orbit-stage {
-    max-width: 560px;
+    max-width: 640px;
     margin: 0 auto;
   }
   .exp-orbit-panel {
@@ -2675,15 +2684,16 @@ tbody tr:last-child td { border-bottom: none; }
   }
 }
 
-/* Below 768px the sidebar collapses into a drawer and the content area
-   reclaims the full viewport. Two issues to handle:
+/* Below 882px the sidebar collapses into a drawer (see the global
+   drawer rule a few hundred lines up) and the content area reclaims
+   the full viewport. Two issues to handle here:
    1. The orbit stage's top outer node ends up partially above the
       visible content because the stage's box doesn't include the node's
       protrusion (transform: translate(-50%, -50%) pushes the node out
       ~half its own height). Add padding-top so the node clears.
    2. The capture panel at justify-self:center + width:100% effectively
       hugs both edges; user wants visible margin. Pin it to 80% width. */
-@media (max-width: 768px) {
+@media (max-width: 882px) {
   .exp-orbit-shell {
     padding-top: 40px;
     padding-left: 16px;
