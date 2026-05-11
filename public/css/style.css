@@ -2575,6 +2575,16 @@ tbody tr:last-child td { border-bottom: none; }
   font-size: 0.9rem;
   line-height: 1.18;
 }
+/* JS-applied class (expTuneInnerLabels) when the label has wrapped to
+   a second line. Smaller font + tighter line-height so the two lines
+   fit comfortably inside the small inner orb instead of getting squeezed
+   against the edges. Letter-spacing flattened so the smaller text still
+   reads cleanly. Affects e.g. "Mutual respect" at desktop sizes. */
+.exp-orbit-node--inner .exp-orbit-node-label.is-multiline {
+  font-size: 0.7rem;
+  line-height: 1.05;
+  letter-spacing: 0;
+}
 .exp-orbit-node.is-selected {
   background: #4f46e5;
   border-color: #4f46e5;

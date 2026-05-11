@@ -6941,6 +6941,11 @@ function paintStudentExperiences() {
     ${backBtn}
     ${_expTab === 'create' ? renderExpOrbitPicker(config) : renderExpMyTab(config, experiences)}
   `;
+  // After the orbit is in the DOM, measure inner-ring labels and tag
+  // any that wrap to a second line so CSS can shrink their font. Also
+  // sets up a one-time resize listener so re-flowing on zoom/resize
+  // re-runs the measurement.
+  if (_expTab === 'create') expTuneInnerLabels();
 }
 
 function renderExpHub(count) {
@@ -7255,6 +7260,52 @@ window.expSelectCategoryFromSelect = function (cat) {
   _expDraft.category = cat || null;
   expRepaintOrbit();
 };
+
+// Inner-ring label tuning. The inner orbs are small (16% of stage),
+// and most short labels ("Compassion", "Intercultural") fit on one
+// line at 0.9rem. A couple ("Mutual respect") wrap to a second line,
+// and at the natural font size that second line is squeezed up against
+// the orb edge. We can't detect line-count with pure CSS, so we measure
+// after layout: any label whose scrollHeight is taller than one
+// line-height gets an .is-multiline class, which the stylesheet uses
+// to shrink the text to fit comfortably. Re-measures on window resize.
+function _expDoMeasureInner() {
+  // Clear previous marks so a label that no longer wraps (after a
+  // resize) can return to its natural size.
+  document.querySelectorAll('.exp-orbit-node--inner .exp-orbit-node-label').forEach(el => {
+    el.classList.remove('is-multiline');
+  });
+  // requestAnimationFrame so the browser has applied the (now-cleared)
+  // natural style before we measure.
+  requestAnimationFrame(() => {
+    document.querySelectorAll('.exp-orbit-node--inner .exp-orbit-node-label').forEach(el => {
+      const cs = getComputedStyle(el);
+      const lineHeight = parseFloat(cs.lineHeight) || (parseFloat(cs.fontSize) * 1.2);
+      // Round to nearest int to forgive sub-pixel layout differences.
+      if (Math.round(el.scrollHeight / lineHeight) > 1) {
+        el.classList.add('is-multiline');
+      }
+    });
+  });
+}
+
+let _expResizeBound = false;
+function expTuneInnerLabels() {
+  _expDoMeasureInner();
+  // Bind the resize listener once, lazily, so we don't pay the cost on
+  // pages that never render the orbit. Debounced 150ms because resize
+  // fires continuously while dragging window edges.
+  if (!_expResizeBound) {
+    _expResizeBound = true;
+    let timer = null;
+    window.addEventListener('resize', () => {
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(() => {
+        if (document.querySelector('.exp-orbit-node--inner')) _expDoMeasureInner();
+      }, 150);
+    });
+  }
+}
 
 window.expSelectCategory = function (cat) {
   _expDraft.category = _expDraft.category === cat ? null : cat;
