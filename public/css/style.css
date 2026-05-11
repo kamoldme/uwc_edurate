@@ -2669,7 +2669,7 @@ tbody tr:last-child td { border-bottom: none; }
 @media (max-width: 1380px) {
   .exp-orbit-shell {
     grid-template-columns: 1fr;
-    gap: 48px;
+    gap: 72px;
     justify-items: center;
   }
   .exp-orbit-stage {
@@ -2716,6 +2716,27 @@ tbody tr:last-child td { border-bottom: none; }
   .exp-orbit-node--outer .exp-orbit-node-label { font-size: 0.7rem; width: 80%; margin: 0; }
   .exp-orbit-center { width: 18%; }
   .exp-orbit-node-add-icon { font-size: 1.3rem; }
+
+  /* Phone-specific layout: let the orbit claim most of the viewport
+     (was capped at 72vmin → only ~230px on a 320px screen, leaving
+     a lot of dead space around it). Stage gets bumped to 88vmin.
+     Panel gets a wider 92% so form fields are usable; 80% was
+     leaving form labels and inputs feeling cramped under 380px. */
+  .exp-orbit-stage { width: min(100%, 88vmin); }
+  .exp-orbit-panel { width: 92%; }
+  .exp-orbit-shell { padding-left: 12px; padding-right: 12px; }
+}
+
+/* Tiny phones (Mobile S, 320px-ish). One more nudge: with 11 outer
+   categories the node labels start crowding each other below 380px,
+   so we drop the label font another notch and let labels span wider
+   ribbons relative to the orb. */
+@media (max-width: 380px) {
+  .exp-orbit-node--outer .exp-orbit-node-label {
+    font-size: 0.64rem;
+    width: 88%;
+  }
+  .exp-orbit-node-label { font-size: 0.58rem; }
 }
 
 .exp-summary { margin-bottom: 24px; }
