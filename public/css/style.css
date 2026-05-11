@@ -2385,6 +2385,9 @@ tbody tr:last-child td { border-bottom: none; }
   justify-content: center;
   max-width: 1216px;
   margin: 0 auto 32px;
+  /* box-sizing so the per-breakpoint horizontal padding below doesn't
+     push the shell past max-width and re-introduce edge-hugging. */
+  box-sizing: border-box;
 }
 .exp-orbit-stage {
   position: relative;
@@ -2639,10 +2642,57 @@ tbody tr:last-child td { border-bottom: none; }
 .exp-orbit-save:hover { background: #1e293b; }
 .exp-orbit-save:active { transform: translateY(1px); }
 
-@media (max-width: 920px) {
-  .exp-orbit-shell { grid-template-columns: 1fr; }
-  .exp-orbit-stage { max-width: 480px; }
-  .exp-orbit-panel { margin-left: 0; justify-self: stretch; }
+/* At or below 1600px: give the EM at least 30px of breathing room from
+   the content-area edges. Without this the shell can sit flush against
+   the sidebar on wide-but-not-huge laptops (e.g. 1440 / 1500 displays). */
+@media (max-width: 1600px) {
+  .exp-orbit-shell {
+    padding-left: 30px;
+    padding-right: 30px;
+  }
+}
+
+/* At or below 1380px the two-column grid (orbit + capture panel) gets
+   cramped and labels shrink past readability. Collapse to a single
+   column with the orbit centered on top and the capture panel below.
+   Panel max-width is bumped up from the 416px ceiling so it doesn't
+   look like a narrow strip floating under a wider orbit. */
+@media (max-width: 1380px) {
+  .exp-orbit-shell {
+    grid-template-columns: 1fr;
+    gap: 32px;
+    justify-items: center;
+  }
+  .exp-orbit-stage {
+    max-width: 560px;
+    margin: 0 auto;
+  }
+  .exp-orbit-panel {
+    margin-left: 0;
+    justify-self: center;
+    width: 100%;
+    max-width: 520px;
+  }
+}
+
+/* Below 768px the sidebar collapses into a drawer and the content area
+   reclaims the full viewport. Two issues to handle:
+   1. The orbit stage's top outer node ends up partially above the
+      visible content because the stage's box doesn't include the node's
+      protrusion (transform: translate(-50%, -50%) pushes the node out
+      ~half its own height). Add padding-top so the node clears.
+   2. The capture panel at justify-self:center + width:100% effectively
+      hugs both edges; user wants visible margin. Pin it to 80% width. */
+@media (max-width: 768px) {
+  .exp-orbit-shell {
+    padding-top: 40px;
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+  .exp-orbit-panel {
+    width: 80%;
+    max-width: none;
+  }
 }
 @media (max-width: 540px) {
   /* Larger orbs and bigger labels on phones — at 320px viewport the stage
