@@ -2228,7 +2228,7 @@ tbody tr:last-child td { border-bottom: none; }
    width. */
 .exp-header {
   position: relative;
-  margin: 0 0 72px;
+  margin: 0 0 96px;
 }
 .exp-header .exp-back-btn {
   position: absolute;
@@ -2247,7 +2247,7 @@ tbody tr:last-child td { border-bottom: none; }
    fall back to stacking — back button on its own row at the top,
    hero below it. The header still owns the bottom gap to the EM. */
 @media (max-width: 540px) {
-  .exp-header { margin-bottom: 48px; }
+  .exp-header { margin-bottom: 64px; }
   .exp-header .exp-back-btn {
     position: static;
     margin: 0 0 12px;
