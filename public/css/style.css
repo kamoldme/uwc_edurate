@@ -2392,7 +2392,10 @@ tbody tr:last-child td { border-bottom: none; }
   align-items: center;
   justify-content: center;
   max-width: 1216px;
-  margin: 0 auto 32px;
+  /* Bottom margin gives the EM clear separation from whatever scrolls
+     into view below it (recent experiences list, etc.). 32px was too
+     tight when the panel sits below the orbit on smaller screens. */
+  margin: 0 auto 64px;
   /* box-sizing so the per-breakpoint horizontal padding below doesn't
      push the shell past max-width and re-introduce edge-hugging. */
   box-sizing: border-box;
