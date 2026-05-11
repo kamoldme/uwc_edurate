@@ -2218,6 +2218,41 @@ tbody tr:last-child td { border-bottom: none; }
   line-height: 1.45;
 }
 .exp-hero { text-align: center; margin: 8px 0 56px; }
+
+/* Header wrapper for the EM "create" and "my" views: keeps the back
+   button on the same visual row as the hero text (top-left over a
+   centered hero) and owns the bottom gap before the EM section so
+   the hero's own margin can be zeroed out inside this wrapper. The
+   back button is absolute-positioned so the hero stays perfectly
+   page-centered — a flex row would shift the hero by the button's
+   width. */
+.exp-header {
+  position: relative;
+  margin: 0 0 72px;
+}
+.exp-header .exp-back-btn {
+  position: absolute;
+  top: 0;
+  left: 0;
+  margin: 0;
+  z-index: 1;
+}
+.exp-header .exp-hero {
+  /* Wrapper owns the bottom spacing now. */
+  margin: 0;
+}
+
+/* Phones (≤540px): the absolute back button would visually crowd the
+   hero title when the title is centered on a narrow screen, so we
+   fall back to stacking — back button on its own row at the top,
+   hero below it. The header still owns the bottom gap to the EM. */
+@media (max-width: 540px) {
+  .exp-header { margin-bottom: 48px; }
+  .exp-header .exp-back-btn {
+    position: static;
+    margin: 0 0 12px;
+  }
+}
 .exp-hero-title {
   font-size: 1.85rem;
   font-weight: 800;
