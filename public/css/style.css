@@ -2704,39 +2704,115 @@ tbody tr:last-child td { border-bottom: none; }
     max-width: none;
   }
 }
+/* Mobile picker (dropdown + value buttons). The orbital UI is great
+   on desktop but cramped on phones with 11 outer nodes and 9 inner
+   nodes squeezed into a ~280px circle. On phones we swap it for a
+   conventional form: <select> for category, button grid for values.
+   Hidden by default; the @media block below shows it and hides the
+   orbit at <=540px. Both UIs bind to the same _expDraft state so
+   selections persist if the user rotates the device. */
+.exp-mobile-picker {
+  display: none;
+  width: 100%;
+  max-width: 520px;
+  margin: 0 auto;
+}
+.exp-mobile-block { margin-bottom: 18px; }
+.exp-mobile-block:last-child { margin-bottom: 0; }
+.exp-mobile-label {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--gray-500);
+  text-transform: uppercase;
+  margin-bottom: 8px;
+}
+.exp-mobile-meta {
+  color: var(--gray-400);
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
+  font-size: 0.78rem;
+}
+.exp-mobile-select {
+  width: 100%;
+  padding: 12px 14px;
+  border: 1.5px solid var(--gray-200);
+  border-radius: 10px;
+  background: #fff;
+  font: inherit;
+  font-size: 0.95rem;
+  color: var(--gray-800);
+  cursor: pointer;
+  /* Native dropdown chevron — no custom SVG so it matches the device's
+     idiom (iOS spinner, Android sheet, etc.). */
+  appearance: auto;
+}
+.exp-mobile-select:focus {
+  outline: none;
+  border-color: #4f46e5;
+  box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.15);
+}
+.exp-mobile-values {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+}
+.exp-mobile-value-btn {
+  padding: 11px 10px;
+  border: 1.5px solid var(--gray-200);
+  border-radius: 10px;
+  background: #fff;
+  font-family: inherit;
+  font-size: 0.82rem;
+  color: var(--gray-700);
+  font-weight: 600;
+  cursor: pointer;
+  text-align: center;
+  transition: background 0.12s ease, color 0.12s ease, border-color 0.12s ease;
+  /* Same minimum tap area as the orbit nodes on phone — 44px iOS guideline. */
+  min-height: 44px;
+}
+.exp-mobile-value-btn:hover { border-color: #6366f1; }
+.exp-mobile-value-btn.is-selected {
+  background: #0f172a;
+  color: #fff;
+  border-color: #0f172a;
+}
+.exp-mobile-hint {
+  font-size: 0.72rem;
+  color: var(--gray-400);
+  margin: 8px 0 0;
+  text-align: center;
+}
+
 @media (max-width: 540px) {
-  /* Larger orbs and bigger labels on phones — at 320px viewport the stage
-     is ~230px wide, so we need 24% / 19% to keep tap targets above the
-     ~44px iOS minimum and the labels readable (the previous 0.55rem was
-     too small for the long UWC value names like "Intercultural
-     understanding"). */
+  /* Hide the orbit entirely on phones and show the dropdown UI in its
+     place. The orbit-stage's top padding from the 882px block is now
+     irrelevant (no top node to clip), so we reduce the shell's top
+     padding too — the mobile picker has its own internal spacing. */
+  .exp-orbit-stage { display: none; }
+  .exp-mobile-picker { display: block; }
+  .exp-orbit-shell { padding-top: 16px; padding-left: 12px; padding-right: 12px; }
+  .exp-orbit-panel { width: 92%; }
+
+  /* These orbit-node tunings stay defined for the rare case someone
+     forces the orbit back via DevTools or future feature flag; harmless
+     when display:none is in effect. */
   .exp-orbit-node-label { font-size: 0.62rem; width: 140%; margin: 0 -20%; }
   .exp-orbit-node--outer { width: 24%; }
   .exp-orbit-inner-wrap { width: 19%; }
   .exp-orbit-node--outer .exp-orbit-node-label { font-size: 0.7rem; width: 80%; margin: 0; }
   .exp-orbit-center { width: 18%; }
   .exp-orbit-node-add-icon { font-size: 1.3rem; }
-
-  /* Phone-specific layout: let the orbit claim most of the viewport
-     (was capped at 72vmin → only ~230px on a 320px screen, leaving
-     a lot of dead space around it). Stage gets bumped to 88vmin.
-     Panel gets a wider 92% so form fields are usable; 80% was
-     leaving form labels and inputs feeling cramped under 380px. */
-  .exp-orbit-stage { width: min(100%, 88vmin); }
-  .exp-orbit-panel { width: 92%; }
-  .exp-orbit-shell { padding-left: 12px; padding-right: 12px; }
 }
 
-/* Tiny phones (Mobile S, 320px-ish). One more nudge: with 11 outer
-   categories the node labels start crowding each other below 380px,
-   so we drop the label font another notch and let labels span wider
-   ribbons relative to the orb. */
+/* Tiny phones (Mobile S, ~320px): squeeze value buttons to fit comfortably. */
 @media (max-width: 380px) {
-  .exp-orbit-node--outer .exp-orbit-node-label {
-    font-size: 0.64rem;
-    width: 88%;
-  }
-  .exp-orbit-node-label { font-size: 0.58rem; }
+  .exp-mobile-value-btn { padding: 10px 6px; font-size: 0.78rem; }
 }
 
 .exp-summary { margin-bottom: 24px; }

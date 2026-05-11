@@ -7176,8 +7176,27 @@ function renderExpOrbitPicker(config) {
   }).join('');
 
   const valueChips = _expDraft.values.length === 0
-    ? '<span class="exp-orbit-panel-empty">Pick up to 3 values from the inner ring</span>'
+    ? '<span class="exp-orbit-panel-empty">Pick up to 3 values</span>'
     : _expDraft.values.map(v => `<span class="exp-value-chip" style="--chip-color:${expValueColor(v, config)}">${v}</span>`).join('');
+
+  // Mobile-only picker: a native <select> for category and a toggle-button
+  // grid for values. Renders alongside the orbit; CSS swaps which one is
+  // visible at <=540px. Both bind to the same _expDraft via the existing
+  // expSelectCategory / expToggleValue handlers, so state stays in sync
+  // and expRepaintOrbit() updates both UIs after every change.
+  const mobileCategoryOptions = cats.map(c =>
+    `<option value="${escapeAttr(c)}" ${_expDraft.category === c ? 'selected' : ''}>${escapeHtml(c)}</option>`
+  ).join('');
+  const mobileValueButtons = vals.map(v => {
+    const isSelected = _expDraft.values.includes(v);
+    const safeFull = escapeAttr(v).replace(/'/g, "\\'");
+    return `<button type="button"
+      class="exp-mobile-value-btn ${isSelected ? 'is-selected' : ''}"
+      data-value="${escapeAttr(v)}"
+      onclick="expToggleValue('${safeFull}')">
+      ${escapeHtml(EXP_VALUE_SHORT[v] || v)}
+    </button>`;
+  }).join('');
 
   return `
     <section class="exp-orbit-shell">
@@ -7190,11 +7209,28 @@ function renderExpOrbitPicker(config) {
         ${outerNodes}
         ${innerNodes}
       </div>
+      <div class="exp-mobile-picker" id="expMobilePicker">
+        <div class="exp-mobile-block">
+          <label class="exp-mobile-label" for="expMobileCategory">Select an experience</label>
+          <select class="exp-mobile-select" id="expMobileCategory" onchange="expSelectCategoryFromSelect(this.value)">
+            <option value="">Choose a category…</option>
+            ${mobileCategoryOptions}
+          </select>
+        </div>
+        <div class="exp-mobile-block">
+          <label class="exp-mobile-label">
+            UWC values
+            <span class="exp-mobile-meta"><span id="expMobileValueCount">${_expDraft.values.length}</span>/3</span>
+          </label>
+          <div class="exp-mobile-values">${mobileValueButtons}</div>
+          <p class="exp-mobile-hint">Tap up to 3 values that match this experience.</p>
+        </div>
+      </div>
       <aside class="exp-orbit-panel">
         <h3 class="exp-orbit-panel-title">CAPTURE A MOMENT</h3>
         <div class="exp-orbit-panel-block">
           <div class="exp-orbit-panel-label">Selected experience</div>
-          <div class="exp-orbit-panel-value" id="expDraftCategory">${_expDraft.category ? escapeHtml(_expDraft.category) : '<span class="exp-orbit-panel-empty">Click a category on the outer ring</span>'}</div>
+          <div class="exp-orbit-panel-value" id="expDraftCategory">${_expDraft.category ? escapeHtml(_expDraft.category) : '<span class="exp-orbit-panel-empty">Choose a category</span>'}</div>
         </div>
         <div class="exp-orbit-panel-block">
           <div class="exp-orbit-panel-label">UWC values <span class="exp-orbit-panel-meta"><span id="expValueCountInline">${_expDraft.values.length}</span>/3</span></div>
@@ -7211,6 +7247,14 @@ function renderExpOrbitPicker(config) {
     </section>
   `;
 }
+
+// Wrapper used by the mobile <select>. Unlike expSelectCategory (which
+// toggles when the orbit node is reclicked), the select always SETS the
+// value to what the dropdown shows. Empty string clears the category.
+window.expSelectCategoryFromSelect = function (cat) {
+  _expDraft.category = cat || null;
+  expRepaintOrbit();
+};
 
 window.expSelectCategory = function (cat) {
   _expDraft.category = _expDraft.category === cat ? null : cat;
@@ -7248,6 +7292,9 @@ window.expToggleValue = function (v) {
 
 function expRepaintOrbit() {
   // In-place updates so the form's text/date/reflection inputs keep state.
+  // Also keeps the mobile picker (dropdown + value buttons) in sync with
+  // the same _expDraft, so toggling on one UI shows up immediately on
+  // the other when the user resizes the window mid-flow.
   const config = _expCache?.config;
   if (!config) return;
 
@@ -7259,28 +7306,38 @@ function expRepaintOrbit() {
   document.querySelectorAll('.exp-orbit-node--inner').forEach(btn => {
     btn.classList.toggle('is-selected', _expDraft.values.includes(btn.dataset.value));
   });
-  // Counters
-  const countEls = [document.getElementById('expValueCount'), document.getElementById('expValueCountInline')];
+  // Mobile picker: dropdown value + toggle button states
+  const mobileSel = document.getElementById('expMobileCategory');
+  if (mobileSel) mobileSel.value = _expDraft.category || '';
+  document.querySelectorAll('.exp-mobile-value-btn').forEach(btn => {
+    btn.classList.toggle('is-selected', _expDraft.values.includes(btn.dataset.value));
+  });
+  // Counters (orbit center, panel inline, mobile picker label)
+  const countEls = [
+    document.getElementById('expValueCount'),
+    document.getElementById('expValueCountInline'),
+    document.getElementById('expMobileValueCount'),
+  ];
   countEls.forEach(e => { if (e) e.textContent = _expDraft.values.length; });
   // Selected category text
   const catEl = document.getElementById('expDraftCategory');
   if (catEl) {
     catEl.innerHTML = _expDraft.category
       ? escapeHtml(_expDraft.category)
-      : '<span class="exp-orbit-panel-empty">Click a category on the outer ring</span>';
+      : '<span class="exp-orbit-panel-empty">Choose a category</span>';
   }
   // Selected values chips
   const chipsEl = document.getElementById('expDraftValues');
   if (chipsEl) {
     chipsEl.innerHTML = _expDraft.values.length === 0
-      ? '<span class="exp-orbit-panel-empty">Pick up to 3 values from the inner ring</span>'
+      ? '<span class="exp-orbit-panel-empty">Pick up to 3 values</span>'
       : _expDraft.values.map(v => `<span class="exp-value-chip" style="--chip-color:${expValueColor(v, config)}">${v}</span>`).join('');
   }
 }
 
 window.expSaveOrbital = async function (e) {
   e.preventDefault();
-  if (!_expDraft.category) return toast('Pick an experience on the outer ring.', 'error');
+  if (!_expDraft.category) return toast('Pick an experience first.', 'error');
   if (_expDraft.values.length < 1) return toast('Pick at least one UWC value.', 'error');
 
   const title = document.getElementById('expOrbitTitle').value.trim();
