@@ -6934,11 +6934,11 @@ function paintStudentExperiences() {
 
   const backBtn = `<button class="btn btn-outline btn-sm exp-back-btn" onclick="expSetTab('hub')">← Back</button>`;
   el.innerHTML = `
+    ${backBtn}
     <div class="exp-hero">
       <h1 class="exp-hero-title">UWC EXPERIENCE MAP</h1>
       <p class="exp-hero-sub">Every moment is a landmark. Map your journey through our shared values.</p>
     </div>
-    ${backBtn}
     ${_expTab === 'create' ? renderExpOrbitPicker(config) : renderExpMyTab(config, experiences)}
   `;
   // After the orbit is in the DOM, measure inner-ring labels and tag

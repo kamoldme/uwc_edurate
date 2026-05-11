@@ -3026,3 +3026,12 @@ tbody tr:last-child td { border-bottom: none; }
   .exp-stat-value { font-size: 1.4rem; }
   .exp-value-grid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
 }
+
+/* Phones (Mobile L 425, M 375, S 320): the 2-column stats grid above
+   crams "Most connected value" awkwardly. Stack as a single column so
+   each card gets the full width and is readable. Specificity matches
+   the 640px rule (both .exp-summary.grid), and this rule comes later
+   in the cascade so it wins at <=540px. */
+@media (max-width: 540px) {
+  .exp-summary.grid { grid-template-columns: 1fr; }
+}
