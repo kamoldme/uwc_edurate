@@ -121,7 +121,6 @@
       let cfg;
       try { cfg = await fetch('/api/public-config').then(r => r.json()); }
       catch { setStatus('Could not reach the server. Reload the page.', true); return; }
-      document.getElementById('domainLabel').textContent = '@' + cfg.teacher_domain;
       if (!cfg.google_client_id) {
         setStatus('Google Sign-In is not configured: GOOGLE_CLIENT_ID is missing on the server.', true);
         return;
