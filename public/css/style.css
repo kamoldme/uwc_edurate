@@ -2764,7 +2764,12 @@ tbody tr:last-child td { border-bottom: none; }
   width: 100%;
   max-width: 520px;
   margin: 0 auto;
+  /* Tap-highlight bleed comes from the picker container too on some
+     Androids — silence it across the whole picker subtree. Per-button
+     :focus-visible styling above still keeps keyboard nav accessible. */
+  -webkit-tap-highlight-color: transparent;
 }
+.exp-mobile-picker * { -webkit-tap-highlight-color: transparent; }
 .exp-mobile-block { margin-bottom: 18px; }
 .exp-mobile-block:last-child { margin-bottom: 0; }
 .exp-mobile-label {
@@ -2798,6 +2803,7 @@ tbody tr:last-child td { border-bottom: none; }
   /* Native dropdown chevron — no custom SVG so it matches the device's
      idiom (iOS spinner, Android sheet, etc.). */
   appearance: auto;
+  -webkit-tap-highlight-color: transparent;
 }
 .exp-mobile-select:focus {
   outline: none;
@@ -2823,8 +2829,18 @@ tbody tr:last-child td { border-bottom: none; }
   transition: background 0.12s ease, color 0.12s ease, border-color 0.12s ease;
   /* Same minimum tap area as the orbit nodes on phone — 44px iOS guideline. */
   min-height: 44px;
+  /* Kill the default mobile tap flash (translucent dark overlay that on iOS
+     bleeds past the rounded corners and looks like the whole row got
+     selected). We render our own selected state via .is-selected. */
+  -webkit-tap-highlight-color: transparent;
+  outline: none;
 }
 .exp-mobile-value-btn:hover { border-color: #6366f1; }
+.exp-mobile-value-btn:focus { outline: none; }
+.exp-mobile-value-btn:focus-visible {
+  outline: 2px solid #6366f1;
+  outline-offset: 2px;
+}
 .exp-mobile-value-btn.is-selected {
   background: #0f172a;
   color: #fff;

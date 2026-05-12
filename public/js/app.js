@@ -7644,7 +7644,7 @@ function paintHeadExperiences() {
   const topCategory = by_category[0]?.count ? by_category[0] : null;
 
   el.innerHTML = `
-    <div class="grid grid-3" style="margin-bottom:24px">
+    <div class="grid grid-3" style="margin-top:32px;margin-bottom:24px">
       <div class="stat-card"><div class="stat-label">Total reflections</div><div class="stat-value">${totals.total_experiences}</div></div>
       <div class="stat-card exp-top-card">
         <div class="stat-label">Top value</div>
