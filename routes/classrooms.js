@@ -88,22 +88,20 @@ router.post('/', authenticate, authorize('teacher', 'admin'), (req, res) => {
     let teacherId;
     let orgId;
 
+    // Mentor capability is now derived from owning a mentor group: any teacher
+    // can create one (limited to one per teacher, enforced below). Creating
+    // the group flips is_mentor=1; deleting it flips it back to 0. Admin's
+    // manual grant/revoke endpoint is unchanged and remains an override.
     if (req.user.role === 'teacher') {
-      const teacher = db.prepare('SELECT id, org_id, is_mentor FROM teachers WHERE user_id = ?').get(req.user.id);
+      const teacher = db.prepare('SELECT id, org_id FROM teachers WHERE user_id = ?').get(req.user.id);
       if (!teacher) return res.status(400).json({ error: 'Teacher profile not found' });
-      if (classroomKind === 'mentor' && !teacher.is_mentor) {
-        return res.status(403).json({ error: 'You do not have mentor capability. Ask an admin to grant it.' });
-      }
       teacherId = teacher.id;
       orgId = teacher.org_id;
     } else {
       teacherId = req.body.teacher_id;
       if (!teacherId) return res.status(400).json({ error: 'teacher_id is required for admin' });
-      const teacher = db.prepare('SELECT org_id, is_mentor FROM teachers WHERE id = ?').get(teacherId);
+      const teacher = db.prepare('SELECT org_id FROM teachers WHERE id = ?').get(teacherId);
       orgId = teacher?.org_id;
-      if (classroomKind === 'mentor' && !teacher?.is_mentor) {
-        return res.status(400).json({ error: 'Selected teacher does not have mentor capability.' });
-      }
     }
 
     // One mentor group per mentor — even on race, the second create returns
@@ -127,6 +125,11 @@ router.post('/', authenticate, authorize('teacher', 'admin'), (req, res) => {
       INSERT INTO classrooms (teacher_id, subject, grade_level, term_id, join_code, org_id, kind)
       VALUES (?, ?, ?, ?, ?, ?, ?)
     `).run(teacherId, subject, grade_level, resolvedTermId, join_code, orgId, classroomKind);
+
+    // Creating a mentor group implicitly grants mentor capability.
+    if (classroomKind === 'mentor') {
+      db.prepare('UPDATE teachers SET is_mentor = 1 WHERE id = ?').run(teacherId);
+    }
 
     const classroom = db.prepare('SELECT * FROM classrooms WHERE id = ?').get(result.lastInsertRowid);
 
@@ -317,6 +320,12 @@ router.delete('/:id', authenticate, authorize('teacher', 'admin'), authorizeOrg,
     }
 
     db.prepare('DELETE FROM classrooms WHERE id = ?').run(req.params.id);
+
+    // Deleting a mentor group revokes the teacher's mentor capability (one
+    // group per teacher, so no remaining-group check needed).
+    if (classroom.kind === 'mentor') {
+      db.prepare('UPDATE teachers SET is_mentor = 0 WHERE id = ?').run(classroom.teacher_id);
+    }
 
     logAuditEvent({
       userId: req.user.id, userRole: req.user.role, userName: req.user.full_name,

@@ -2167,16 +2167,15 @@ async function renderTeacherClassrooms() {
 }
 
 async function showCreateClassroomTeacher() {
-  const isMentor = !!currentUser?.is_mentor;
-  // One mentor group per mentor — once created, hide the toggle.
+  // Any teacher can create one mentor group. Creating it grants mentor
+  // capability automatically; deleting it revokes the capability. We hide
+  // the toggle only once the teacher already owns a mentor group.
   let alreadyHasMentorGroup = false;
-  if (isMentor) {
-    try {
-      const data = await cachedGet('/dashboard/teacher');
-      alreadyHasMentorGroup = (data.classrooms || []).some(c => (c.kind || 'academic') === 'mentor');
-    } catch (_) {}
-  }
-  const showMentorToggle = isMentor && !alreadyHasMentorGroup;
+  try {
+    const data = await cachedGet('/dashboard/teacher');
+    alreadyHasMentorGroup = (data.classrooms || []).some(c => (c.kind || 'academic') === 'mentor');
+  } catch (_) {}
+  const showMentorToggle = !alreadyHasMentorGroup;
   openModal(`
     <div class="modal-header"><h3>${t('teacher.create_classroom_title')}</h3><button class="modal-close" onclick="closeModal()">&times;</button></div>
     <div class="modal-body">
@@ -2234,10 +2233,22 @@ async function createClassroomTeacher() {
       });
       toast(t('teacher.classroom_created', {code: formatJoinCode(data.join_code)}));
       invalidateCache('/dashboard/teacher', '/classrooms', '/forms');
+      // Creating a mentor group grants is_mentor server-side. Refresh
+      // currentUser + sidebar so "Mentor feedback" appears immediately.
+      if (isMentorGroup) await refreshCurrentUser();
       closeModal();
       navigateTo('teacher-classrooms');
     } catch (err) { toast(err.message, 'error'); }
   });
+}
+
+async function refreshCurrentUser() {
+  try {
+    const data = await API.get('/auth/me');
+    currentUser = data.user;
+    teacherInfo = data.teacher;
+    buildNavigation();
+  } catch (_) {}
 }
 
 // ============ TEACHER: MENTOR GROUPS ============
@@ -2306,6 +2317,10 @@ async function deleteClassroomTeacher(id, subject) {
     await API.delete(`/classrooms/${id}`);
     toast(t('teacher.classroom_deleted'));
     invalidateCache('/dashboard/teacher', '/classrooms', '/forms');
+    // Deleting a mentor group revokes is_mentor server-side. Refresh so the
+    // sidebar drops "Mentor feedback" and the create modal lets the teacher
+    // start a new mentor group again. Cheap enough to call unconditionally.
+    await refreshCurrentUser();
     navigateTo('teacher-classrooms');
   } catch (err) { toast(err.message, 'error'); }
 }
