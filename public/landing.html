@@ -381,38 +381,55 @@
       border-bottom: 1px solid var(--gray-200);
     }
     .stats-section-inner { max-width: 1160px; margin: 0 auto; }
-    .stats-grid {
+    .values-grid {
       display: grid;
       grid-template-columns: repeat(4, 1fr);
-      gap: 2px;
-      background: var(--gray-200);
-      border-radius: 12px;
-      overflow: hidden;
-      border: 1px solid var(--gray-200);
+      gap: 20px;
     }
-    .stat-block {
+    .value-card {
       background: var(--white);
-      padding: 40px 28px;
+      border-radius: 16px;
+      padding: 36px 28px 32px;
       text-align: center;
-      transition: background 0.2s;
+      box-shadow: 0 2px 12px rgba(15, 23, 42, 0.04);
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
     }
-    .stat-block:hover { background: var(--blue-light); }
-    .stat-icon { font-size: 1.8rem; margin-bottom: 10px; display: block; }
-    .stat-number {
+    .value-card:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
+    }
+    .value-icon-wrap {
+      width: 72px; height: 72px;
+      border-radius: 50%;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 22px;
+    }
+    .value-icon-wrap svg { width: 32px; height: 32px; stroke-width: 2; }
+    .value-icon-wrap--blue { background: #e0eaff; color: #1d4ed8; }
+    .value-icon-wrap--violet { background: #eef2ff; color: #4f46e5; }
+    .value-icon-wrap--green { background: #dcfce7; color: #16a34a; }
+    .value-icon-wrap--purple { background: #f3e8ff; color: #7c3aed; }
+    .value-title {
       font-family: 'Playfair Display', Georgia, serif;
-      font-size: 2.3rem;
-      font-weight: 900;
-      color: var(--blue);
-      letter-spacing: -1.5px;
-      line-height: 1;
-      margin-bottom: 8px;
+      font-size: 1.25rem;
+      font-weight: 700;
+      color: var(--text-900, #0f172a);
+      margin-bottom: 12px;
+      letter-spacing: -0.01em;
     }
-    .stat-label {
-      font-size: 0.78rem;
-      color: var(--text-500);
-      font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: 0.07em;
+    .value-divider {
+      width: 28px; height: 3px;
+      background: var(--blue);
+      border-radius: 2px;
+      margin: 0 auto 18px;
+    }
+    .value-desc {
+      color: var(--text-600, #475569);
+      font-size: 0.92rem;
+      line-height: 1.55;
+      margin: 0;
     }
 
     /* ── SHARED SECTION ── */
@@ -1013,7 +1030,7 @@
       .cta-btns { flex-direction: row; }
     }
     @media (max-width: 900px) {
-      .stats-grid { grid-template-columns: repeat(2, 1fr); }
+      .values-grid { grid-template-columns: repeat(2, 1fr); }
       .steps-grid { grid-template-columns: 1fr; }
       .features-grid { grid-template-columns: repeat(2, 1fr); }
     }
@@ -1080,7 +1097,7 @@
       .hero-inner { padding: 44px 18px 56px; }
       .section, .uwc-section, .cta-section { padding: 52px 18px; }
       .cta-card { padding: 32px 20px; }
-      .stats-grid { grid-template-columns: repeat(2, 1fr); }
+      .values-grid { grid-template-columns: 1fr; }
       .uwc-values { grid-template-columns: 1fr; }
       .footer-top { flex-direction: column; gap: 16px; }
 
@@ -1241,29 +1258,52 @@
     </div>
   </div>
 
-  <!-- ── STATS ── -->
+  <!-- ── VALUES ── -->
   <section class="stats-section">
     <div class="stats-section-inner">
-      <div class="stats-grid reveal">
-        <div class="stat-block">
-          <span class="stat-icon">&#9733;</span>
-          <div class="stat-number">5</div>
-          <div class="stat-label">Star Rating</div>
+      <div class="values-grid reveal">
+        <div class="value-card">
+          <span class="value-icon-wrap value-icon-wrap--blue">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="10"/>
+              <line x1="2" y1="12" x2="22" y2="12"/>
+              <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
+            </svg>
+          </span>
+          <h3 class="value-title">International Community</h3>
+          <div class="value-divider"></div>
+          <p class="value-desc">We celebrate our diversity and build bridges across cultures, perspectives, and experiences.</p>
         </div>
-        <div class="stat-block">
-          <span class="stat-icon">&#128274;</span>
-          <div class="stat-number">100%</div>
-          <div class="stat-label">Anonymous</div>
+        <div class="value-card">
+          <span class="value-icon-wrap value-icon-wrap--violet">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+            </svg>
+          </span>
+          <h3 class="value-title">Constructive Dialogue</h3>
+          <div class="value-divider"></div>
+          <p class="value-desc">We speak openly, listen deeply, and engage in dialogue that challenges ideas, not people.</p>
         </div>
-        <div class="stat-block">
-          <span class="stat-icon">&#127979;</span>
-          <div class="stat-number">UWC</div>
-          <div class="stat-label">Dedicated Platform</div>
+        <div class="value-card">
+          <span class="value-icon-wrap value-icon-wrap--green">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+            </svg>
+          </span>
+          <h3 class="value-title">Mutual Respect</h3>
+          <div class="value-divider"></div>
+          <p class="value-desc">We treat everyone with dignity, empathy, and kindness &mdash; online and offline.</p>
         </div>
-        <div class="stat-block">
-          <span class="stat-icon">&#128221;</span>
-          <div class="stat-number">13</div>
-          <div class="stat-label">Criteria</div>
+        <div class="value-card">
+          <span class="value-icon-wrap value-icon-wrap--purple">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/>
+              <polyline points="17 6 23 6 23 12"/>
+            </svg>
+          </span>
+          <h3 class="value-title">Continuous Growth</h3>
+          <div class="value-divider"></div>
+          <p class="value-desc">We embrace learning, reflection, and feedback as a path to becoming our best selves.</p>
         </div>
       </div>
     </div>
