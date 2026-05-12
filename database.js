@@ -987,6 +987,25 @@ try {
   console.error('Migration error (is_student_council):', err.message);
 }
 
+// Migration: super admin flag. Only super admins can promote/edit/delete
+// admin-role users. On first migration, the founding admin (lowest user id
+// with role='admin') is auto-promoted so the org doesn't lock itself out.
+try {
+  const userCols = db.prepare("PRAGMA table_info(users)").all().map(c => c.name);
+  if (!userCols.includes('is_super_admin')) {
+    db.exec('ALTER TABLE users ADD COLUMN is_super_admin INTEGER NOT NULL DEFAULT 0');
+    const founder = db.prepare("SELECT id, email FROM users WHERE role = 'admin' ORDER BY id ASC LIMIT 1").get();
+    if (founder) {
+      db.prepare('UPDATE users SET is_super_admin = 1 WHERE id = ?').run(founder.id);
+      console.log(`✅ Migration: Added is_super_admin; promoted founder ${founder.email} (id=${founder.id})`);
+    } else {
+      console.log('✅ Migration: Added is_super_admin (no existing admin to auto-promote)');
+    }
+  }
+} catch (err) {
+  console.error('Migration error (is_super_admin):', err.message);
+}
+
 // Migration: council_posts (announcements + petitions published by Student Council)
 // creator_id uses ON DELETE SET NULL so a graduating council member doesn't wipe
 // out posts the school cared about. creator_name is denormalized for that case.

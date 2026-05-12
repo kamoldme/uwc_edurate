@@ -356,6 +356,38 @@ router.get('/mentor/student/:id', authenticate, authorize('teacher'), authorizeO
   }
 });
 
+// DELETE /api/experiences/admin/:id — admin-only hard delete of a reflection.
+// Audit-logged with the student id and a snapshot of the title/category so
+// the action remains traceable after the row is gone.
+router.delete('/admin/:id', authenticate, authorize('admin'), authorizeOrg, (req, res) => {
+  try {
+    const experienceId = parseInt(req.params.id, 10);
+    const exp = db.prepare('SELECT * FROM experiences WHERE id = ?').get(experienceId);
+    if (!exp) return res.status(404).json({ error: 'Reflection not found' });
+    if (exp.org_id !== req.orgId) {
+      return res.status(403).json({ error: 'Reflection is not in your organization' });
+    }
+
+    const student = db.prepare('SELECT full_name FROM users WHERE id = ?').get(exp.student_id);
+
+    db.prepare('DELETE FROM experiences WHERE id = ?').run(experienceId);
+
+    logAuditEvent({
+      userId: req.user.id, userRole: req.user.role, userName: req.user.full_name,
+      actionType: 'experience_delete_admin',
+      actionDescription: `Deleted reflection "${exp.title}" by ${student?.full_name || 'unknown student'}`,
+      targetType: 'experience', targetId: experienceId,
+      metadata: { student_id: exp.student_id, title: exp.title, category: exp.category },
+      ipAddress: req.ip, orgId: req.orgId,
+    });
+
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('Admin delete experience error:', err);
+    res.status(500).json({ error: 'Failed to delete reflection' });
+  }
+});
+
 // GET /api/experiences/mentor/mentees — list of mentees this mentor can drill
 // into (one row per student, with reflection count).
 router.get('/mentor/mentees', authenticate, authorize('teacher'), authorizeOrg, (req, res) => {

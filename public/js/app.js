@@ -46,7 +46,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     startNotifPolling();
     setTimeout(checkCommsBadge, 500);
     const hashView = window.location.hash.slice(1);
-    const validViews = ['student-home','student-classrooms','student-review','student-my-reviews','student-experiences','student-comms','student-forms','student-announcements','teacher-home','teacher-classrooms','teacher-feedback','teacher-mentor-feedback','teacher-analytics','teacher-comms','teacher-forms','teacher-announcements','head-home','head-teachers','head-mentors','head-classrooms','head-analytics','head-experiences','head-comms','head-forms','head-announcements','admin-home','admin-users','admin-terms','admin-classrooms','admin-teachers','admin-submissions','admin-moderate','admin-flagged','admin-support','admin-audit','admin-comms','admin-forms','admin-announcements','admin-departments','account','help'];
+    const validViews = ['student-home','student-classrooms','student-review','student-my-reviews','student-experiences','student-comms','student-forms','student-announcements','teacher-home','teacher-classrooms','teacher-feedback','teacher-mentor-feedback','teacher-analytics','teacher-comms','teacher-forms','teacher-announcements','head-home','head-teachers','head-mentors','head-classrooms','head-analytics','head-experiences','head-comms','head-forms','head-announcements','admin-home','admin-users','admin-terms','admin-classrooms','admin-teachers','admin-submissions','admin-moderate','admin-flagged','admin-experiences','admin-support','admin-audit','admin-comms','admin-forms','admin-announcements','admin-departments','account','help'];
     navigateTo(hashView && validViews.includes(hashView) ? hashView : getDefaultView());
   } catch {
     logout();
@@ -273,6 +273,7 @@ function buildNavigation() {
       { id: 'admin-teachers', label: t('nav.teacher_feedback'), icon: 'review' },
       { id: 'admin-submissions', label: t('nav.submission_tracking'), icon: 'check' },
       { id: 'admin-moderate', label: t('nav.moderate_reviews'), icon: 'shield' },
+      { id: 'admin-experiences', label: 'UWC Experience Map', icon: 'review' },
       { id: 'admin-comms', label: 'Communication', icon: 'chatBubble' },
       { id: 'admin-departments', label: 'Departments', icon: 'department' },
       { id: 'admin-support', label: t('nav.support_messages'), icon: 'settings' },
@@ -324,6 +325,7 @@ function navigateTo(view) {
     'student-my-reviews': t('title.my_reviews'),
     'student-experiences': 'UWC Experience Map',
     'head-experiences': 'UWC Experience Map',
+    'admin-experiences': 'UWC Experience Map',
     'teacher-home': t('title.teacher_dashboard'),
     'teacher-classrooms': t('title.my_classrooms'),
     'teacher-feedback': t('title.student_feedback'),
@@ -368,6 +370,7 @@ function navigateTo(view) {
     'student-my-reviews': renderStudentMyReviews,
     'student-experiences': renderStudentExperiences,
     'head-experiences': renderHeadExperiences,
+    'admin-experiences': renderHeadExperiences,
     'student-comms': renderStudentComms,
     'student-forms': renderStudentForms,
     'student-announcements': renderStudentAnnouncements,
@@ -7872,6 +7875,9 @@ function renderStudentExperiencesModalHTML(data, config) {
                   <span class="exp-card-date">${formatExpDate(e.date)}</span>
                 </div>
               </div>
+              ${currentUser?.role === 'admin' ? `
+                <button class="btn btn-outline btn-sm" style="color:#dc2626;border-color:#fecaca" onclick="deleteStudentExperience(${e.id}, ${student.id})">Delete</button>
+              ` : ''}
             </div>
             <div class="exp-card-values">${(e.values || []).map(v => expValueChip(v, config)).join('')}</div>
             <div class="exp-card-reflection">${escapeHtml(e.reflection)}</div>
@@ -7903,6 +7909,21 @@ window.viewMenteeExperiences = async function (studentId) {
     openModal(renderStudentExperiencesModalHTML(data, config));
   } catch (err) {
     toast(err.message || 'Could not load mentee', 'error');
+  }
+};
+
+window.deleteStudentExperience = async function (experienceId, studentId) {
+  if (!confirm('Permanently delete this reflection? This cannot be undone.')) return;
+  try {
+    await API.delete(`/experiences/admin/${experienceId}`);
+    toast('Reflection deleted', 'success');
+    const [data, config] = await Promise.all([
+      API.get(`/experiences/head/student/${studentId}`),
+      loadExperienceConfig(),
+    ]);
+    openModal(renderStudentExperiencesModalHTML(data, config));
+  } catch (err) {
+    toast(err.message || 'Failed to delete reflection', 'error');
   }
 };
 

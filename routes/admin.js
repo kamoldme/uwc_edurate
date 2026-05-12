@@ -101,6 +101,10 @@ router.post('/users', authenticate, authorize('admin'), authorizeOrg, async (req
       return res.status(400).json({ error: 'Invalid role' });
     }
 
+    if (role === 'admin' && !req.user.is_super_admin) {
+      return res.status(403).json({ error: 'Only the super admin can create admin accounts' });
+    }
+
     const existing = db.prepare('SELECT id FROM users WHERE email = ?').get(email.toLowerCase());
     if (existing) return res.status(409).json({ error: 'Email already exists' });
 
@@ -146,18 +150,23 @@ router.put('/users/:id', authenticate, authorize('admin'), authorizeOrg, (req, r
     const user = db.prepare('SELECT * FROM users WHERE id = ?').get(req.params.id);
     if (!user) return res.status(404).json({ error: 'User not found' });
 
-    // Cannot edit org_admin users
     if (user.org_id !== req.orgId) {
       return res.status(403).json({ error: 'User is not in your organization' });
     }
-    if (user.role === 'admin') {
+    // Super admin is always protected — no one (not even themselves) can edit
+    // them via the API. Prevents accidental lockout of the founding account.
+    if (user.is_super_admin) {
+      return res.status(403).json({ error: 'The super admin account cannot be edited' });
+    }
+    // Editing an existing admin (name/email/role) requires super admin.
+    if (user.role === 'admin' && !req.user.is_super_admin) {
       return res.status(403).json({ error: 'You cannot edit users with this role' });
     }
 
     const { full_name, email, grade_or_position, role } = req.body;
 
-    // Cannot assign org_admin role
-    if (role === 'admin') {
+    // Promoting someone to admin requires super admin.
+    if (role === 'admin' && !req.user.is_super_admin) {
       return res.status(403).json({ error: 'You cannot assign this role' });
     }
 
@@ -220,7 +229,10 @@ router.post('/users/:id/reset-password', authenticate, authorize('admin'), autho
     if (user.org_id !== req.orgId) {
       return res.status(403).json({ error: 'User is not in your organization' });
     }
-    if (user.role === 'admin') {
+    if (user.is_super_admin) {
+      return res.status(403).json({ error: 'The super admin password cannot be reset here' });
+    }
+    if (user.role === 'admin' && !req.user.is_super_admin) {
       return res.status(403).json({ error: 'You cannot reset password for users with this role' });
     }
 
@@ -265,7 +277,10 @@ router.delete('/users/:id', authenticate, authorize('admin'), authorizeOrg, (req
     if (user.org_id !== req.orgId) {
       return res.status(403).json({ error: 'User is not in your organization' });
     }
-    if (user.role === 'admin') {
+    if (user.is_super_admin) {
+      return res.status(403).json({ error: 'The super admin account cannot be deleted' });
+    }
+    if (user.role === 'admin' && !req.user.is_super_admin) {
       return res.status(403).json({ error: 'You cannot delete users with this role' });
     }
 
@@ -383,7 +398,10 @@ router.put('/users/:id/suspend', authenticate, authorize('admin'), authorizeOrg,
     if (user.org_id !== req.orgId) {
       return res.status(403).json({ error: 'User is not in your organization' });
     }
-    if (user.role === 'admin') {
+    if (user.is_super_admin) {
+      return res.status(403).json({ error: 'The super admin account cannot be suspended' });
+    }
+    if (user.role === 'admin' && !req.user.is_super_admin) {
       return res.status(403).json({ error: 'You cannot suspend users with this role' });
     }
 
